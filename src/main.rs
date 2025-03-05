@@ -20,7 +20,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "eframe template",
         native_options,
-        Box::new(|cc| Ok(Box::new(theory::TemplateApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(theory::TheoryApp::new(cc)))),
     )
 }
 
@@ -50,7 +50,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(theory::TemplateApp::new(cc)))),
+                Box::new(|cc| Ok(Box::new(theory::TheoryApp::new(cc)))),
             )
             .await;
 
