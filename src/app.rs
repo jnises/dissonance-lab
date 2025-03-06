@@ -85,17 +85,26 @@ impl eframe::App for TheoryApp {
                             if let (true, Some(just), Some(cents)) =
                                 (!this_pressed, just_interval, cent_error)
                             {
+                                static DENOMINATOR_GRADIENT: LazyLock<colorgrad::LinearGradient> =
+                                    LazyLock::new(|| {
+                                        colorgrad::GradientBuilder::new()
+                                            .colors(&[
+                                                colorgrad::Color::from_oklaba(1.0, 0.0, 0.0, 1.0),
+                                                colorgrad::Color::from_oklaba(0.8, 0.0, 0.25, 1.0),
+                                                colorgrad::Color::from_oklaba(0.8, 0.217, 0.125, 1.0),
+                                            ])
+                                            .domain(&[2.0, 10.0, 20.0])
+                                            .mode(BlendMode::Oklab)
+                                            .build()
+                                            .unwrap()
+                                    });
                                 // Draw the just ratio
                                 painter.text(
                                     key_rect.center_top() + Vec2::new(0.0, 50.0),
                                     egui::Align2::CENTER_CENTER,
                                     format!("{:.2}", just),
                                     egui::FontId::default(),
-                                    if is_key_black(note) {
-                                        egui::Color32::WHITE
-                                    } else {
-                                        egui::Color32::BLACK
-                                    },
+                                    colorgrad_to_egui(DENOMINATOR_GRADIENT.at(*just.denom() as f32))
                                 );
 
                                 static CENT_ERROR_GRADIENT: LazyLock<colorgrad::LinearGradient> =
