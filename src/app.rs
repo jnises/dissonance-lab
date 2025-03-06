@@ -1,109 +1,89 @@
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct TheoryApp {
-    // Example stuff:
-    label: String,
+use egui::{Sense, ThemePreference, Vec2};
 
-    #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
+use crate::theory::is_key_black;
+
+pub struct TheoryApp {
+    pressed: Option<usize>,
 }
 
 impl Default for TheoryApp {
     fn default() -> Self {
-        Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
-        }
+        Self { pressed: None }
     }
 }
 
 impl TheoryApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // This is also where you can customize the look and feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
-        // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-        }
-
+        cc.egui_ctx.set_theme(ThemePreference::Dark);
         Default::default()
     }
 }
 
 impl eframe::App for TheoryApp {
-    /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
-    }
-
-    /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-
-            egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
-
-                egui::widgets::global_theme_preference_buttons(ui);
-            });
-        });
-
         egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("eframe template");
-
             ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
-            });
+                for note in 0..12 {
+                    if ui.available_width() <= 0f32 {
+                        break;
+                    }
+                    // Calculate semitone difference (if any pressed note exists)
+                    let semi_diff_from_pressed = self.pressed.map(|pressed_note| {
+                        // Use rem_euclid which properly handles negative numbers
+                        // and always returns a positive remainder
+                        u8::try_from((note as i32 - pressed_note as i32).rem_euclid(12)).unwrap()
+                    });
 
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
-            }
+                    let diff_interval = semi_diff_from_pressed
+                        .map(|diff| crate::theory::Interval::from_semitone_interval(diff));
 
-            ui.separator();
+                    let just_interval = diff_interval.map(|diff| diff.just_ratio());
 
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/main/",
-                "Source code."
-            ));
+                    let cent_error = diff_interval.map(|diff| diff.just_tempered_error_cents());
 
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
-                egui::warn_if_debug_build(ui);
+                    // Use this value later if needed for display or logic
+                    let this_pressed = Some(note) == self.pressed;
+                    const KEY_SIZE: Vec2 = Vec2::new(40f32, 80f32);
+                    let (key_id, key_rect) = ui.allocate_space(KEY_SIZE);
+
+                    let interact = ui.interact(key_rect, key_id, Sense::click());
+                    let painter = ui.painter();
+                    painter.rect_filled(
+                        key_rect,
+                        0f32,
+                        if this_pressed {
+                            ui.style().visuals.selection.bg_fill
+                        } else if is_key_black(note) {
+                            egui::Color32::BLACK
+                        } else {
+                            egui::Color32::WHITE
+                        },
+                    );
+
+                    // Display just interval and cent error if a note is pressed
+                    if let Some(just) = just_interval {
+                        if let Some(cents) = cent_error {
+                            let text = format!("{:.2}\n{:.1}¢", just, cents);
+                            painter.text(
+                                key_rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                text,
+                                egui::FontId::default(),
+                                if is_key_black(note) {
+                                    egui::Color32::WHITE
+                                } else {
+                                    egui::Color32::BLACK
+                                },
+                            );
+                        }
+                    }
+
+                    if interact.clicked() {
+                        self.pressed = Some(note);
+                    }
+                }
             });
         });
     }
-}
-
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
-        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-        ui.label(" and ");
-        ui.hyperlink_to(
-            "eframe",
-            "https://github.com/emilk/egui/tree/master/crates/eframe",
-        );
-        ui.label(".");
-    });
 }

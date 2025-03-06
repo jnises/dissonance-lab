@@ -18,7 +18,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "eframe template",
+        "Theory",
         native_options,
         Box::new(|cc| Ok(Box::new(theory::TheoryApp::new(cc)))),
     )
