@@ -85,7 +85,7 @@ impl eframe::App for TheoryApp {
                             if let (true, Some(just), Some(cents)) =
                                 (!this_pressed, just_interval, cent_error)
                             {
-                                static DENOMINATOR_GRADIENT: LazyLock<colorgrad::LinearGradient> =
+                                static DENOMINATOR_GRADIENT: LazyLock<colorgrad::BasisGradient> =
                                     LazyLock::new(|| {
                                         colorgrad::GradientBuilder::new()
                                             .colors(&[
@@ -93,7 +93,7 @@ impl eframe::App for TheoryApp {
                                                 colorgrad::Color::from_oklaba(0.8, 0.0, 0.25, 1.0),
                                                 colorgrad::Color::from_oklaba(0.8, 0.217, 0.125, 1.0),
                                             ])
-                                            .domain(&[2.0, 10.0, 20.0])
+                                            .domain(&[2.0, 5.0, 20.0])
                                             .mode(BlendMode::Oklab)
                                             .build()
                                             .unwrap()
@@ -107,7 +107,7 @@ impl eframe::App for TheoryApp {
                                     colorgrad_to_egui(DENOMINATOR_GRADIENT.at(*just.denom() as f32))
                                 );
 
-                                static CENT_ERROR_GRADIENT: LazyLock<colorgrad::LinearGradient> =
+                                static CENT_ERROR_GRADIENT: LazyLock<colorgrad::BasisGradient> =
                                     LazyLock::new(|| {
                                         colorgrad::GradientBuilder::new()
                                             .colors(&[
