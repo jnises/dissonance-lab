@@ -1,3 +1,6 @@
+use std::sync::LazyLock;
+
+use colorgrad::{BlendMode, Gradient as _};
 use egui::{Sense, ThemePreference, Vec2};
 
 use crate::theory::is_key_black;
@@ -44,7 +47,7 @@ impl eframe::App for TheoryApp {
 
                     // Use this value later if needed for display or logic
                     let this_pressed = Some(note) == self.pressed;
-                    const KEY_SIZE: Vec2 = Vec2::new(40f32, 80f32);
+                    const KEY_SIZE: Vec2 = Vec2::new(50f32, 140f32);
                     let (key_id, key_rect) = ui.allocate_space(KEY_SIZE);
 
                     let interact = ui.interact(key_rect, key_id, Sense::click());
@@ -61,22 +64,50 @@ impl eframe::App for TheoryApp {
                         },
                     );
 
-                    // Display just interval and cent error if a note is pressed
-                    if let Some(just) = just_interval {
-                        if let Some(cents) = cent_error {
-                            let text = format!("{:.2}\n{:.1}¢", just, cents);
-                            painter.text(
-                                key_rect.center(),
-                                egui::Align2::CENTER_CENTER,
-                                text,
-                                egui::FontId::default(),
-                                if is_key_black(note) {
-                                    egui::Color32::WHITE
-                                } else {
-                                    egui::Color32::BLACK
-                                },
-                            );
-                        }
+                    if let (true, Some(just), Some(cents)) =
+                        (!this_pressed, just_interval, cent_error)
+                    {
+                        // Draw the just ratio
+                        painter.text(
+                            key_rect.center_top() + Vec2::new(0.0, 50.0),
+                            egui::Align2::CENTER_CENTER,
+                            format!("{:.2}", just),
+                            egui::FontId::default(),
+                            if is_key_black(note) {
+                                egui::Color32::WHITE
+                            } else {
+                                egui::Color32::BLACK
+                            },
+                        );
+                        
+                        static CENT_ERROR_GRADIENT: LazyLock<colorgrad::LinearGradient> = LazyLock::new(|| {
+                            colorgrad::GradientBuilder::new()
+                                .colors(&[
+                                    colorgrad::Color::new(0.5, 0.5, 0.5, 1.0),
+                                    colorgrad::Color::new(1.0, 1.0, 0.0, 1.0),
+                                    colorgrad::Color::new(1.0, 0.0, 0.0, 1.0),
+                                ])
+                                .domain(&[5.0, 10.0, 20.0])
+                                .mode(BlendMode::Oklab)
+                                .build()
+                                .unwrap()
+                        });
+                        
+
+                        // Draw the cents error
+                        painter.text(
+                            key_rect.center_top() + Vec2::new(0.0, 80.0),
+                            egui::Align2::CENTER_CENTER,
+                            format!("{:.1}¢", cents),
+                            egui::FontId::default(),
+                            {
+                                // Get color based on absolute cent error value
+                                let abs_cents = cents.abs();
+                                let color = CENT_ERROR_GRADIENT.at(abs_cents);
+                                let [r, g, b, a] = color.to_rgba8();
+                                egui::Color32::from_rgba_unmultiplied(r, g, b, a)
+                            },
+                        );
                     }
 
                     if interact.clicked() {
