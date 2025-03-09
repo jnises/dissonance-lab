@@ -67,20 +67,25 @@ impl EnvelopeGenerator {
     }
 
     fn process(&mut self) -> f32 {
-        let attack_rate = if self.attack_time > 0.0 {
+        // Use a small epsilon value to avoid division by near-zero
+        const EPSILON: f32 = 0.000001;
+        
+        let attack_rate = if self.attack_time > EPSILON {
             1.0 / (self.sample_rate * self.attack_time)
         } else {
-            1.0
+            1.0 // Immediate attack
         };
-        let decay_rate = if self.decay_time > 0.0 {
+        
+        let decay_rate = if self.decay_time > EPSILON {
             (1.0 - self.sustain_level) / (self.sample_rate * self.decay_time)
         } else {
-            1.0
+            1.0 // Immediate decay
         };
-        let release_rate = if self.release_time > 0.0 {
-            self.sustain_level / (self.sample_rate * self.release_time)
+        
+        let release_rate = if self.release_time > EPSILON {
+            self.current_level / (self.sample_rate * self.release_time)
         } else {
-            1.0
+            1.0 // Immediate release
         };
 
         match self.state {
@@ -124,6 +129,7 @@ impl EnvelopeGenerator {
 /// Piano voice with oscillator and envelope
 struct PianoVoice {
     phase: f32,
+    detuned_phase: f32,
     phase_delta: f32,
     envelope: EnvelopeGenerator,
     sample_rate: f32,
@@ -139,6 +145,7 @@ impl PianoVoice {
     fn new(sample_rate: f32) -> Self {
         Self {
             phase: 0.0,
+            detuned_phase: 0.0,
             phase_delta: 0.0,
             envelope: EnvelopeGenerator::new(0.01, 0.1, 0.7, 0.3, sample_rate),
             sample_rate,
@@ -182,9 +189,8 @@ impl PianoVoice {
 
         // Advance phase
         self.phase += self.phase_delta;
-        if self.phase >= 1.0 {
-            self.phase -= 1.0;
-        }
+        self.phase = self.phase.rem_euclid(1.0);
+        self.detuned_phase = (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(1.0);
 
         // Generate piano-like waveform using multiple harmonics
         let mut sample = 0.0;
@@ -204,8 +210,7 @@ impl PianoVoice {
         sample += bright_factor * 0.7 * (5.0 * 2.0 * PI * self.phase).sin();
 
         // Detuned oscillator for richness
-        let detuned_phase = self.phase * self.detuning;
-        sample += 0.1 * (2.0 * PI * detuned_phase).sin();
+        sample += 0.1 * (2.0 * PI * self.detuned_phase).sin();
 
         // Normalize and apply envelope
         sample = sample * 0.3; // Reduce overall volume to prevent clipping

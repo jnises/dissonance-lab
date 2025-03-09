@@ -173,7 +173,7 @@ impl eframe::App for TheoryApp {
                                     );
                                 }
 
-                                if interact.clicked() {
+                                if interact.is_pointer_button_down_on() && self.pressed != Some(note) {
                                     self.pressed = Some(note);
                                     if let Some(audio) = &self.audio {
                                         audio
@@ -186,16 +186,26 @@ impl eframe::App for TheoryApp {
                                                 wmidi::Velocity::MAX,
                                             ))
                                             .unwrap();
-                                        audio
-                                            .tx
-                                            .send(wmidi::MidiMessage::NoteOff(
-                                                wmidi::Channel::Ch1,
-                                                wmidi::Note::C4
-                                                    .step(i8::try_from(note).unwrap())
-                                                    .unwrap(),
-                                                wmidi::Velocity::MAX,
-                                            ))
-                                            .unwrap();
+                                    }
+                                }
+                                
+                                // Check for button release
+                                if interact.drag_stopped() || 
+                                   (interact.hovered() && ctx.input(|i| i.pointer.any_released())) {
+                                    // This detects when we release the button while hovering over this element
+                                    if Some(note) == self.pressed {
+                                        if let Some(audio) = &self.audio {
+                                            audio
+                                                .tx
+                                                .send(wmidi::MidiMessage::NoteOff(
+                                                    wmidi::Channel::Ch1,
+                                                    wmidi::Note::C4
+                                                        .step(i8::try_from(note).unwrap())
+                                                        .unwrap(),
+                                                    wmidi::Velocity::MAX,
+                                                ))
+                                                .unwrap();
+                                        }
                                     }
                                 }
                             }
