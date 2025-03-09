@@ -6,27 +6,20 @@ use crate::audio::Synth;
 
 // Piano note frequencies in Hz (A4 = 440Hz)
 const A4_FREQ: f32 = 440.0;
+const A4_MIDI_NOTE: u8 = 69; // A4 is MIDI note 69
 
 /// Represents a piano key with associated frequency
 struct PianoKey {
-    note_name: String,
     frequency: f32,
-    octave: i32,
+    midi_note: wmidi::Note,
 }
 
 impl PianoKey {
-    fn new(note_name: &str, semitones_from_a4: i32) -> Self {
-        // Calculate frequency using equal temperament formula: f = f0 * 2^(n/12)
-        // where f0 is reference frequency (A4) and n is semitones from reference
-        let frequency = A4_FREQ * 2.0_f32.powf(semitones_from_a4 as f32 / 12.0);
-
-        // Calculate octave (A4 is in octave 4)
-        let octave = 4 + (semitones_from_a4 + 9) / 12;
-
+    fn new(midi_note: wmidi::Note) -> Self {
+        let frequency = midi_note.to_freq_f32();
         Self {
-            note_name: note_name.to_string(),
             frequency,
-            octave,
+            midi_note,
         }
     }
 }
@@ -236,7 +229,6 @@ pub struct PianoSynth {
 }
 
 impl PianoSynth {
-    //fn new(num_voices: usize, sample_rate: f32) -> Self {
     pub fn new(rx: crossbeam::channel::Receiver<wmidi::MidiMessage<'static>>) -> Self {
         Self {
             voices: Vec::new(),
@@ -245,8 +237,8 @@ impl PianoSynth {
         }
     }
 
-    fn note_on(&mut self, note_name: &str, semitones_from_a4: i32) {
-        let key = PianoKey::new(note_name, semitones_from_a4);
+    fn note_on(&mut self, note: wmidi::Note, _velocity: wmidi::U7) {
+        let key = PianoKey::new(note);
 
         // Find free voice or steal the oldest one
         let voice = if let Some(voice) = self.voices.iter_mut().find(|v| !v.is_active) {
@@ -259,11 +251,11 @@ impl PianoSynth {
         voice.note_on(key);
     }
 
-    fn note_off(&mut self, semitones_from_a4: i32) {
+    fn note_off(&mut self, midi_note: wmidi::Note) {
         // Release all voices playing this note
         for voice in self.voices.iter_mut() {
             if let Some(key) = &voice.current_key {
-                if key.frequency == A4_FREQ * 2.0_f32.powf(semitones_from_a4 as f32 / 12.0) {
+                if key.midi_note == midi_note {
                     voice.note_off();
                 }
             }
@@ -304,12 +296,10 @@ impl Synth for PianoSynth {
                     info!("message received: {message:?}");
                     match message {
                         wmidi::MidiMessage::NoteOff(_channel, note, _velocity) => {
-                            let semitones_from_a4 = u8::from(note) as i32 - 69; // A4 is MIDI note 69
-                            self.note_off(semitones_from_a4);
+                            self.note_off(note);
                         }
-                        wmidi::MidiMessage::NoteOn(_channel, note, _velocity) => {
-                            let semitones_from_a4 = u8::from(note) as i32 - 69; // A4 is MIDI note 69
-                            self.note_on(note.to_str(), semitones_from_a4);
+                        wmidi::MidiMessage::NoteOn(_channel, note, velocity) => {
+                            self.note_on(note, velocity);
                         }
                         wmidi::MidiMessage::PolyphonicKeyPressure(_, _, _)
                         | wmidi::MidiMessage::ControlChange(_, _, _)
