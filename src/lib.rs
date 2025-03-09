@@ -3,3 +3,5 @@
 mod app;
 pub use app::TheoryApp;
 mod theory;
+mod audio;
+mod synth;
