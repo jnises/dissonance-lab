@@ -2,7 +2,7 @@ use std::sync::{Arc, LazyLock};
 
 use colorgrad::{BlendMode, Gradient as _};
 use egui::{Sense, ThemePreference, Vec2};
-use log::warn;
+use log::{info, warn};
 
 use crate::{audio::AudioManager, synth::PianoSynth, theory::is_key_black};
 
@@ -47,6 +47,7 @@ impl eframe::App for TheoryApp {
                         let audio = AudioManager::new(synth, |message| {
                             warn!("{message}");
                         });
+                        info!("audio initialized: {:?}", audio.get_name());
                         self.audio = Some(Audio { tx, _audio: audio });
                     }
                 }

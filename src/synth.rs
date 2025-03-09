@@ -1,5 +1,7 @@
 use std::f32::consts::PI;
 
+use log::info;
+
 use crate::audio::Synth;
 
 // Piano note frequencies in Hz (A4 = 440Hz)
@@ -277,18 +279,14 @@ impl PianoSynth {
         }
 
         // Simple limiter to prevent clipping
-        if output > 1.0 {
-            output = 1.0;
-        } else if output < -1.0 {
-            output = -1.0;
-        }
+        output = output.clamp(-1.0, 1.0);
 
         output
     }
 }
 
 impl Synth for PianoSynth {
-    fn play(&mut self, sample_rate: u32, channels: usize, out_samples: &mut [f32]) {
+    fn play(&mut self, sample_rate: u32, num_channels: usize, out_samples: &mut [f32]) {
         if self.sample_rate != Some(sample_rate) {
             self.voices.clear();
             self.sample_rate = Some(sample_rate);
@@ -303,6 +301,7 @@ impl Synth for PianoSynth {
         loop {
             match self.rx.try_recv() {
                 Ok(message) => {
+                    info!("message received: {message:?}");
                     match message {
                         wmidi::MidiMessage::NoteOff(_channel, note, _velocity) => {
                             let semitones_from_a4 = u8::from(note) as i32 - 69; // A4 is MIDI note 69
@@ -311,7 +310,6 @@ impl Synth for PianoSynth {
                         wmidi::MidiMessage::NoteOn(_channel, note, _velocity) => {
                             let semitones_from_a4 = u8::from(note) as i32 - 69; // A4 is MIDI note 69
                             self.note_on(note.to_str(), semitones_from_a4);
-                            //self.note_on(note.to_str(), note.);
                         }
                         wmidi::MidiMessage::PolyphonicKeyPressure(_, _, _)
                         | wmidi::MidiMessage::ControlChange(_, _, _)
@@ -338,7 +336,7 @@ impl Synth for PianoSynth {
                 }
             }
         }
-        for channels in out_samples.chunks_exact_mut(channels) {
+        for channels in out_samples.chunks_exact_mut(num_channels) {
             let s = self.process();
             for c in channels {
                 *c = s;
