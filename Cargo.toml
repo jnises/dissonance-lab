@@ -30,6 +30,7 @@ cpal = { version = "0.15.3", features = ["wasm-bindgen"] }
 anyhow = "1.0.97"
 crossbeam = "0.8.4"
 wmidi = "4.0.10"
+itertools = "0.14.0"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

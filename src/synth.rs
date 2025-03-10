@@ -1,8 +1,9 @@
 use std::f32::consts::PI;
 
+use itertools::izip;
 use log::info;
 
-use crate::audio::Synth;
+use crate::{audio::Synth, reverb::Reverb};
 
 // Piano note frequencies in Hz (A4 = 440Hz)
 const A4_FREQ: f32 = 440.0;
@@ -69,19 +70,19 @@ impl EnvelopeGenerator {
     fn process(&mut self) -> f32 {
         // Use a small epsilon value to avoid division by near-zero
         const EPSILON: f32 = 0.000001;
-        
+
         let attack_rate = if self.attack_time > EPSILON {
             1.0 / (self.sample_rate * self.attack_time)
         } else {
             1.0 // Immediate attack
         };
-        
+
         let decay_rate = if self.decay_time > EPSILON {
             (1.0 - self.sustain_level) / (self.sample_rate * self.decay_time)
         } else {
             1.0 // Immediate decay
         };
-        
+
         let release_rate = if self.release_time > EPSILON {
             self.current_level / (self.sample_rate * self.release_time)
         } else {
@@ -190,7 +191,8 @@ impl PianoVoice {
         // Advance phase
         self.phase += self.phase_delta;
         self.phase = self.phase.rem_euclid(1.0);
-        self.detuned_phase = (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(1.0);
+        self.detuned_phase =
+            (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(1.0);
 
         // Generate piano-like waveform using multiple harmonics
         let mut sample = 0.0;
@@ -231,6 +233,7 @@ pub struct PianoSynth {
     voices: Vec<PianoVoice>,
     sample_rate: Option<u32>,
     rx: crossbeam::channel::Receiver<wmidi::MidiMessage<'static>>,
+    reverb: Option<Reverb>,
 }
 
 impl PianoSynth {
@@ -239,6 +242,7 @@ impl PianoSynth {
             voices: Vec::new(),
             sample_rate: None,
             rx,
+            reverb: None,
         }
     }
 
@@ -286,6 +290,7 @@ impl Synth for PianoSynth {
     fn play(&mut self, sample_rate: u32, num_channels: usize, out_samples: &mut [f32]) {
         if self.sample_rate != Some(sample_rate) {
             self.voices.clear();
+            self.reverb = None;
             self.sample_rate = Some(sample_rate);
         }
         if self.voices.is_empty() {
@@ -331,10 +336,19 @@ impl Synth for PianoSynth {
                 }
             }
         }
-        for channels in out_samples.chunks_exact_mut(num_channels) {
-            let s = self.process();
-            for c in channels {
-                *c = s;
+        let buff_len = out_samples.len() / num_channels;
+        // TODO: cache the buffers
+        let buffer: Vec<_> = (0..buff_len).map(|_| self.process()).collect();
+        let mut left = vec![0f32; buff_len];
+        let mut right = vec![0f32; buff_len];
+        self.reverb
+            .get_or_insert_with(|| Reverb::new(sample_rate as f32))
+            .process_stereo_buffer(&buffer, &buffer, &mut left, &mut right);
+        for (left, right, out_channels) in
+            izip!(left, right, out_samples.chunks_exact_mut(num_channels))
+        {
+            for (i, c) in out_channels.iter_mut().enumerate() {
+                *c = [left, right][i % 2];
             }
         }
     }

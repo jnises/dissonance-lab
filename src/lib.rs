@@ -5,3 +5,4 @@ pub use app::TheoryApp;
 mod theory;
 mod audio;
 mod synth;
+mod reverb;
