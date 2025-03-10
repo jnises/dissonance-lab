@@ -339,6 +339,7 @@ impl Synth for PianoSynth {
         let buff_len = out_samples.len() / num_channels;
         // TODO: cache the buffers
         let buffer: Vec<_> = (0..buff_len).map(|_| self.process()).collect();
+        // TODO: declick
         let mut left = vec![0f32; buff_len];
         let mut right = vec![0f32; buff_len];
         self.reverb
