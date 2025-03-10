@@ -11,16 +11,22 @@ struct Audio {
     tx: crossbeam::channel::Sender<wmidi::MidiMessage<'static>>,
 }
 
+enum AudioState {
+    Uninitialized,
+    Muted,
+    Setup(Audio),
+}
+
 pub struct TheoryApp {
     pressed: Option<usize>,
-    audio: Option<Audio>,
+    audio: AudioState,
 }
 
 impl Default for TheoryApp {
     fn default() -> Self {
         Self {
             pressed: None,
-            audio: None,
+            audio: AudioState::Uninitialized,
         }
     }
 }
@@ -30,26 +36,34 @@ impl TheoryApp {
         cc.egui_ctx.set_theme(ThemePreference::Dark);
         Default::default()
     }
+
+    fn setup_audio(&mut self) {
+        assert!(matches!(self.audio, AudioState::Uninitialized | AudioState::Muted));
+        let (tx, rx) = crossbeam::channel::unbounded();
+        let synth = Box::new(PianoSynth::new(rx));
+        let audio = AudioManager::new(synth, |message| {
+            warn!("{message}");
+        });
+        info!("audio initialized: {:?}", audio.get_name());
+        self.audio = AudioState::Setup(Audio { tx, _audio: audio });
+    }
 }
 
 impl eframe::App for TheoryApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
-                if self.audio.is_some() {
-                    if ui.button("🔈").clicked() {
-                        self.audio = None;
-                    }
-                } else {
-                    if ui.button("🔇").clicked() {
-                        let (tx, rx) = crossbeam::channel::unbounded();
-                        let synth = Box::new(PianoSynth::new(rx));
-                        let audio = AudioManager::new(synth, |message| {
-                            warn!("{message}");
-                        });
-                        info!("audio initialized: {:?}", audio.get_name());
-                        self.audio = Some(Audio { tx, _audio: audio });
-                    }
+                match self.audio {
+                    AudioState::Uninitialized | AudioState::Setup(_) => {
+                        if ui.button("🔈").clicked() {
+                            self.audio = AudioState::Muted;
+                        }
+                    },
+                    AudioState::Muted => {
+                        if ui.button("🔇").clicked() {
+                            self.setup_audio();
+                        }
+                    },
                 }
                 const KEY_SIZE: Vec2 = Vec2::new(50f32, 140f32);
 
@@ -173,9 +187,14 @@ impl eframe::App for TheoryApp {
                                     );
                                 }
 
-                                if interact.is_pointer_button_down_on() && self.pressed != Some(note) {
+                                if interact.is_pointer_button_down_on()
+                                    && self.pressed != Some(note)
+                                {
                                     self.pressed = Some(note);
-                                    if let Some(audio) = &self.audio {
+                                    if matches!(self.audio, AudioState::Uninitialized) {
+                                        self.setup_audio();
+                                    }
+                                    if let AudioState::Setup(audio) = &self.audio {
                                         audio
                                             .tx
                                             .send(wmidi::MidiMessage::NoteOn(
@@ -188,13 +207,15 @@ impl eframe::App for TheoryApp {
                                             .unwrap();
                                     }
                                 }
-                                
+
                                 // Check for button release
-                                if interact.drag_stopped() || 
-                                   (interact.hovered() && ctx.input(|i| i.pointer.any_released())) {
+                                if interact.drag_stopped()
+                                    || (interact.hovered()
+                                        && ctx.input(|i| i.pointer.any_released()))
+                                {
                                     // This detects when we release the button while hovering over this element
                                     if Some(note) == self.pressed {
-                                        if let Some(audio) = &self.audio {
+                                        if let AudioState::Setup(audio) = &self.audio {
                                             audio
                                                 .tx
                                                 .send(wmidi::MidiMessage::NoteOff(
