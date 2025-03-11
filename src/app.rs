@@ -8,7 +8,7 @@ use egui::{
 };
 use log::{info, warn};
 
-use crate::{audio::AudioManager, piano_gui::{self, PianoOctave}, synth::PianoSynth, theory::is_key_black};
+use crate::{audio::AudioManager, piano_gui::PianoGui, synth::PianoSynth, theory::is_key_black};
 
 struct Audio {
     _audio: AudioManager,
@@ -24,7 +24,7 @@ enum AudioState {
 pub struct TheoryApp {
     pressed: Option<usize>,
     audio: AudioState,
-    piano_gui: PianoOctave,
+    piano_gui: PianoGui,
 }
 
 impl Default for TheoryApp {
@@ -32,7 +32,7 @@ impl Default for TheoryApp {
         Self {
             pressed: None,
             audio: AudioState::Uninitialized,
-            piano_gui: PianoOctave::new(u8::from(wmidi::Note::C4)),
+            piano_gui: PianoGui::new(),
         }
     }
 }
@@ -84,153 +84,7 @@ impl eframe::App for TheoryApp {
                         ui.visuals().widgets.noninteractive.fg_stroke.color,
                     ))
                     .show(ui, |ui| {
-                        // Configuration for the piano keyboard layout
-                        struct PianoConfig {
-                            white_key_width: f32,
-                            white_key_height: f32,
-                            black_key_width: f32,
-                            black_key_height: f32,
-                            key_spacing: f32,
-                        }
-
-                        impl Default for PianoConfig {
-                            fn default() -> Self {
-                                Self {
-                                    white_key_width: 40.0,
-                                    white_key_height: 140.0,
-                                    black_key_width: 24.0,
-                                    black_key_height: 90.0,
-                                    key_spacing: 2.0,
-                                }
-                            }
-                        }
-
-                        // Display configuration options
-                        let mut config = PianoConfig::default();
-                        ui.horizontal(|ui| {
-                            ui.label("White key width:");
-                            ui.add(egui::Slider::new(&mut config.white_key_width, 20.0..=60.0).suffix(" px"));
-                            ui.label("Black key width:");
-                            ui.add(egui::Slider::new(&mut config.black_key_width, 15.0..=40.0).suffix(" px"));
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label("Key spacing:");
-                            ui.add(egui::Slider::new(&mut config.key_spacing, 0.0..=5.0).suffix(" px"));
-                        });
-
-                        // Create piano keyboard
-                        let num_white_keys = 7; // One octave
-                        let piano_width = num_white_keys as f32 * (config.white_key_width + config.key_spacing) - config.key_spacing;
-                        let piano_height = config.white_key_height;
-
-                        // Allocate space for the piano
-                        let (piano_id, piano_rect) = ui.allocate_space(Vec2::new(piano_width, piano_height));
-                        let painter = ui.painter_at(piano_rect);
-
-                        // Create white keys
-                        let mut white_key_rects = Vec::new();
-                        let mut x = piano_rect.min.x;
-                        for i in 0..num_white_keys {
-                            let key_rect = Rect::from_min_size(
-                                Pos2::new(x, piano_rect.min.y),
-                                Vec2::new(config.white_key_width, config.white_key_height),
-                            );
-                            painter.rect_filled(key_rect, 0.0, Color32::WHITE);
-                            painter.rect_stroke(key_rect, 0.0, egui::Stroke::new(1.0, Color32::BLACK), egui::StrokeKind::Outside);
-                            white_key_rects.push(key_rect);
-                            x += config.white_key_width + config.key_spacing;
-                        }
-
-                        // Create black keys
-                        let black_key_positions = [0, 1, 3, 4, 5]; // Positions after white keys (0-indexed within octave)
-                        let mut black_key_rects = Vec::new();
-                        for &pos in &black_key_positions {
-                            if pos < num_white_keys - 1 {
-                                let white_key_width_with_spacing = config.white_key_width + config.key_spacing;
-                                let x = piano_rect.min.x + (pos as f32 * white_key_width_with_spacing) + 
-                                    (config.white_key_width - config.black_key_width / 2.0);
-                                
-                                let key_rect = Rect::from_min_size(
-                                    Pos2::new(x, piano_rect.min.y),
-                                    Vec2::new(config.black_key_width, config.black_key_height),
-                                );
-                                painter.rect_filled(key_rect, 0.0, Color32::BLACK);
-                                painter.rect_stroke(key_rect, 0.0, egui::Stroke::new(1.0, Color32::BLACK), egui::StrokeKind::Inside);
-                                black_key_rects.push(key_rect);
-                            }
-                        }
-
-                        // Handle piano key interactions
-                        if let Some(pointer_pos) = ui.input(|i| i.pointer.hover_pos()) {
-                            // Check black keys first (as they're on top)
-                            for (i, key_rect) in black_key_rects.iter().enumerate() {
-                                if key_rect.contains(pointer_pos) {
-                                    if ui.input(|i| i.pointer.primary_pressed()) {
-                                        let note = match black_key_positions.iter().position(|&p| p == i).unwrap_or(0) {
-                                            0 => 1,  // C#
-                                            1 => 3,  // D#
-                                            2 => 6,  // F#
-                                            3 => 8,  // G#
-                                            4 => 10, // A#
-                                            _ => 0,
-                                        };
-                                        self.pressed = Some(note);
-                                        // Handle audio
-                                        if matches!(self.audio, AudioState::Uninitialized) {
-                                            self.setup_audio();
-                                        }
-                                        if let AudioState::Setup(audio) = &self.audio {
-                                            let midi_note = wmidi::Note::C4.step(i8::try_from(note).unwrap()).unwrap();
-                                            audio.tx.send(wmidi::MidiMessage::NoteOn(
-                                                wmidi::Channel::Ch1,
-                                                midi_note,
-                                                wmidi::Velocity::MAX,
-                                            )).unwrap();
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Then check white keys
-                            for (i, key_rect) in white_key_rects.iter().enumerate() {
-                                if key_rect.contains(pointer_pos) {
-                                    // Skip if a black key is already handling this position
-                                    let is_over_black_key = black_key_rects.iter().any(|r| r.contains(pointer_pos));
-                                    if !is_over_black_key && ui.input(|i| i.pointer.primary_pressed()) {
-                                        // Map index to actual note (C, D, E, F, G, A, B)
-                                        let white_notes = [0, 2, 4, 5, 7, 9, 11];
-                                        let note = white_notes[i];
-                                        self.pressed = Some(note);
-                                        // Handle audio
-                                        if matches!(self.audio, AudioState::Uninitialized) {
-                                            self.setup_audio();
-                                        }
-                                        if let AudioState::Setup(audio) = &self.audio {
-                                            let midi_note = wmidi::Note::C4.step(i8::try_from(note).unwrap()).unwrap();
-                                            audio.tx.send(wmidi::MidiMessage::NoteOn(
-                                                wmidi::Channel::Ch1,
-                                                midi_note,
-                                                wmidi::Velocity::MAX,
-                                            )).unwrap();
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Handle note release
-                        if ui.input(|i| i.pointer.any_released()) && self.pressed.is_some() {
-                            if let AudioState::Setup(audio) = &self.audio {
-                                let note = self.pressed.unwrap();
-                                let midi_note = wmidi::Note::C4.step(i8::try_from(note).unwrap()).unwrap();
-                                audio.tx.send(wmidi::MidiMessage::NoteOff(
-                                    wmidi::Channel::Ch1,
-                                    midi_note,
-                                    wmidi::Velocity::MAX,
-                                )).unwrap();
-                            }
-                            self.pressed = None;
-                        }
+                        self.piano_gui.draw(ui);
 
 
                         // TODO: cache this
