@@ -16,7 +16,7 @@ impl PianoGui {
         let (response, painter) =
             ui.allocate_painter(vec2(piano_width, piano_height), Sense::empty());
         let rect = response.rect;
-        painter.rect_filled(rect, 1.0, Color32::GRAY);
+        painter.rect_filled(rect, 1.0, ui.visuals().panel_fill);
         const MARGIN: f32 = 2.0;
         let keys_rect = rect.shrink(MARGIN);
         const NUM_WHITE_KEYS: usize = 7;
@@ -38,7 +38,7 @@ impl PianoGui {
                 key_rect,
                 2.0,
                 if pressed {
-                    Color32::BLUE
+                    ui.visuals().selection.bg_fill
                 } else {
                     Color32::WHITE
                 },
@@ -87,7 +87,7 @@ impl PianoGui {
                 key_rect,
                 2.0,
                 if pressed {
-                    Color32::BLUE
+                    ui.visuals().selection.bg_fill
                 } else {
                     Color32::BLACK
                 },
