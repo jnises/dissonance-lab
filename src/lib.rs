@@ -7,3 +7,4 @@ mod audio;
 mod synth;
 mod reverb;
 mod piano_gui;
+mod theme;
