@@ -26,7 +26,6 @@ impl PianoGui {
         let white_width = piano_width / NUM_WHITE_KEYS as f32;
         for white_key in 0..NUM_WHITE_KEYS {
             let key_id = ui.id().with(format!("white{white_key}"));
-            let mouse_pressed = ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false));
             let key_rect = Rect::from_min_size(
                 pos2(
                     keys_rect.min.x + white_key as f32 / NUM_WHITE_KEYS as f32 * keys_rect.width(),
@@ -35,7 +34,7 @@ impl PianoGui {
                 vec2(white_width, keys_rect.height()),
             );
             let semitone = white_key_to_semitone(white_key);
-            let pressed = self.pressed_keys[semitone] || mouse_pressed;
+            let pressed = self.pressed_keys[semitone];
             let note = wmidi::Note::C4.step(semitone as i8).unwrap();
             painter.rect(
                 key_rect,
@@ -49,21 +48,23 @@ impl PianoGui {
                 StrokeKind::Inside,
             );
             let key_response = ui.interact(key_rect, key_id, Sense::click());
+            let mouse_pressed = ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false));
             if key_response.is_pointer_button_down_on() && !mouse_pressed {
                 ui.data_mut(|r| r.insert_temp(key_id, true));
                 debug_assert!(action.is_none());
                 action = Some(Action::Pressed(note));
+                self.pressed_keys.set(semitone, true);
             } else if !key_response.is_pointer_button_down_on() && mouse_pressed {
                 ui.data_mut(|r| r.insert_temp(key_id, false));
                 debug_assert!(action.is_none());
                 action = Some(Action::Released(note));
+                self.pressed_keys.set(semitone, false);
             }
         }
         let black_size = vec2(white_width * 0.6, keys_rect.height() * 0.6);
         const NUM_BLACK_KEYS: usize = 5;
         for black_key in 0..NUM_BLACK_KEYS {
             let key_id = ui.id().with(format!("black{black_key}"));
-            let mouse_pressed = ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false));
             let white_key = match black_key {
                 0 => 0,
                 1 => 1,
@@ -80,7 +81,7 @@ impl PianoGui {
                 ),
                 black_size,
             );
-            let pressed = self.pressed_keys[semitone] || mouse_pressed;
+            let pressed = self.pressed_keys[semitone];
             let note = wmidi::Note::C4.step(semitone.try_into().unwrap()).unwrap();
             painter.rect(
                 key_rect,
@@ -94,14 +95,17 @@ impl PianoGui {
                 StrokeKind::Inside,
             );
             let key_response = ui.interact(key_rect, key_id, Sense::click());
+            let mouse_pressed = ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false));
             if key_response.is_pointer_button_down_on() && !mouse_pressed {
                 ui.data_mut(|r| r.insert_temp(key_id, true));
                 debug_assert!(action.is_none());
                 action = Some(Action::Pressed(note));
+                self.pressed_keys.set(semitone, true);
             } else if !key_response.is_pointer_button_down_on() && mouse_pressed {
                 ui.data_mut(|r| r.insert_temp(key_id, false));
                 debug_assert!(action.is_none());
                 action = Some(Action::Released(note));
+                self.pressed_keys.set(semitone, false);
             }
         }
         action
