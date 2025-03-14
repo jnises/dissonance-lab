@@ -24,6 +24,10 @@ impl PianoGui {
         let keys_rect = rect.shrink(MARGIN);
         const NUM_WHITE_KEYS: usize = 7;
         let white_width = piano_width / NUM_WHITE_KEYS as f32;
+
+        // Check if shift key is held down
+        let shift_pressed = ui.input(|i| i.modifiers.shift);
+
         for white_key in 0..NUM_WHITE_KEYS {
             let key_id = ui.id().with(format!("white{white_key}"));
             let key_rect = Rect::from_min_size(
@@ -53,12 +57,20 @@ impl PianoGui {
                 ui.data_mut(|r| r.insert_temp(key_id, true));
                 debug_assert!(action.is_none());
                 action = Some(Action::Pressed(note));
+
+                // If shift is not pressed, clear all keys before setting the new one
+                if !shift_pressed {
+                    self.pressed_keys.fill(false);
+                }
+
                 self.pressed_keys.set(semitone, true);
             } else if !key_response.is_pointer_button_down_on() && mouse_pressed {
                 ui.data_mut(|r| r.insert_temp(key_id, false));
                 debug_assert!(action.is_none());
                 action = Some(Action::Released(note));
-                self.pressed_keys.set(semitone, false);
+                if !shift_pressed {
+                    self.pressed_keys.set(semitone, false);
+                }
             }
         }
         let black_size = vec2(white_width * 0.6, keys_rect.height() * 0.6);
@@ -100,12 +112,20 @@ impl PianoGui {
                 ui.data_mut(|r| r.insert_temp(key_id, true));
                 debug_assert!(action.is_none());
                 action = Some(Action::Pressed(note));
+
+                // If shift is not pressed, clear all keys before setting the new one
+                if !shift_pressed {
+                    self.pressed_keys.fill(false);
+                }
+
                 self.pressed_keys.set(semitone, true);
             } else if !key_response.is_pointer_button_down_on() && mouse_pressed {
                 ui.data_mut(|r| r.insert_temp(key_id, false));
                 debug_assert!(action.is_none());
                 action = Some(Action::Released(note));
-                self.pressed_keys.set(semitone, false);
+                if !shift_pressed {
+                    self.pressed_keys.set(semitone, false);
+                }
             }
         }
         action
