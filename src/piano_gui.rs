@@ -34,16 +34,73 @@ impl PianoGui {
             let note = wmidi::Note::C4.step(semitone).unwrap();
             painter.rect(
                 key_rect,
-                1.0,
+                2.0,
                 if pressed {
                     Color32::BLUE
                 } else {
                     Color32::WHITE
                 },
-                Stroke::new(1.0, Color32::BLACK),
+                Stroke::new(2.0, Color32::BLACK),
                 StrokeKind::Inside,
             );
             let key_id = ui.id().with(format!("white{white_key}"));
+            let key_response = ui.interact(key_rect, key_id, Sense::click());
+            if key_response.is_pointer_button_down_on()
+                && !ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false))
+            {
+                ui.data_mut(|r| r.insert_temp(key_id, true));
+                debug_assert!(action.is_none());
+                action = Some(Action::Pressed(note));
+            } else if !key_response.is_pointer_button_down_on()
+                && ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false))
+            {
+                ui.data_mut(|r| r.insert_temp(key_id, false));
+                debug_assert!(action.is_none());
+                action = Some(Action::Released(note));
+            }
+        }
+        let black_size = vec2(white_width * 0.6, keys_rect.height() * 0.6);
+        const NUM_BLACK_KEYS: usize = 5;
+        for black_key in 0..NUM_BLACK_KEYS {
+            let white_key = match black_key {
+                0 => 0,
+                1 => 1,
+                2 => 3,
+                3 => 4,
+                4 => 5,
+                _ => panic!("Invalid black key index"),
+            };
+            let semitone = black_key_to_semitone(black_key);
+            // let white_key = semitone as usize / 2;
+            // let white_width = piano_width / NUM_WHITE_KEYS as f32;
+            // let white_key_rect = Rect::from_min_size(
+            //     pos2(
+            //         keys_rect.min.x + white_key as f32 / NUM_WHITE_KEYS as f32 * keys_rect.width(),
+            //         keys_rect.min.y,
+            //     ),
+            //     vec2(white_width, keys_rect.height()),
+            // );
+            let key_rect = Rect::from_min_size(
+                pos2(
+                    keys_rect.min.x + white_width * (white_key as f32 + 1.0) - 0.5 * black_size.x,
+                    keys_rect.min.y,
+                ),
+                black_size,
+            );
+            let pressed = (self.pressed_keys >> semitone & 1) != 0;
+            let note = wmidi::Note::C4.step(semitone).unwrap();
+            painter.rect_filled(
+                key_rect,
+                2.0,
+                if pressed {
+                    Color32::BLUE
+                } else {
+                    Color32::BLACK
+                },
+                // Stroke::new(2.0, Color32::WHITE),
+                // StrokeKind::Inside,
+            );
+            let key_id = ui.id().with(format!("black{black_key}"));
             let key_response = ui.interact(key_rect, key_id, Sense::click());
             if key_response.is_pointer_button_down_on()
                 && !ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false))
