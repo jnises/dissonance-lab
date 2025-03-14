@@ -8,7 +8,7 @@ use egui::{
 };
 use log::{info, warn};
 
-use crate::{audio::AudioManager, piano_gui::PianoGui, synth::PianoSynth, theory::is_key_black};
+use crate::{audio::AudioManager, piano_gui::{self, PianoGui}, synth::PianoSynth, theory::is_key_black};
 
 struct Audio {
     _audio: AudioManager,
@@ -84,8 +84,39 @@ impl eframe::App for TheoryApp {
                         ui.visuals().widgets.noninteractive.fg_stroke.color,
                     ))
                     .show(ui, |ui| {
-                        self.piano_gui.draw(ui);
-
+                        match self.piano_gui.draw(ui, ctx) {
+                            None => {},
+                            Some(piano_gui::Action::Pressed(note)) => {
+                                if matches!(self.audio, AudioState::Uninitialized) {
+                                    self.setup_audio();
+                                }
+                                if let AudioState::Setup(audio) = &self.audio {
+                                    audio
+                                        .tx
+                                        .send(wmidi::MidiMessage::NoteOn(
+                                            wmidi::Channel::Ch1,
+                                            note,
+                                            wmidi::Velocity::MAX,
+                                        ))
+                                        .unwrap();
+                                }
+                            }
+                            Some(piano_gui::Action::Released(note)) => {
+                                if matches!(self.audio, AudioState::Uninitialized) {
+                                    self.setup_audio();
+                                }
+                                if let AudioState::Setup(audio) = &self.audio {
+                                    audio
+                                        .tx
+                                        .send(wmidi::MidiMessage::NoteOff(
+                                            wmidi::Channel::Ch1,
+                                            note,
+                                            wmidi::Velocity::MAX,
+                                        ))
+                                        .unwrap();
+                                }
+                            }
+                        }
 
                         // TODO: cache this
                         // let (min, max) = self.piano_gui.get_bounding_box();
