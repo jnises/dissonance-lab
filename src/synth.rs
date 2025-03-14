@@ -5,11 +5,8 @@ use log::info;
 
 use crate::{audio::Synth, reverb::Reverb};
 
-// Piano note frequencies in Hz (A4 = 440Hz)
-const A4_FREQ: f32 = 440.0;
-const A4_MIDI_NOTE: u8 = 69; // A4 is MIDI note 69
-
 /// Represents a piano key with associated frequency
+#[derive(Copy, Clone)]
 struct PianoKey {
     frequency: f32,
     midi_note: wmidi::Note,
@@ -34,6 +31,7 @@ struct EnvelopeGenerator {
     current_level: f32,
     state: EnvelopeState,
     sample_rate: f32,
+    sustain_decay_rate: f32, // Piano-like sustain decay
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -55,6 +53,7 @@ impl EnvelopeGenerator {
             current_level: 0.0,
             state: EnvelopeState::Idle,
             sample_rate,
+            sustain_decay_rate: 0.0, // Will be set based on note frequency
         }
     }
 
@@ -65,6 +64,10 @@ impl EnvelopeGenerator {
 
     fn release(&mut self) {
         self.state = EnvelopeState::Release;
+    }
+
+    fn set_sustain_decay_rate(&mut self, rate: f32) {
+        self.sustain_decay_rate = rate;
     }
 
     fn process(&mut self) -> f32 {
@@ -108,7 +111,12 @@ impl EnvelopeGenerator {
                 }
             }
             EnvelopeState::Sustain => {
-                self.current_level = self.sustain_level;
+                // Piano-like sustain: gradually decays instead of holding steady
+                self.current_level -= self.sustain_decay_rate;
+                if self.current_level <= 0.0 {
+                    self.current_level = 0.0;
+                    self.state = EnvelopeState::Idle;
+                }
             }
             EnvelopeState::Release => {
                 self.current_level -= release_rate;
@@ -161,6 +169,24 @@ impl PianoVoice {
     fn note_on(&mut self, key: PianoKey) {
         self.current_key = Some(key);
         self.update_phase_delta();
+        
+        // Calculate frequency-dependent sustain decay
+        // Higher notes decay faster than lower notes
+        if let Some(ref key) = self.current_key {
+            // Base decay rate - will be multiplied by frequency factor
+            // This value is per sample, so we need to scale it according to sample rate
+            let base_decay_rate = 0.00001 * (44100.0 / self.sample_rate);
+            
+            // Scale the decay rate based on frequency
+            // Higher notes (higher frequency) decay faster
+            let freq = key.frequency;
+            let freq_factor = (freq / 110.0).sqrt();
+            
+            // Set the sustain decay rate
+            let sustain_decay_rate = base_decay_rate * freq_factor;
+            self.envelope.set_sustain_decay_rate(sustain_decay_rate);
+        }
+        
         self.envelope.trigger();
         self.is_active = true;
     }
