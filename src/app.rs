@@ -22,7 +22,6 @@ enum AudioState {
 }
 
 pub struct TheoryApp {
-    pressed: Option<usize>,
     audio: AudioState,
     piano_gui: PianoGui,
 }
@@ -30,7 +29,6 @@ pub struct TheoryApp {
 impl Default for TheoryApp {
     fn default() -> Self {
         Self {
-            pressed: None,
             audio: AudioState::Uninitialized,
             piano_gui: PianoGui::new(),
         }
@@ -84,7 +82,7 @@ impl eframe::App for TheoryApp {
                         ui.visuals().widgets.noninteractive.fg_stroke.color,
                     ))
                     .show(ui, |ui| {
-                        match self.piano_gui.draw(ui, ctx) {
+                        match self.piano_gui.draw(ui) {
                             None => {},
                             Some(piano_gui::Action::Pressed(note)) => {
                                 if matches!(self.audio, AudioState::Uninitialized) {
