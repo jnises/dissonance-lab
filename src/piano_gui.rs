@@ -2,13 +2,13 @@ use bitvec::{BitArr, order::Msb0};
 use egui::{Color32, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 
 pub struct PianoGui {
-    pressed_keys: BitArr!(for 12, in u16, Msb0),
+    selected_keys: BitArr!(for 12, in u16, Msb0),
 }
 
 impl PianoGui {
     pub fn new() -> Self {
         Self {
-            pressed_keys: Default::default(),
+            selected_keys: Default::default(),
         }
     }
 
@@ -38,7 +38,7 @@ impl PianoGui {
                 vec2(white_width, keys_rect.height()),
             );
             let semitone = white_key_to_semitone(white_key);
-            let pressed = self.pressed_keys[semitone];
+            let pressed = self.selected_keys[semitone];
             let note = wmidi::Note::C4.step(semitone as i8).unwrap();
             painter.rect(
                 key_rect,
@@ -60,17 +60,14 @@ impl PianoGui {
 
                 // If shift is not pressed, clear all keys before setting the new one
                 if !shift_pressed {
-                    self.pressed_keys.fill(false);
+                    self.selected_keys.fill(false);
                 }
 
-                self.pressed_keys.set(semitone, true);
+                self.selected_keys.set(semitone, true);
             } else if !key_response.is_pointer_button_down_on() && mouse_pressed {
                 ui.data_mut(|r| r.insert_temp(key_id, false));
                 debug_assert!(action.is_none());
                 action = Some(Action::Released(note));
-                if !shift_pressed {
-                    self.pressed_keys.set(semitone, false);
-                }
             }
         }
         let black_size = vec2(white_width * 0.6, keys_rect.height() * 0.6);
@@ -93,7 +90,7 @@ impl PianoGui {
                 ),
                 black_size,
             );
-            let pressed = self.pressed_keys[semitone];
+            let pressed = self.selected_keys[semitone];
             let note = wmidi::Note::C4.step(semitone.try_into().unwrap()).unwrap();
             painter.rect(
                 key_rect,
@@ -115,17 +112,14 @@ impl PianoGui {
 
                 // If shift is not pressed, clear all keys before setting the new one
                 if !shift_pressed {
-                    self.pressed_keys.fill(false);
+                    self.selected_keys.fill(false);
                 }
 
-                self.pressed_keys.set(semitone, true);
+                self.selected_keys.set(semitone, true);
             } else if !key_response.is_pointer_button_down_on() && mouse_pressed {
                 ui.data_mut(|r| r.insert_temp(key_id, false));
                 debug_assert!(action.is_none());
                 action = Some(Action::Released(note));
-                if !shift_pressed {
-                    self.pressed_keys.set(semitone, false);
-                }
             }
         }
         action
