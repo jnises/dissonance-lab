@@ -32,6 +32,7 @@ impl PianoGui {
         let shift_pressed = ui.input(|i| i.modifiers.shift);
 
         for white_key in 0..NUM_WHITE_KEYS {
+            // TODO: make D, E and A wider to make the lanes behave better.. or make the upper part of the keyboard same width for white and black keys
             let key_id = ui.id().with(format!("white{white_key}"));
             let key_rect = Rect::from_min_size(
                 pos2(
