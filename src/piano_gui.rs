@@ -1,8 +1,13 @@
 use bitvec::{BitArr, order::Msb0};
 use egui::{Color32, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 
+pub const PIANO_WIDTH: f32 = 600.0;
+pub const PIANO_HEIGHT: f32 = 200.0;
+
+pub type KeySet = BitArr!(for 12, in u16, Msb0);
+
 pub struct PianoGui {
-    selected_keys: BitArr!(for 12, in u16, Msb0),
+    selected_keys: KeySet,
 }
 
 impl PianoGui {
@@ -12,18 +17,16 @@ impl PianoGui {
         }
     }
 
-    pub fn draw(&mut self, ui: &mut Ui) -> Option<Action> {
+    pub fn draw(&mut self, ui: &mut Ui) -> (Option<Action>, Rect) {
         let mut action = None;
-        let piano_width = 600.0;
-        let piano_height = 200.0;
         let (response, painter) =
-            ui.allocate_painter(vec2(piano_width, piano_height), Sense::empty());
+            ui.allocate_painter(vec2(PIANO_WIDTH, PIANO_HEIGHT), Sense::empty());
         let rect = response.rect;
         painter.rect_filled(rect, 1.0, ui.visuals().panel_fill);
         const MARGIN: f32 = 2.0;
         let keys_rect = rect.shrink(MARGIN);
         const NUM_WHITE_KEYS: usize = 7;
-        let white_width = piano_width / NUM_WHITE_KEYS as f32;
+        let white_width = PIANO_WIDTH / NUM_WHITE_KEYS as f32;
 
         // Check if shift key is held down
         let shift_pressed = ui.input(|i| i.modifiers.shift);
@@ -122,8 +125,18 @@ impl PianoGui {
                 action = Some(Action::Released(note));
             }
         }
-        action
+        (action, keys_rect)
     }
+
+    pub fn selected_keys(&self) -> &KeySet {
+        &self.selected_keys
+    }
+
+    // /// not necessarily the center of the key, but more an evenly spaced thing to indicate where to put lanes
+    // pub fn key_x_coord(&self, semitone: usize) -> f32 {
+    //     debug_assert!(semitone < 12, "we only do one octave");
+    //     PIANO_WIDTH / 12.0 * (semitone as f32 + 0.5)
+    // }
 }
 
 pub enum Action {

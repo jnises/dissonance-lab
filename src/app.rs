@@ -9,11 +9,7 @@ use egui::{
 use log::{info, warn};
 
 use crate::{
-    audio::AudioManager,
-    piano_gui::{self, PianoGui},
-    synth::PianoSynth,
-    theme,
-    theory::is_key_black,
+    audio::AudioManager, interval_display, piano_gui::{self, PianoGui}, synth::PianoSynth, theme, theory::is_key_black
 };
 
 struct Audio {
@@ -82,7 +78,8 @@ impl eframe::App for TheoryApp {
                 }
 
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-                    match self.piano_gui.draw(ui) {
+                    let (action, piano_rect) = self.piano_gui.draw(ui);
+                    match action {
                         None => {}
                         Some(piano_gui::Action::Pressed(note)) => {
                             if matches!(self.audio, AudioState::Uninitialized) {
@@ -115,6 +112,7 @@ impl eframe::App for TheoryApp {
                             }
                         }
                     }
+                    interval_display::show(&self.piano_gui, piano_rect, ui);
                 });
             });
         });

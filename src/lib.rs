@@ -8,3 +8,4 @@ mod synth;
 mod reverb;
 mod piano_gui;
 mod theme;
+mod interval_display;
