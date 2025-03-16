@@ -1,7 +1,8 @@
 use egui::{pos2, vec2, Rect, Sense, Ui};
 use crate::piano_gui;
 
-pub fn show(piano: &piano_gui::PianoGui, piano_rect: Rect, ui: &mut Ui) {
+pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::Action> {
+    let (action, piano_rect) = piano.show(ui);
     let interval_rect = Rect::from_min_max(pos2(piano_rect.left(), piano_rect.top() - 200.0), pos2(piano_rect.right(), piano_rect.top()));
     ui.allocate_rect(interval_rect, Sense::empty());
     let painter = ui.painter();
@@ -15,4 +16,5 @@ pub fn show(piano: &piano_gui::PianoGui, piano_rect: Rect, ui: &mut Ui) {
             egui::Stroke::new(1.0, egui::Color32::GRAY),
         );
     }
+    action
 }

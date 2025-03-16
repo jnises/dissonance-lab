@@ -17,7 +17,7 @@ impl PianoGui {
         }
     }
 
-    pub fn draw(&mut self, ui: &mut Ui) -> (Option<Action>, Rect) {
+    pub fn show(&mut self, ui: &mut Ui) -> (Option<Action>, Rect) {
         let mut action = None;
         let (response, painter) =
             ui.allocate_painter(vec2(PIANO_WIDTH, PIANO_HEIGHT), Sense::empty());
