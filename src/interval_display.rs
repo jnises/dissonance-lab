@@ -60,8 +60,8 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     score_center_pos + vec2(0.0, key_width / 2.0 - 4.0),
                     Align2::CENTER_BOTTOM,
                     interval.to_string(),
-                    FontId::monospace(6.0),
-                    Color32::from_black_alpha(120),
+                    FontId::proportional(7.0),
+                    Color32::from_black_alpha(150),
                 );
             }
         }

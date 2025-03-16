@@ -1,5 +1,6 @@
 use num_rational::Rational32;
 use num_traits::ToPrimitive;
+use std::fmt::{Display, Formatter, Result};
 
 pub fn is_key_black(note: usize) -> bool {
     [
@@ -8,7 +9,7 @@ pub fn is_key_black(note: usize) -> bool {
 }
 
 /// Musical intervals that define the distance between two notes
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum_macros::Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interval {
     Unison,
     MinorSecond,
@@ -140,7 +141,26 @@ impl Interval {
     }
 }
 
-
+impl Display for Interval {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let s = match self {
+            Self::Unison => "unison",
+            Self::MinorSecond => "minor second",
+            Self::MajorSecond => "major second",
+            Self::MinorThird => "minor third",
+            Self::MajorThird => "major third",
+            Self::PerfectFourth => "perfect fourth",
+            Self::Tritone => "tritone",
+            Self::PerfectFifth => "perfect fifth",
+            Self::MinorSixth => "minor sixth",
+            Self::MajorSixth => "major sixth",
+            Self::MinorSeventh => "minor seventh",
+            Self::MajorSeventh => "major seventh",
+            Self::Octave => "octave",
+        };
+        write!(f, "{}", s)
+    }
+}
 
 #[cfg(test)]
 mod tests {
