@@ -92,9 +92,6 @@ impl PianoGui {
                     ui.data_mut(|r| r.insert_temp(key_id, false));
                     debug_assert!(action.is_none());
                     action = Some(Action::Released(note));
-                    if !shift_pressed {
-                        self.selected_keys.set(semitone, false);
-                    }
                 }
             }
         }
