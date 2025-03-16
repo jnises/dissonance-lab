@@ -55,22 +55,28 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     ),
                 );
                 painter.text(
-                    score_center_pos - vec2(0.0, 5.0),
-                    Align2::CENTER_CENTER,
-                    format!(
-                        "{}\n{:+}¢",
-                        interval.just_ratio(),
-                        interval.tempered_just_error_cents() as i32
-                    ),
+                    score_center_pos - vec2(0.0, key_width / 2.0 - 4.0),
+                    Align2::CENTER_TOP,
+                    interval.just_ratio().to_string(),
                     FontId::monospace(14.0),
                     Color32::BLACK,
+                );
+                painter.text(
+                    score_center_pos - vec2(0.0, key_width / 2.0 - 20.0),
+                    Align2::CENTER_TOP,
+                    format!(
+                        "{:+}¢",
+                        interval.tempered_just_error_cents() as i32
+                    ),
+                    FontId::monospace(12.0),
+                    Color32::from_black_alpha(180),
                 );
                 painter.text(
                     score_center_pos + vec2(0.0, key_width / 2.0 - 4.0),
                     Align2::CENTER_BOTTOM,
                     interval.to_string(),
                     FontId::monospace(6.0),
-                    Color32::BLACK,
+                    Color32::from_black_alpha(120),
                 );
             }
         }
