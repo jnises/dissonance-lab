@@ -8,7 +8,7 @@ pub fn is_key_black(note: usize) -> bool {
 }
 
 /// Musical intervals that define the distance between two notes
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum_macros::Display)]
 pub enum Interval {
     Unison,
     MinorSecond,
@@ -118,6 +118,24 @@ impl Interval {
             Interval::MinorSeventh => 0.7617,
             Interval::MajorSeventh => 0.8352,
             Interval::Octave => 0.0,
+        }
+    }
+
+    pub fn abbreviated_string(&self) -> &'static str {
+        match self {
+            Self::Unison => "P1",
+            Self::MinorSecond => "m2",
+            Self::MajorSecond => "M2",
+            Self::MinorThird => "m3",
+            Self::MajorThird => "M3",
+            Self::PerfectFourth => "P4",
+            Self::Tritone => "TT",
+            Self::PerfectFifth => "P5",
+            Self::MinorSixth => "m6",
+            Self::MajorSixth => "M6",
+            Self::MinorSeventh => "m7",
+            Self::MajorSeventh => "M7",
+            Self::Octave => "P8",
         }
     }
 }
