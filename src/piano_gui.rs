@@ -68,13 +68,9 @@ impl PianoGui {
                     key_rect,
                     0.0,
                     if selected {
-                        ui.visuals().selection.bg_fill
+                        Color32::from_hex("#596dbe").unwrap()
                     } else {
                         ui.visuals().panel_fill
-                        // match color {
-                        //     Color::White => Color32::WHITE,
-                        //     Color::Black => Color32::BLACK,
-                        // }
                     },
                     Stroke::new(2.0, Color32::WHITE),
                     StrokeKind::Middle,
