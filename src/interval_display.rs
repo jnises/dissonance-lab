@@ -20,10 +20,6 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
         .map(|i| i8::try_from(i).unwrap())
         .enumerate()
     {
-        // let selected_semi = piano
-        //     .selected_keys()
-        //     .first_one()
-        //     .map(|i| i8::try_from(i).unwrap());
         for semi in 0..12i8 {
             let interval = theory::Interval::from_semitone_wrapping(semi - selected_semi);
             let pos = pos2(
@@ -31,17 +27,6 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 interval_rect.bottom(),
             );
             let this_selected = semi == selected_semi;
-            painter.line_segment(
-                [pos, pos - vec2(0.0, 10.0)],
-                Stroke::new(
-                    1.0,
-                    if this_selected {
-                        Color32::BLUE
-                    } else {
-                        Color32::GRAY
-                    },
-                ),
-            );
             let score_center_pos = pos - Vec2::Y * ((row as f32 + 0.5) * key_width + 10.0);
             if this_selected {
                 painter.circle_filled(score_center_pos, key_width / 2.0, Color32::BLUE);
