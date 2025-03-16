@@ -2,14 +2,17 @@ use std::sync::{Arc, LazyLock};
 
 use colorgrad::{BlendMode, Gradient as _};
 use egui::{
-    Color32, Pos2, Rect, Sense, ThemePreference, Vec2,
-    epaint::{PathShape, PathStroke},
-    pos2,
+    epaint::{PathShape, PathStroke}, pos2, vec2, Align, Align2, Color32, FontId, Layout, Pos2, Rect, Sense, ThemePreference, UiBuilder, Vec2
 };
 use log::{info, warn};
 
 use crate::{
-    audio::AudioManager, interval_display, piano_gui::{self, PianoGui}, synth::PianoSynth, theme, theory::is_key_black
+    audio::AudioManager,
+    interval_display,
+    piano_gui::{self, PIANO_WIDTH, PianoGui},
+    synth::PianoSynth,
+    theme,
+    theory::is_key_black,
 };
 
 struct Audio {
@@ -62,56 +65,59 @@ impl TheoryApp {
 impl eframe::App for TheoryApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical(|ui| {
-                // Audio controls at the top
-                match self.audio {
-                    AudioState::Uninitialized | AudioState::Setup(_) => {
-                        if ui.button("🔈").clicked() {
-                            self.audio = AudioState::Muted;
+            ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
+                ui.allocate_ui(vec2(PIANO_WIDTH, 40.0), |ui| {
+                    ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
+                        match self.audio {
+                            AudioState::Uninitialized | AudioState::Setup(_) => {
+                                if ui.button("🔈").clicked() {
+                                    self.audio = AudioState::Muted;
+                                }
+                            }
+                            AudioState::Muted => {
+                                if ui.button("🔇").clicked() {
+                                    self.setup_audio();
+                                }
+                            }
+                        }
+                        //let (response, painter) = ui.allocate_painter(vec2(PIANO_WIDTH - 50.0, 20.0), Sense::empty());
+                        //painter.text(response.rect.min, Align2::CENTER_TOP, "theory", FontId::monospace(10.0), theme::selected_key());
+                    });
+                    
+                });
+                match interval_display::show(&mut self.piano_gui, ui) {
+                    None => {}
+                    Some(piano_gui::Action::Pressed(note)) => {
+                        if matches!(self.audio, AudioState::Uninitialized) {
+                            self.setup_audio();
+                        }
+                        if let AudioState::Setup(audio) = &self.audio {
+                            audio
+                                .tx
+                                .send(wmidi::MidiMessage::NoteOn(
+                                    wmidi::Channel::Ch1,
+                                    note,
+                                    wmidi::Velocity::MAX,
+                                ))
+                                .unwrap();
                         }
                     }
-                    AudioState::Muted => {
-                        if ui.button("🔇").clicked() {
+                    Some(piano_gui::Action::Released(note)) => {
+                        if matches!(self.audio, AudioState::Uninitialized) {
                             self.setup_audio();
+                        }
+                        if let AudioState::Setup(audio) = &self.audio {
+                            audio
+                                .tx
+                                .send(wmidi::MidiMessage::NoteOff(
+                                    wmidi::Channel::Ch1,
+                                    note,
+                                    wmidi::Velocity::MAX,
+                                ))
+                                .unwrap();
                         }
                     }
                 }
-
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-                    match interval_display::show(&mut self.piano_gui, ui) {
-                        None => {}
-                        Some(piano_gui::Action::Pressed(note)) => {
-                            if matches!(self.audio, AudioState::Uninitialized) {
-                                self.setup_audio();
-                            }
-                            if let AudioState::Setup(audio) = &self.audio {
-                                audio
-                                    .tx
-                                    .send(wmidi::MidiMessage::NoteOn(
-                                        wmidi::Channel::Ch1,
-                                        note,
-                                        wmidi::Velocity::MAX,
-                                    ))
-                                    .unwrap();
-                            }
-                        }
-                        Some(piano_gui::Action::Released(note)) => {
-                            if matches!(self.audio, AudioState::Uninitialized) {
-                                self.setup_audio();
-                            }
-                            if let AudioState::Setup(audio) = &self.audio {
-                                audio
-                                    .tx
-                                    .send(wmidi::MidiMessage::NoteOff(
-                                        wmidi::Channel::Ch1,
-                                        note,
-                                        wmidi::Velocity::MAX,
-                                    ))
-                                    .unwrap();
-                            }
-                        }
-                    }
-                });
             });
         });
     }
