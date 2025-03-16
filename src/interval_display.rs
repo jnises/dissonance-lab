@@ -1,7 +1,5 @@
 use crate::{
-    piano_gui,
-    theory::{self, Interval},
-    utils::{colorgrad_to_egui, colorous_to_egui},
+    piano_gui, theme, theory::{self, Interval}, utils::{colorgrad_to_egui, colorous_to_egui}
 };
 use colorgrad::Gradient;
 use egui::{Align2, Color32, FontId, Rect, Sense, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
@@ -33,7 +31,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 painter.rect_stroke(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     0.0,
-                    Stroke::new(2.0, Color32::WHITE),
+                    Stroke::new(2.0, theme::outlines()),
                     StrokeKind::Inside,
                 );
                 painter.text(

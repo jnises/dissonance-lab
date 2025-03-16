@@ -1,4 +1,14 @@
+use egui::Color32;
+
 use crate::utils::oklab;
+
+pub fn outlines() -> Color32 {
+    Color32::WHITE
+}
+
+pub fn selected_key() -> Color32 {
+    Color32::from_hex("#596dbe").unwrap()
+}
 
 pub fn setup_custom_theme(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();

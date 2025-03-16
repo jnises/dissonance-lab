@@ -1,6 +1,8 @@
 use bitvec::{BitArr, order::Msb0};
 use egui::{Color32, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 
+use crate::theme;
+
 pub const PIANO_WIDTH: f32 = 600.0;
 pub const PIANO_HEIGHT: f32 = 200.0;
 
@@ -68,11 +70,11 @@ impl PianoGui {
                     key_rect,
                     0.0,
                     if selected {
-                        Color32::from_hex("#596dbe").unwrap()
+                        theme::selected_key()
                     } else {
                         ui.visuals().panel_fill
                     },
-                    Stroke::new(2.0, Color32::WHITE),
+                    Stroke::new(2.0, theme::outlines()),
                     StrokeKind::Middle,
                 );
                 let key_response = ui.interact(key_rect, key_id, Sense::click());
