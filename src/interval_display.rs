@@ -28,7 +28,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 interval_rect.bottom(),
             );
             let this_selected = semi == selected_semi;
-            let score_center_pos = pos - Vec2::Y * ((row as f32 + 0.5) * key_width + 10.0);
+            let score_center_pos = pos - Vec2::Y * ((row as f32 + 0.5) * (key_width + 4.0) + 10.0);
             if this_selected {
                 painter.rect_stroke(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
