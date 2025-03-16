@@ -66,17 +66,18 @@ impl PianoGui {
                 let note = wmidi::Note::C4.step(semitone as i8).unwrap();
                 painter.rect(
                     key_rect,
-                    2.0,
+                    0.0,
                     if selected {
                         ui.visuals().selection.bg_fill
                     } else {
-                        match color {
-                            Color::White => Color32::WHITE,
-                            Color::Black => Color32::BLACK,
-                        }
+                        ui.visuals().panel_fill
+                        // match color {
+                        //     Color::White => Color32::WHITE,
+                        //     Color::Black => Color32::BLACK,
+                        // }
                     },
-                    Stroke::new(2.0, Color32::BLACK),
-                    StrokeKind::Inside,
+                    Stroke::new(2.0, Color32::WHITE),
+                    StrokeKind::Middle,
                 );
                 let key_response = ui.interact(key_rect, key_id, Sense::click());
                 let mouse_pressed = ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false));
