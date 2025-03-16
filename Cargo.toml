@@ -33,6 +33,7 @@ wmidi = "4.0.10"
 itertools = "0.14.0"
 bitvec = "1.0.1"
 strum_macros = "0.27.1"
+colorous = "1.0.16"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

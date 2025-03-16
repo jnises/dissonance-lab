@@ -1,3 +1,5 @@
+use crate::utils::oklab;
+
 pub fn setup_custom_theme(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();
 
@@ -31,14 +33,4 @@ pub fn setup_custom_theme(ctx: &egui::Context) {
 
     // Set the custom visuals
     ctx.set_visuals(visuals);
-}
-
-/// Convert a color from colorgrad to egui's Color32
-fn colorgrad_to_egui(color: colorgrad::Color) -> egui::Color32 {
-    let [r, g, b, a] = color.to_rgba8();
-    egui::Color32::from_rgba_unmultiplied(r, g, b, a)
-}
-
-fn oklab(l: f32, a: f32, b: f32, alpha: f32) -> egui::Color32 {
-    colorgrad_to_egui(colorgrad::Color::from_oklaba(l, a, b, alpha))
 }

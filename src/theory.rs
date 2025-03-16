@@ -26,6 +26,7 @@ pub enum Interval {
 }
 
 impl Interval {
+    /// only handles one octave
     pub fn from_semitone_interval(semitone_interval: u8) -> Self {
         match semitone_interval {
             0 => Self::Unison,
@@ -41,8 +42,12 @@ impl Interval {
             10 => Self::MinorSeventh,
             11 => Self::MajorSeventh,
             12 => Self::Octave,
-            _ => panic!("Invalid semitone interval: {}", semitone_interval),
+            _ => panic!("Invalid semitone interval: {semitone_interval}"),
         }
+    }
+
+    pub fn from_semitone_wrapping(semitone_interval: i8) -> Self {
+        Self::from_semitone_interval(semitone_interval.rem_euclid(12) as u8)
     }
 
     /// Returns the just intonation ratio for this interval
@@ -98,7 +103,29 @@ impl Interval {
             Self::Octave => 12,
         }
     }
+
+    /// dissonance based on just interval and how large the just/tempered error is  
+    pub fn compound_dissonance(&self) -> f32 {
+        // TODO: calculate this directly instead
+        match self {
+            Interval::Unison => 0.0,
+            Interval::MinorSecond => 0.7852,
+            Interval::MajorSecond => 0.6117,
+            Interval::MinorThird => 0.3969,
+            Interval::MajorThird => 0.3411,
+            Interval::PerfectFourth => 0.2059,
+            Interval::Tritone => 0.8793,
+            Interval::PerfectFifth => 0.1059,
+            Interval::MinorSixth => 0.4911,
+            Interval::MajorSixth => 0.4469,
+            Interval::MinorSeventh => 0.7617,
+            Interval::MajorSeventh => 0.8352,
+            Interval::Octave => 0.0,
+        }
+    }
 }
+
+
 
 #[cfg(test)]
 mod tests {

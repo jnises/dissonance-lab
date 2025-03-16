@@ -32,7 +32,7 @@ impl PianoGui {
         enum Color {
             White,
             Black,
-        };
+        }
         for color in [Color::White, Color::Black] {
             let num_keys = match color {
                 Color::White => NUM_WHITE_KEYS,
