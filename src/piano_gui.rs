@@ -25,45 +25,38 @@ impl PianoGui {
         painter.rect_filled(rect, 1.0, ui.visuals().panel_fill);
         const MARGIN: f32 = 2.0;
         let keys_rect = rect.shrink(MARGIN);
-        // Check if shift key is held down
         let shift_pressed = ui.input(|i| i.modifiers.shift);
         const NUM_WHITE_KEYS: usize = 7;
         const NUM_BLACK_KEYS: usize = 5;
-        let white_width = PIANO_WIDTH / NUM_WHITE_KEYS as f32;
         #[derive(strum_macros::Display)]
         enum Color {
             White,
             Black,
         };
         for color in [Color::White, Color::Black] {
-            let key_size = match color {
-                Color::White => vec2(white_width, keys_rect.height()),
-                Color::Black => vec2(white_width * 0.6, keys_rect.height() * 0.6),
-            };
             let num_keys = match color {
                 Color::White => NUM_WHITE_KEYS,
                 Color::Black => NUM_BLACK_KEYS,
             };
+            let x = match color {
+                Color::White => vec![0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5],
+                Color::Black => vec![1.0, 3.0, 6.0, 8.0, 10.0],
+            };
             for key in 0..num_keys {
-                // TODO: make D, E and A wider to make the lanes behave better.. or make the upper part of the keyboard same width for white and black keys
                 let key_id = ui.id().with(format!("{color}{key}"));
+                let key_size = match color {
+                    Color::White => vec2(
+                        (x.get(key + 1).unwrap_or(&12.0) - x[key]) / 12.0 * keys_rect.width(),
+                        keys_rect.height(),
+                    ),
+                    Color::Black => vec2(keys_rect.width() / 12.0, keys_rect.height() * 0.6),
+                };
                 let key_rect = Rect::from_min_size(
                     pos2(
-                        keys_rect.min.x + match color {
-                            Color::White => key as f32 / NUM_WHITE_KEYS as f32 * keys_rect.width(),
-                            Color::Black => white_width * match key {
-                                0 => 1.0,
-                                1 => 2.0,
-                                2 => 4.0,
-                                3 => 5.0,
-                                4 => 6.0,
-                                _ => unreachable!(),
-                            } - 0.5 * key_size.x,
-                        } ,
+                        keys_rect.min.x + x[key] / 12.0 * keys_rect.width(),
                         keys_rect.min.y,
                     ),
                     key_size,
-                    
                 );
                 let semitone = match color {
                     Color::White => white_key_to_semitone(key),
@@ -91,12 +84,9 @@ impl PianoGui {
                     ui.data_mut(|r| r.insert_temp(key_id, true));
                     debug_assert!(action.is_none());
                     action = Some(Action::Pressed(note));
-
-                    // If shift is not pressed, clear all keys before setting the new one
                     if !shift_pressed {
                         self.selected_keys.fill(false);
                     }
-
                     self.selected_keys.set(semitone, true);
                 } else if !key_response.is_pointer_button_down_on() && mouse_pressed {
                     ui.data_mut(|r| r.insert_temp(key_id, false));
