@@ -3,7 +3,7 @@ use crate::{
     utils::{colorgrad_to_egui, colorous_to_egui},
 };
 use colorgrad::Gradient;
-use egui::{Color32, Rect, Sense, Stroke, Ui, Vec2, pos2, vec2};
+use egui::{Align2, Color32, Rect, Sense, Stroke, Ui, Vec2, pos2, vec2};
 
 pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::Action> {
     let (action, piano_rect) = piano.show(ui);
@@ -43,11 +43,22 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
         } else if let Some(interval) = interval {
             painter.rect_filled(
                 Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
-                2.0,
+                0.0,
                 colorous_to_egui(
                     colorous::YELLOW_ORANGE_RED
                         .eval_continuous(interval.compound_dissonance() as f64),
                 ),
+            );
+            painter.text(
+                score_center_pos,
+                Align2::CENTER_CENTER,
+                format!(
+                    "{}\n{:+}¢",
+                    interval.just_ratio(),
+                    interval.tempered_just_error_cents() as i32
+                ),
+                egui::FontId::default(),
+                Color32::BLACK,
             );
         }
     }

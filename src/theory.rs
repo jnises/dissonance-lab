@@ -76,13 +76,10 @@ impl Interval {
 
     /// Returns the difference in cents between just intonation and equal temperament
     /// Positive values mean just intonation is higher than equal temperament
-    pub fn just_tempered_error_cents(&self) -> f32 {
-        // Convert the frequency ratios to cents
+    pub fn tempered_just_error_cents(&self) -> f32 {
         let just_cents = 1200.0 * (self.just_ratio().to_f32().unwrap().ln() / 2.0_f32.ln());
         let tempered_cents = 100.0 * self.semitones() as f32;
-
-        // Return the difference
-        just_cents - tempered_cents
+        tempered_cents - just_cents
     }
 
     /// Get the number of semitones in this interval
@@ -138,65 +135,65 @@ mod tests {
         // 1200 * log2(just_ratio) - 100 * semitones
 
         // Perfect intervals (should be close to 0 for some)
-        assert_approx_eq(Interval::Unison.just_tempered_error_cents(), 0.0, 0.01);
+        assert_approx_eq(Interval::Unison.tempered_just_error_cents(), 0.0, 0.01);
         assert_approx_eq(
-            Interval::PerfectFifth.just_tempered_error_cents(),
+            Interval::PerfectFifth.tempered_just_error_cents(),
             1.96,
             0.01,
         );
         assert_approx_eq(
-            Interval::PerfectFourth.just_tempered_error_cents(),
+            Interval::PerfectFourth.tempered_just_error_cents(),
             -1.96,
             0.01,
         );
-        assert_approx_eq(Interval::Octave.just_tempered_error_cents(), 0.0, 0.01);
+        assert_approx_eq(Interval::Octave.tempered_just_error_cents(), 0.0, 0.01);
 
         // Major intervals
         assert_approx_eq(
-            Interval::MajorSecond.just_tempered_error_cents(),
+            Interval::MajorSecond.tempered_just_error_cents(),
             3.91,
             0.01,
         );
         assert_approx_eq(
-            Interval::MajorThird.just_tempered_error_cents(),
+            Interval::MajorThird.tempered_just_error_cents(),
             -13.69,
             0.01,
         );
         assert_approx_eq(
-            Interval::MajorSixth.just_tempered_error_cents(),
+            Interval::MajorSixth.tempered_just_error_cents(),
             -15.64,
             0.01,
         );
         assert_approx_eq(
-            Interval::MajorSeventh.just_tempered_error_cents(),
+            Interval::MajorSeventh.tempered_just_error_cents(),
             -11.73,
             0.01,
         );
 
         // Minor intervals
         assert_approx_eq(
-            Interval::MinorSecond.just_tempered_error_cents(),
+            Interval::MinorSecond.tempered_just_error_cents(),
             11.73,
             0.01,
         );
         assert_approx_eq(
-            Interval::MinorThird.just_tempered_error_cents(),
+            Interval::MinorThird.tempered_just_error_cents(),
             15.64,
             0.01,
         );
         assert_approx_eq(
-            Interval::MinorSixth.just_tempered_error_cents(),
+            Interval::MinorSixth.tempered_just_error_cents(),
             13.69,
             0.01,
         );
         assert_approx_eq(
-            Interval::MinorSeventh.just_tempered_error_cents(),
+            Interval::MinorSeventh.tempered_just_error_cents(),
             -17.60,
             0.01,
         );
 
         // Tritone
-        assert_approx_eq(Interval::Tritone.just_tempered_error_cents(), -9.77, 0.01);
+        assert_approx_eq(Interval::Tritone.tempered_just_error_cents(), -9.77, 0.01);
     }
 
     // Helper function to compare floating point values with tolerance
