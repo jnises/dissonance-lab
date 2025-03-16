@@ -62,12 +62,12 @@ impl PianoGui {
                     Color::White => white_key_to_semitone(key),
                     Color::Black => black_key_to_semitone(key),
                 };
-                let pressed = self.selected_keys[semitone];
+                let selected = self.selected_keys[semitone];
                 let note = wmidi::Note::C4.step(semitone as i8).unwrap();
                 painter.rect(
                     key_rect,
                     2.0,
-                    if pressed {
+                    if selected {
                         ui.visuals().selection.bg_fill
                     } else {
                         match color {
@@ -87,7 +87,8 @@ impl PianoGui {
                     if !shift_pressed {
                         self.selected_keys.fill(false);
                     }
-                    self.selected_keys.set(semitone, true);
+                    let key_selected = self.selected_keys[semitone];
+                    self.selected_keys.set(semitone, !key_selected);
                 } else if !key_response.is_pointer_button_down_on() && mouse_pressed {
                     ui.data_mut(|r| r.insert_temp(key_id, false));
                     debug_assert!(action.is_none());
