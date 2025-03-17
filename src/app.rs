@@ -2,7 +2,9 @@ use std::sync::{Arc, LazyLock};
 
 use colorgrad::{BlendMode, Gradient as _};
 use egui::{
-    epaint::{PathShape, PathStroke}, pos2, vec2, Align, Align2, Color32, FontId, Layout, Pos2, Rect, Sense, ThemePreference, UiBuilder, Vec2
+    Align, Align2, Color32, FontId, Layout, Pos2, Rect, Sense, ThemePreference, UiBuilder, Vec2,
+    epaint::{PathShape, PathStroke},
+    pos2, vec2,
 };
 use log::{info, warn};
 
@@ -80,10 +82,14 @@ impl eframe::App for TheoryApp {
                                 }
                             }
                         }
-                        //let (response, painter) = ui.allocate_painter(vec2(PIANO_WIDTH - 50.0, 20.0), Sense::empty());
-                        //painter.text(response.rect.min, Align2::CENTER_TOP, "theory", FontId::monospace(10.0), theme::selected_key());
+                        ui.painter().text(
+                            ui.available_rect_before_wrap().center_bottom(),
+                            Align2::CENTER_BOTTOM,
+                            "theory",
+                            FontId::monospace(12.0),
+                            ui.visuals().weak_text_color()
+                        );
                     });
-                    
                 });
                 match interval_display::show(&mut self.piano_gui, ui) {
                     None => {}
