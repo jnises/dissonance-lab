@@ -11,10 +11,10 @@ use log::{info, warn};
 use crate::{
     audio::AudioManager,
     interval_display,
-    piano_gui::{self, PIANO_WIDTH, PianoGui},
+    piano_gui::{self, PianoGui, PIANO_WIDTH},
     synth::PianoSynth,
     theme,
-    theory::is_key_black,
+    theory::is_key_black, utils::colorgrad_to_egui,
 };
 
 struct Audio {
@@ -87,7 +87,7 @@ impl eframe::App for TheoryApp {
                             Align2::CENTER_BOTTOM,
                             "theory",
                             FontId::monospace(12.0),
-                            ui.visuals().weak_text_color()
+                            colorgrad_to_egui(&theme::KEYBOARD_LABEL),
                         );
                     });
                 });

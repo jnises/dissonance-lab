@@ -51,7 +51,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 painter.rect_filled(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     0.0,
-                    colorgrad_to_egui(theme::DISSONANCE_GRADIENT.at(normalized_dissonance)),
+                    colorgrad_to_egui(&theme::DISSONANCE_GRADIENT.at(normalized_dissonance)),
                 );
                 painter.text(
                     score_center_pos - vec2(0.0, key_width / 2.0 - 4.0),
