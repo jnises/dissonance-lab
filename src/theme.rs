@@ -1,3 +1,6 @@
+use std::sync::LazyLock;
+
+use colorgrad::{BasisGradient, BlendMode, Gradient};
 use egui::Color32;
 
 use crate::utils::oklab;
@@ -9,6 +12,16 @@ pub fn outlines() -> Color32 {
 pub fn selected_key() -> Color32 {
     Color32::from_hex("#596dbe").unwrap()
 }
+
+pub const DISSONANCE_GRADIENT: LazyLock<BasisGradient> = LazyLock::new(|| {
+    colorgrad::GradientBuilder::new()
+        .html_colors(&[
+            "#4A90E2", "#3CCFCF", "#98D353", "#FFC857", "#FF9A3D", "#FF6B6B", "#FF3366",
+        ])
+        .mode(BlendMode::Oklab)
+        .build::<BasisGradient>()
+        .unwrap()
+});
 
 pub fn setup_custom_theme(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();

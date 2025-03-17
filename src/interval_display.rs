@@ -1,5 +1,7 @@
 use crate::{
-    piano_gui, theme, theory::{self, Interval}, utils::{colorgrad_to_egui, colorous_to_egui}
+    piano_gui, theme,
+    theory::{self, Interval},
+    utils::{colorgrad_to_egui, colorous_to_egui},
 };
 use colorgrad::Gradient;
 use egui::{Align2, Color32, FontId, Rect, Sense, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
@@ -42,14 +44,14 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     Color32::WHITE,
                 );
             } else {
-                let normalized_dissonance =
-                    interval.compound_dissonance() / Interval::Tritone.compound_dissonance();
+                let normalized_dissonance = (interval.compound_dissonance()
+                    - Interval::PerfectFifth.compound_dissonance())
+                    / (Interval::Tritone.compound_dissonance()
+                        - Interval::PerfectFifth.compound_dissonance());
                 painter.rect_filled(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     0.0,
-                    colorous_to_egui(
-                        colorous::YELLOW_ORANGE_RED.eval_continuous(normalized_dissonance as f64),
-                    ),
+                    colorgrad_to_egui(theme::DISSONANCE_GRADIENT.at(normalized_dissonance)),
                 );
                 painter.text(
                     score_center_pos - vec2(0.0, key_width / 2.0 - 4.0),
