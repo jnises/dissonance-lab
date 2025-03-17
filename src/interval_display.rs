@@ -77,5 +77,47 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             }
         }
     }
+    // TOOD: this is AI generated, clean it up
+    // Draw average dissonance for each semitone relative to selected notes
+    if piano.selected_keys().count_ones() > 0 {
+        for semi in 0..12i8 {
+            if piano.selected_keys()[semi as usize] {
+                continue;
+            }
+            let mut total_dissonance = 0.0;
+            let mut count = 0;
+
+            for selected_semi in piano
+                .selected_keys()
+                .iter_ones()
+                .map(|i| i8::try_from(i).unwrap())
+            {
+                let interval = theory::Interval::from_semitone_wrapping(semi - selected_semi);
+                total_dissonance += interval.compound_dissonance();
+                count += 1;
+            }
+
+            let avg_dissonance = total_dissonance / count as f32;
+            let normalized_dissonance = (avg_dissonance
+                - Interval::PerfectFifth.compound_dissonance())
+                / (Interval::Tritone.compound_dissonance()
+                    - Interval::PerfectFifth.compound_dissonance());
+
+            let pos = pos2(
+                interval_rect.left() + key_width * (semi as f32 + 0.5),
+                interval_rect.bottom(),
+            );
+
+            let score_center_pos = pos
+                - Vec2::Y
+                    * ((piano.selected_keys().count_ones() as f32 + 0.4) * (key_width + 4.0) - 4.0);
+
+            painter.rect_filled(
+                Rect::from_center_size(score_center_pos, vec2(key_width, 8.0)),
+                0.0,
+                colorgrad_to_egui(&theme::DISSONANCE_GRADIENT.at(normalized_dissonance)),
+            );
+        }
+    }
     action
 }
