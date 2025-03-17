@@ -1,6 +1,8 @@
+use itertools::Itertools as _;
 use num_rational::Rational32;
 use num_traits::ToPrimitive;
 use std::fmt::{Display, Formatter, Result};
+use std::ops::Div;
 
 pub fn is_key_black(note: usize) -> bool {
     [
@@ -138,6 +140,34 @@ impl Interval {
             Self::MajorSeventh => "M7",
             Self::Octave => "P8",
         }
+    }
+
+    pub fn chord_dissonance(intervals: &[Self]) -> f32 {
+        // Calculate chord dissonance using iterators to get all interval pairs
+        let (sum, count) = intervals
+            .iter()
+            .combinations(2)
+            .map(|pair| {
+                let between_interval = *pair[1] / *pair[0];
+                between_interval.compound_dissonance()
+            })
+            .fold((0.0, 0), |acc, dissonance| (acc.0 + dissonance, acc.1 + 1));
+        sum / count as f32
+    }
+}
+
+impl Div for Interval {
+    type Output = Self;
+
+    /// Calculates the interval between two intervals
+    /// 
+    /// For example, a perfect fifth divided by a major third gives a minor third
+    /// (because a minor third interval separates a major third from a perfect fifth)
+    fn div(self, rhs: Self) -> Self::Output {
+        let left_semitones = self.semitones() as i8;
+        let right_semitones = rhs.semitones() as i8;
+        let semitone_diff = (left_semitones - right_semitones).rem_euclid(12) as u8;
+        Self::from_semitone_interval(semitone_diff)
     }
 }
 
