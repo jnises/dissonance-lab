@@ -1,3 +1,5 @@
+/// Shroeder reverb
+/// AI generated. Seems to work
 pub struct Reverb {
     // Reverb parameters
     room_size: f32,
@@ -111,8 +113,6 @@ impl Reverb {
         for filter in &mut self.comb_filters {
             output += filter.process(input);
         }
-        
-        // Average the comb filter outputs
         output /= self.comb_filters.len() as f32;
         
         // Pass the signal through allpass filters in series
@@ -128,14 +128,10 @@ impl CombFilter {
     #[inline]
     fn process(&mut self, input: f32) -> f32 {
         let output = self.delay_line[self.index];
-        
         self.dampening_value = output * (1.0 - self.damping) + self.dampening_value * self.damping;
-        
         let new_value = input + self.dampening_value * self.feedback;
         self.delay_line[self.index] = new_value;
-        
         self.index = (self.index + 1) % self.delay_line.len();
-        
         output
     }
 }
@@ -144,15 +140,9 @@ impl AllpassFilter {
     #[inline]
     fn process(&mut self, input: f32) -> f32 {
         let delayed = self.delay_line[self.index];
-        
-        // Calculate output sample
         let output = -input * self.feedback + delayed;
-        
-        // Update the delay line
         self.delay_line[self.index] = input + delayed * self.feedback;
-        
         self.index = (self.index + 1) % self.delay_line.len();
-        
         output
     }
 }
