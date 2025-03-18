@@ -1,9 +1,6 @@
-use std::f32::consts::PI;
-
-use itertools::izip;
-use log::info;
-
 use crate::{audio::Synth, reverb::Reverb};
+use log::info;
+use std::f32::consts::PI;
 
 /// Represents a piano key with associated frequency
 #[derive(Copy, Clone)]
@@ -24,14 +21,13 @@ impl PianoKey {
 
 /// Envelope generator for ADSR (Attack, Decay, Sustain, Release)
 struct EnvelopeGenerator {
-    attack_time: f32,   // seconds
-    decay_time: f32,    // seconds
     sustain_level: f32, // 0.0 to 1.0
-    release_time: f32,  // seconds
     current_level: f32,
     state: EnvelopeState,
-    sample_rate: f32,
-    sustain_decay_rate: f32, // Piano-like sustain decay
+    sustain_decay_rate: f32,   // Piano-like sustain decay
+    attack_rate: Option<f32>,  // Precalculated attack rate
+    decay_rate: Option<f32>,   // Precalculated decay rate
+    release_rate: Option<f32>, // Precalculated release rate
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -44,16 +40,42 @@ enum EnvelopeState {
 }
 
 impl EnvelopeGenerator {
+    /// Create a new envelope generator with given ADSR parameters
+    /// - `attack`: Attack time in seconds
+    /// - `decay`: Decay time in seconds
+    /// - `sustain`: Sustain level (0.0 to 1.0)
+    /// - `release`: Release time in seconds
+    /// - `sample_rate`: Sample rate in Hz
     fn new(attack: f32, decay: f32, sustain: f32, release: f32, sample_rate: f32) -> Self {
+        const EPSILON: f32 = 0.000001;
+
+        let attack_rate = if attack > EPSILON {
+            Some(1.0 / (sample_rate * attack))
+        } else {
+            None // Immediate attack
+        };
+
+        let decay_rate = if decay > EPSILON {
+            Some((1.0 - sustain) / (sample_rate * decay))
+        } else {
+            None // Immediate decay
+        };
+
+        let release_rate = if release > EPSILON {
+            Some(1.0 / (sample_rate * release))
+        } else {
+            None // Immediate release
+        };
+
         Self {
-            attack_time: attack,
-            decay_time: decay,
             sustain_level: sustain,
-            release_time: release,
             current_level: 0.0,
             state: EnvelopeState::Idle,
-            sample_rate,
-            sustain_decay_rate: 0.0, // Will be set based on note frequency
+            // Will be set based on note frequency
+            sustain_decay_rate: 0.0,
+            attack_rate,
+            decay_rate,
+            release_rate,
         }
     }
 
@@ -70,32 +92,15 @@ impl EnvelopeGenerator {
         self.sustain_decay_rate = rate;
     }
 
+    #[inline]
     fn process(&mut self) -> f32 {
-        // Use a small epsilon value to avoid division by near-zero
-        const EPSILON: f32 = 0.000001;
-
-        let decay_rate = if self.decay_time > EPSILON {
-            (1.0 - self.sustain_level) / (self.sample_rate * self.decay_time)
-        } else {
-            // Immediate decay
-            1.0
-        };
-
-        let release_rate = if self.release_time > EPSILON {
-            self.current_level / (self.sample_rate * self.release_time)
-        } else {
-            // Immediate release
-            1.0
-        };
-
         match self.state {
             EnvelopeState::Idle => {
                 self.current_level = 0.0;
             }
             EnvelopeState::Attack => {
-                if self.attack_time > EPSILON {
-                    // TODO: precalculat the rate change
-                    self.current_level += 1.0 / (self.sample_rate * self.attack_time);
+                if let Some(rate) = self.attack_rate {
+                    self.current_level += rate;
                     if self.current_level >= 1.0 {
                         self.current_level = 1.0;
                         self.state = EnvelopeState::Decay;
@@ -106,8 +111,13 @@ impl EnvelopeGenerator {
                 }
             }
             EnvelopeState::Decay => {
-                self.current_level -= decay_rate;
-                if self.current_level <= self.sustain_level {
+                if let Some(rate) = self.decay_rate {
+                    self.current_level -= rate;
+                    if self.current_level <= self.sustain_level {
+                        self.current_level = self.sustain_level;
+                        self.state = EnvelopeState::Sustain;
+                    }
+                } else {
                     self.current_level = self.sustain_level;
                     self.state = EnvelopeState::Sustain;
                 }
@@ -121,8 +131,13 @@ impl EnvelopeGenerator {
                 }
             }
             EnvelopeState::Release => {
-                self.current_level -= release_rate;
-                if self.current_level <= 0.0 {
+                if let Some(rate) = self.release_rate {
+                    self.current_level -= rate * self.current_level;
+                    if self.current_level <= 0.0 {
+                        self.current_level = 0.0;
+                        self.state = EnvelopeState::Idle;
+                    }
+                } else {
                     self.current_level = 0.0;
                     self.state = EnvelopeState::Idle;
                 }
@@ -149,7 +164,6 @@ struct PianoVoice {
     // Piano-specific parameters
     detuning: f32,   // Slight detuning for realism
     brightness: f32, // Controls harmonic content
-    hardness: f32,   // Attack characteristic
 }
 
 impl PianoVoice {
@@ -164,7 +178,6 @@ impl PianoVoice {
             current_key: None,
             detuning: 1.003, // Slight detuning factor
             brightness: 0.8, // 0.0 to 1.0
-            hardness: 0.5,   // 0.0 to 1.0
         }
     }
 
@@ -172,7 +185,7 @@ impl PianoVoice {
         self.current_key = Some(key);
         self.update_phase_delta();
 
-        // TODO: is this how it works? claude seems to thing so at least
+        // TODO: is this how it works? claude seems to think so at least
         // Calculate frequency-dependent sustain decay
         // Higher notes decay faster than lower notes
         if let Some(ref key) = self.current_key {
@@ -185,7 +198,6 @@ impl PianoVoice {
             let freq = key.frequency;
             let freq_factor = (freq / 110.0).sqrt();
 
-            // Set the sustain decay rate
             let sustain_decay_rate = base_decay_rate * freq_factor;
             self.envelope.set_sustain_decay_rate(sustain_decay_rate);
         }
@@ -200,7 +212,6 @@ impl PianoVoice {
 
     fn update_phase_delta(&mut self) {
         if let Some(key) = &self.current_key {
-            // Calculate phase increment from frequency
             self.phase_delta = key.frequency / self.sample_rate;
         }
     }
@@ -221,6 +232,7 @@ impl PianoVoice {
         self.detuned_phase =
             (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(1.0);
 
+        // AI generated code. sounds fairly good
         // Generate piano-like waveform using multiple harmonics
         let mut sample = 0.0;
 
@@ -279,7 +291,6 @@ impl PianoSynth {
     }
 
     fn note_off(&mut self, midi_note: wmidi::Note) {
-        // Release all voices playing this note
         for voice in self.voices.iter_mut() {
             if let Some(key) = &voice.current_key {
                 if key.midi_note == midi_note {
