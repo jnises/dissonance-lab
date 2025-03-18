@@ -78,7 +78,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
         }
     }
     // Draw average dissonance for each key if it was added to the chord
-    if piano.selected_keys().count_ones() > 0 {
+    if piano.selected_keys().count_ones() > 1 {
         for semi in 0..12i8 {
             if piano.selected_keys()[semi as usize] {
                 continue;
