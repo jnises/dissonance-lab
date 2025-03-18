@@ -13,8 +13,7 @@ pub struct Reverb {
 }
 
 struct CombFilter {
-    buffer: Vec<f32>,
-    buffer_size: usize,
+    delay_line: Vec<f32>,
     index: usize,
     feedback: f32,
     damping: f32,
@@ -39,8 +38,7 @@ impl Reverb {
         for &delay in &comb_delays {
             let buffer_size = (delay * 0.001 * sample_rate) as usize;
             comb_filters.push(CombFilter {
-                buffer: vec![0.0; buffer_size],
-                buffer_size,
+                delay_line: vec![0.0; buffer_size],
                 index: 0,
                 feedback: 0.84,
                 damping: 0.2,
@@ -129,18 +127,14 @@ impl Reverb {
 impl CombFilter {
     #[inline]
     fn process(&mut self, input: f32) -> f32 {
-        // Read the value from the delay line
-        let output = self.buffer[self.index];
+        let output = self.delay_line[self.index];
         
-        // Apply damping to the feedback
         self.dampening_value = output * (1.0 - self.damping) + self.dampening_value * self.damping;
         
-        // Update the delay line
         let new_value = input + self.dampening_value * self.feedback;
-        self.buffer[self.index] = new_value;
+        self.delay_line[self.index] = new_value;
         
-        // Update the buffer index
-        self.index = (self.index + 1) % self.buffer_size;
+        self.index = (self.index + 1) % self.delay_line.len();
         
         output
     }
@@ -157,7 +151,6 @@ impl AllpassFilter {
         // Update the delay line
         self.delay_line[self.index] = input + delayed * self.feedback;
         
-        // Update the buffer index
         self.index = (self.index + 1) % self.delay_line.len();
         
         output
