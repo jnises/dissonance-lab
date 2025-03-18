@@ -1,7 +1,7 @@
 use crate::{
     piano_gui, theme,
     theory::{self, Interval},
-    utils::{colorgrad_to_egui, colorous_to_egui},
+    utils::colorgrad_to_egui,
 };
 use colorgrad::Gradient;
 use egui::{Align2, Color32, FontId, Rect, Sense, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
@@ -77,16 +77,15 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             }
         }
     }
-    // TOOD: this is AI generated, clean it up
-    // Draw average dissonance for each semitone relative to selected notes
+    // Draw average dissonance for each key if it was added to the chord
     if piano.selected_keys().count_ones() > 0 {
         for semi in 0..12i8 {
             if piano.selected_keys()[semi as usize] {
                 continue;
             }
+
             let mut total_dissonance = 0.0;
             let mut count = 0;
-
             for selected_semi in piano
                 .selected_keys()
                 .iter_ones()
