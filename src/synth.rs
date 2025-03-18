@@ -74,22 +74,18 @@ impl EnvelopeGenerator {
         // Use a small epsilon value to avoid division by near-zero
         const EPSILON: f32 = 0.000001;
 
-        let attack_rate = if self.attack_time > EPSILON {
-            1.0 / (self.sample_rate * self.attack_time)
-        } else {
-            1.0 // Immediate attack
-        };
-
         let decay_rate = if self.decay_time > EPSILON {
             (1.0 - self.sustain_level) / (self.sample_rate * self.decay_time)
         } else {
-            1.0 // Immediate decay
+            // Immediate decay
+            1.0
         };
 
         let release_rate = if self.release_time > EPSILON {
             self.current_level / (self.sample_rate * self.release_time)
         } else {
-            1.0 // Immediate release
+            // Immediate release
+            1.0
         };
 
         match self.state {
@@ -97,8 +93,14 @@ impl EnvelopeGenerator {
                 self.current_level = 0.0;
             }
             EnvelopeState::Attack => {
-                self.current_level += attack_rate;
-                if self.current_level >= 1.0 {
+                if self.attack_time > EPSILON {
+                    // TODO: precalculat the rate change
+                    self.current_level += 1.0 / (self.sample_rate * self.attack_time);
+                    if self.current_level >= 1.0 {
+                        self.current_level = 1.0;
+                        self.state = EnvelopeState::Decay;
+                    }
+                } else {
                     self.current_level = 1.0;
                     self.state = EnvelopeState::Decay;
                 }
@@ -169,7 +171,7 @@ impl PianoVoice {
     fn note_on(&mut self, key: PianoKey) {
         self.current_key = Some(key);
         self.update_phase_delta();
-        
+
         // TODO: is this how it works? claude seems to thing so at least
         // Calculate frequency-dependent sustain decay
         // Higher notes decay faster than lower notes
@@ -177,17 +179,17 @@ impl PianoVoice {
             // Base decay rate - will be multiplied by frequency factor
             // This value is per sample, so we need to scale it according to sample rate
             let base_decay_rate = 0.00001 * (44100.0 / self.sample_rate);
-            
+
             // Scale the decay rate based on frequency
             // Higher notes (higher frequency) decay faster
             let freq = key.frequency;
             let freq_factor = (freq / 110.0).sqrt();
-            
+
             // Set the sustain decay rate
             let sustain_decay_rate = base_decay_rate * freq_factor;
             self.envelope.set_sustain_decay_rate(sustain_decay_rate);
         }
-        
+
         self.envelope.trigger();
         self.is_active = true;
     }
@@ -203,21 +205,19 @@ impl PianoVoice {
         }
     }
 
+    #[inline]
     fn process(&mut self) -> f32 {
         if !self.is_active && !self.envelope.is_active() {
             return 0.0;
         }
 
-        // Process envelope
         let env_value = self.envelope.process();
         if !self.envelope.is_active() {
             self.is_active = false;
             return 0.0;
         }
 
-        // Advance phase
-        self.phase += self.phase_delta;
-        self.phase = self.phase.rem_euclid(1.0);
+        self.phase = (self.phase + self.phase_delta).rem_euclid(1.0);
         self.detuned_phase =
             (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(1.0);
 
@@ -227,7 +227,7 @@ impl PianoVoice {
         // Fundamental
         sample += 0.6 * (2.0 * PI * self.phase).sin();
 
-        // Second harmonic (octave) - quite strong in pianos
+        // Second harmonic - quite strong in pianos
         sample += 0.4 * (2.0 * 2.0 * PI * self.phase).sin();
 
         // Third harmonic
@@ -241,15 +241,9 @@ impl PianoVoice {
         // Detuned oscillator for richness
         sample += 0.1 * (2.0 * PI * self.detuned_phase).sin();
 
-        // Normalize and apply envelope
-        sample = sample * 0.3; // Reduce overall volume to prevent clipping
+        // Reduce overall volume to prevent clipping
+        sample *= 0.3;
         sample *= env_value;
-
-        // Apply characteristic piano attack based on hardness
-        let attack_mod = (1.0 - self.hardness).max(0.1);
-        if self.envelope.state == EnvelopeState::Attack {
-            sample *= attack_mod + (1.0 - attack_mod) * self.envelope.current_level;
-        }
 
         sample
     }
@@ -275,15 +269,12 @@ impl PianoSynth {
 
     fn note_on(&mut self, note: wmidi::Note, _velocity: wmidi::U7) {
         let key = PianoKey::new(note);
-
-        // Find free voice or steal the oldest one
         let voice = if let Some(voice) = self.voices.iter_mut().find(|v| !v.is_active) {
             voice
         } else {
             // Simple voice stealing - just get the first one
             &mut self.voices[0]
         };
-
         voice.note_on(key);
     }
 
@@ -298,18 +289,10 @@ impl PianoSynth {
         }
     }
 
-    // TODO: buffer this all the way
+    #[inline]
     fn process(&mut self) -> f32 {
-        // Mix all active voices
-        let mut output = 0.0;
-        for voice in self.voices.iter_mut() {
-            output += voice.process();
-        }
-
-        // Simple limiter to prevent clipping
-        output = output.clamp(-1.0, 1.0);
-
-        output
+        let output: f32 = self.voices.iter_mut().map(|v| v.process()).sum();
+        output.clamp(-1.0, 1.0)
     }
 }
 
@@ -363,17 +346,14 @@ impl Synth for PianoSynth {
                 }
             }
         }
-        let buff_len = out_samples.len() / num_channels;
-        // TODO: cache the buffers
-        let buffer: Vec<_> = (0..buff_len).map(|_| self.process()).collect();
-        let mut output = vec![0f32; buff_len];
-        self.reverb
-            .get_or_insert_with(|| Reverb::new(sample_rate as f32))
-            .process_buffer_optimized(&buffer, &mut output);
-        for (sample, out_channels) in buffer.into_iter().zip(out_samples.chunks_exact_mut(num_channels))
-        {
+        for out_channels in out_samples.chunks_exact_mut(num_channels) {
+            let s = self.process();
+            let s = self
+                .reverb
+                .get_or_insert_with(|| Reverb::new(sample_rate as f32))
+                .process(s);
             for c in out_channels.iter_mut() {
-                *c = sample;
+                *c = s;
             }
         }
     }
