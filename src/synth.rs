@@ -170,6 +170,7 @@ impl PianoVoice {
         self.current_key = Some(key);
         self.update_phase_delta();
         
+        // TODO: is this how it works? claude seems to thing so at least
         // Calculate frequency-dependent sustain decay
         // Higher notes decay faster than lower notes
         if let Some(ref key) = self.current_key {
@@ -365,17 +366,14 @@ impl Synth for PianoSynth {
         let buff_len = out_samples.len() / num_channels;
         // TODO: cache the buffers
         let buffer: Vec<_> = (0..buff_len).map(|_| self.process()).collect();
-        // TODO: declick
-        let mut left = vec![0f32; buff_len];
-        let mut right = vec![0f32; buff_len];
+        let mut output = vec![0f32; buff_len];
         self.reverb
             .get_or_insert_with(|| Reverb::new(sample_rate as f32))
-            .process_stereo_buffer(&buffer, &buffer, &mut left, &mut right);
-        for (left, right, out_channels) in
-            izip!(left, right, out_samples.chunks_exact_mut(num_channels))
+            .process_buffer_optimized(&buffer, &mut output);
+        for (sample, out_channels) in buffer.into_iter().zip(out_samples.chunks_exact_mut(num_channels))
         {
-            for (i, c) in out_channels.iter_mut().enumerate() {
-                *c = [left, right][i % 2];
+            for c in out_channels.iter_mut() {
+                *c = sample;
             }
         }
     }
