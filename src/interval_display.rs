@@ -1,6 +1,6 @@
 use crate::{
     piano_gui, theme,
-    theory::{self, Interval},
+    interval::{self, Interval},
     utils::colorgrad_to_egui,
 };
 use colorgrad::Gradient;
@@ -22,7 +22,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
         .enumerate()
     {
         for semi in 0..12i8 {
-            let interval = theory::Interval::from_semitone_wrapping(semi - selected_semi);
+            let interval = interval::Interval::from_semitone_wrapping(semi - selected_semi);
             let pos = pos2(
                 interval_rect.left() + key_width * (semi as f32 + 0.5),
                 interval_rect.bottom(),
@@ -91,7 +91,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 .iter_ones()
                 .map(|i| i8::try_from(i).unwrap())
             {
-                let interval = theory::Interval::from_semitone_wrapping(semi - selected_semi);
+                let interval = interval::Interval::from_semitone_wrapping(semi - selected_semi);
                 total_dissonance += interval.compound_dissonance();
                 count += 1;
             }

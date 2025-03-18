@@ -2,7 +2,7 @@
 
 mod app;
 pub use app::TheoryApp;
-mod theory;
+mod interval;
 mod audio;
 mod synth;
 mod reverb;

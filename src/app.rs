@@ -14,7 +14,7 @@ use crate::{
     piano_gui::{self, PianoGui, PIANO_WIDTH},
     synth::PianoSynth,
     theme,
-    theory::is_key_black, utils::colorgrad_to_egui,
+    interval::is_key_black, utils::colorgrad_to_egui,
 };
 
 struct Audio {
