@@ -323,34 +323,32 @@ impl Synth for PianoSynth {
         }
         loop {
             match self.rx.try_recv() {
-                Ok(message) => {
-                    match message {
-                        wmidi::MidiMessage::NoteOff(_channel, note, _velocity) => {
-                            self.note_off(note);
-                        }
-                        wmidi::MidiMessage::NoteOn(_channel, note, velocity) => {
-                            self.note_on(note, velocity);
-                        }
-                        wmidi::MidiMessage::PolyphonicKeyPressure(_, _, _)
-                        | wmidi::MidiMessage::ControlChange(_, _, _)
-                        | wmidi::MidiMessage::ProgramChange(_, _)
-                        | wmidi::MidiMessage::ChannelPressure(_, _)
-                        | wmidi::MidiMessage::PitchBendChange(_, _)
-                        | wmidi::MidiMessage::SysEx(_)
-                        | wmidi::MidiMessage::OwnedSysEx(_)
-                        | wmidi::MidiMessage::MidiTimeCode(_)
-                        | wmidi::MidiMessage::SongPositionPointer(_)
-                        | wmidi::MidiMessage::SongSelect(_)
-                        | wmidi::MidiMessage::Reserved(_)
-                        | wmidi::MidiMessage::TuneRequest
-                        | wmidi::MidiMessage::TimingClock
-                        | wmidi::MidiMessage::Start
-                        | wmidi::MidiMessage::Continue
-                        | wmidi::MidiMessage::Stop
-                        | wmidi::MidiMessage::ActiveSensing
-                        | wmidi::MidiMessage::Reset => todo!(),
+                Ok(message) => match message {
+                    wmidi::MidiMessage::NoteOff(_channel, note, _velocity) => {
+                        self.note_off(note);
                     }
-                }
+                    wmidi::MidiMessage::NoteOn(_channel, note, velocity) => {
+                        self.note_on(note, velocity);
+                    }
+                    wmidi::MidiMessage::PolyphonicKeyPressure(_, _, _)
+                    | wmidi::MidiMessage::ControlChange(_, _, _)
+                    | wmidi::MidiMessage::ProgramChange(_, _)
+                    | wmidi::MidiMessage::ChannelPressure(_, _)
+                    | wmidi::MidiMessage::PitchBendChange(_, _)
+                    | wmidi::MidiMessage::SysEx(_)
+                    | wmidi::MidiMessage::OwnedSysEx(_)
+                    | wmidi::MidiMessage::MidiTimeCode(_)
+                    | wmidi::MidiMessage::SongPositionPointer(_)
+                    | wmidi::MidiMessage::SongSelect(_)
+                    | wmidi::MidiMessage::Reserved(_)
+                    | wmidi::MidiMessage::TuneRequest
+                    | wmidi::MidiMessage::TimingClock
+                    | wmidi::MidiMessage::Start
+                    | wmidi::MidiMessage::Continue
+                    | wmidi::MidiMessage::Stop
+                    | wmidi::MidiMessage::ActiveSensing
+                    | wmidi::MidiMessage::Reset => todo!(),
+                },
                 Err(_) => {
                     break;
                 }

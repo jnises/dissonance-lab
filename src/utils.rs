@@ -1,4 +1,3 @@
-
 /// Convert a color from colorgrad to egui's Color32
 pub fn colorgrad_to_egui(color: &colorgrad::Color) -> egui::Color32 {
     let [r, g, b, a] = color.to_rgba8();

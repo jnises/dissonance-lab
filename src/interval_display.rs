@@ -1,6 +1,6 @@
 use crate::{
-    piano_gui, theme,
     interval::{self, Interval},
+    piano_gui, theme,
     utils::colorgrad_to_egui,
 };
 use colorgrad::Gradient;

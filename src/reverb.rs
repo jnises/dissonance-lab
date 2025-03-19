@@ -49,14 +49,17 @@ impl Reverb {
             })
             .collect();
 
-        let allpass_filters = allpass_delays.into_iter().map(|delay| {
-            let buffer_size = (delay * 0.001 * sample_rate) as usize;
-            AllpassFilter {
-                delay_line: vec![0.0; buffer_size],
-                index: 0,
-                feedback: 0.5,
-            }
-        }).collect();
+        let allpass_filters = allpass_delays
+            .into_iter()
+            .map(|delay| {
+                let buffer_size = (delay * 0.001 * sample_rate) as usize;
+                AllpassFilter {
+                    delay_line: vec![0.0; buffer_size],
+                    index: 0,
+                    feedback: 0.5,
+                }
+            })
+            .collect();
 
         Reverb {
             room_size: 0.5,

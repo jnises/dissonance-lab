@@ -2,11 +2,11 @@
 
 mod app;
 pub use app::TheoryApp;
-mod interval;
 mod audio;
-mod synth;
-mod reverb;
-mod piano_gui;
-mod theme;
+mod interval;
 mod interval_display;
+mod piano_gui;
+mod reverb;
+mod synth;
+mod theme;
 mod utils;

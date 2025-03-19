@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
     BufferSize, Device, OutputCallbackInfo, SampleFormat, Stream, SupportedBufferSize,
     SupportedStreamConfigRange,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use crossbeam::atomic::AtomicCell;
 use log::warn;
