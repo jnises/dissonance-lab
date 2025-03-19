@@ -96,6 +96,14 @@ impl eframe::App for TheoryApp {
                             FontId::monospace(10.0),
                             theme::TEXT_TERTIARY,
                         );
+                    } else {
+                        ui.painter().text(
+                            ui.max_rect().right_bottom(),
+                            Align2::RIGHT_BOTTOM,
+                            self.piano_gui.selected_chord_name().unwrap(),
+                            FontId::monospace(10.0),
+                            theme::TEXT_TERTIARY,
+                        );
                     }
                 });
                 match interval_display::show(&mut self.piano_gui, ui) {
