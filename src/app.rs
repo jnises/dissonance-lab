@@ -85,7 +85,7 @@ impl eframe::App for TheoryApp {
                         ui.max_rect().center_bottom(),
                         Align2::CENTER_BOTTOM,
                         "theory",
-                        FontId::monospace(12.0),
+                        FontId::proportional(12.0),
                         colorgrad_to_egui(&theme::KEYBOARD_LABEL),
                     );
                     if self.piano_gui.selected_keys().count_ones() <= 1 {
@@ -93,7 +93,7 @@ impl eframe::App for TheoryApp {
                             ui.max_rect().right_bottom(),
                             Align2::RIGHT_BOTTOM,
                             "shift for multi select",
-                            FontId::monospace(10.0),
+                            FontId::proportional(10.0),
                             theme::TEXT_TERTIARY,
                         );
                     } else {
