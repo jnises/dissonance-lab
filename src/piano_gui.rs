@@ -128,87 +128,21 @@ impl PianoGui {
             intervals.sort();
             
             // Check for standard chord types
-            let (chord_type, inversion) = match (intervals.as_slice(), selected_semitones.len()) {
-                ([4, 7], 3) => {
-                    // Major triad
-                    match rotation {
-                        0 => ("maj", ""),        // Root position
-                        1 => ("maj", "/3"),      // First inversion (C/E)
-                        2 => ("maj", "/5"),      // Second inversion (C/G)
-                        _ => ("", ""),
-                    }
-                },
-                ([3, 7], 3) => {
-                    // Minor triad
-                    match rotation {
-                        0 => ("min", ""),        // Root position
-                        1 => ("min", "/b3"),     // First inversion (Cm/Eb)
-                        2 => ("min", "/5"),      // Second inversion (Cm/G)
-                        _ => ("", ""),
-                    }
-                },
-                ([3, 6], 3) => {
-                    // Diminished triad
-                    match rotation {
-                        0 => ("dim", ""),        // Root position
-                        1 => ("dim", "/b3"),     // First inversion
-                        2 => ("dim", "/b5"),     // Second inversion
-                        _ => ("", ""),
-                    }
-                },
-                ([4, 8], 3) => {
-                    // Augmented triad (all inversions sound the same)
-                    ("aug", "")
-                },
-                ([4, 7, 11], 4) => {
-                    // Major seventh
-                    match rotation {
-                        0 => ("maj7", ""),       // Root position
-                        1 => ("maj7", "/3"),     // First inversion
-                        2 => ("maj7", "/5"),     // Second inversion
-                        3 => ("maj7", "/7"),     // Third inversion
-                        _ => ("", ""),
-                    }
-                },
-                ([3, 7, 10], 4) => {
-                    // Minor seventh
-                    match rotation {
-                        0 => ("min7", ""),       // Root position
-                        1 => ("min7", "/b3"),    // First inversion
-                        2 => ("min7", "/5"),     // Second inversion
-                        3 => ("min7", "/b7"),    // Third inversion
-                        _ => ("", ""),
-                    }
-                },
-                ([4, 7, 10], 4) => {
-                    // Dominant seventh
-                    match rotation {
-                        0 => ("7", ""),          // Root position
-                        1 => ("7", "/3"),        // First inversion
-                        2 => ("7", "/5"),        // Second inversion
-                        3 => ("7", "/b7"),       // Third inversion
-                        _ => ("", ""),
-                    }
-                },
-                ([3, 6, 9], 4) => {
-                    // Diminished seventh (all inversions sound the same)
-                    ("dim7", "")
-                },
-                ([3, 6, 10], 4) => {
-                    // Half-diminished seventh
-                    match rotation {
-                        0 => ("m7b5", ""),       // Root position
-                        1 => ("m7b5", "/b3"),    // First inversion
-                        2 => ("m7b5", "/b5"),    // Second inversion
-                        3 => ("m7b5", "/b7"),    // Third inversion
-                        _ => ("", ""),
-                    }
-                },
-                _ => ("", ""),                   // Unknown chord type
+            let chord_type = match (intervals.as_slice(), selected_semitones.len()) {
+                ([4, 7], 3) => "maj",           // Major triad
+                ([3, 7], 3) => "min",           // Minor triad
+                ([3, 6], 3) => "dim",           // Diminished triad
+                ([4, 8], 3) => "aug",           // Augmented triad
+                ([4, 7, 11], 4) => "maj7",      // Major seventh
+                ([3, 7, 10], 4) => "min7",      // Minor seventh
+                ([4, 7, 10], 4) => "7",         // Dominant seventh
+                ([3, 6, 9], 4) => "dim7",       // Diminished seventh
+                ([3, 6, 10], 4) => "m7b5",      // Half-diminished seventh
+                _ => "",                         // Unknown chord type
             };
             
             if !chord_type.is_empty() {
-                return Some(format!("{}{}{}", root, chord_type, inversion));
+                return Some(format!("{root}{chord_type}"));
             }
         }
         
