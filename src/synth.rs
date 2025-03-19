@@ -324,7 +324,6 @@ impl Synth for PianoSynth {
         loop {
             match self.rx.try_recv() {
                 Ok(message) => {
-                    info!("message received: {message:?}");
                     match message {
                         wmidi::MidiMessage::NoteOff(_channel, note, _velocity) => {
                             self.note_off(note);
