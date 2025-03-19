@@ -77,7 +77,6 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             }
         }
     }
-    // Draw average dissonance for each key if it was added to the chord
     if piano.selected_keys().count_ones() > 1 {
         let chord_dissonances: Vec<_> = (0..12i8)
             .map(|semi| {
@@ -90,11 +89,6 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                         .into_iter()
                         .map(|i| Interval::from_semitone_wrapping(i8::try_from(i).unwrap())),
                 );
-                // let normalized_dissonance = (avg_dissonance
-                //     - Interval::PerfectFifth.compound_dissonance())
-                //     / (Interval::Tritone.compound_dissonance()
-                //         - Interval::PerfectFifth.compound_dissonance());
-                // normalized_dissonance
                 avg_dissonance
             })
             .collect();
@@ -117,11 +111,9 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 interval_rect.left() + key_width * (semi as f32 + 0.5),
                 interval_rect.bottom(),
             );
-
             let score_center_pos = pos
                 - Vec2::Y
                     * ((piano.selected_keys().count_ones() as f32 + 0.4) * (key_width + 4.0) - 4.0);
-
             painter.rect_filled(
                 Rect::from_center_size(score_center_pos, vec2(key_width, 8.0)),
                 0.0,
