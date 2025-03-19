@@ -59,7 +59,6 @@ impl TheoryApp {
         let audio = AudioManager::new(synth, |message| {
             warn!("{message}");
         });
-        info!("audio initialized: {:?}", audio.get_name());
         self.audio = AudioState::Setup(Audio { tx, _audio: audio });
     }
 }
