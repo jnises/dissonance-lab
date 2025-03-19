@@ -131,3 +131,21 @@ fn black_key_to_semitone(key: usize) -> usize {
         _ => panic!("Invalid black key index"),
     }
 }
+
+fn semitone_name(semitone: usize) -> &'static str {
+    match semitone {
+        0 => "C",
+        1 => "C#",
+        2 => "D",
+        3 => "D#",
+        4 => "E",
+        5 => "F",
+        6 => "F#",
+        7 => "G",
+        8 => "G#",
+        9 => "A",
+        10 => "A#",
+        11 => "B",
+        _ => panic!("Invalid semitone"),
+    }
+}

@@ -10,7 +10,6 @@ use log::{info, warn};
 
 use crate::{
     audio::AudioManager,
-    interval::is_key_black,
     interval_display,
     piano_gui::{self, PIANO_WIDTH, PianoGui},
     synth::PianoSynth,

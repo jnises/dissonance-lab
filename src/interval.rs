@@ -4,12 +4,6 @@ use num_traits::ToPrimitive;
 use std::fmt::{Display, Formatter, Result};
 use std::ops::Div;
 
-pub fn is_key_black(note: usize) -> bool {
-    [
-        false, true, false, true, false, false, true, false, true, false, true, false,
-    ][note % 12]
-}
-
 /// Musical intervals that define the distance between two notes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interval {
