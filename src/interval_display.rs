@@ -79,21 +79,40 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
     }
     // Draw average dissonance for each key if it was added to the chord
     if piano.selected_keys().count_ones() > 1 {
-        for semi in 0..12i8 {
-            let mut chord: Vec<_> = piano.selected_keys().iter_ones().collect();
-            if !piano.selected_keys()[semi as usize] {
-                chord.push(semi as usize);
-            }
-            let avg_dissonance = Interval::chord_dissonance(
-                chord
-                    .into_iter()
-                    .map(|i| Interval::from_semitone_wrapping(i8::try_from(i).unwrap())),
-            );
-            let normalized_dissonance = (avg_dissonance
-                - Interval::PerfectFifth.compound_dissonance())
-                / (Interval::Tritone.compound_dissonance()
-                    - Interval::PerfectFifth.compound_dissonance());
+        let chord_dissonances: Vec<_> = (0..12i8)
+            .map(|semi| {
+                let mut chord: Vec<_> = piano.selected_keys().iter_ones().collect();
+                if !piano.selected_keys()[semi as usize] {
+                    chord.push(semi as usize);
+                }
+                let avg_dissonance = Interval::chord_dissonance(
+                    chord
+                        .into_iter()
+                        .map(|i| Interval::from_semitone_wrapping(i8::try_from(i).unwrap())),
+                );
+                // let normalized_dissonance = (avg_dissonance
+                //     - Interval::PerfectFifth.compound_dissonance())
+                //     / (Interval::Tritone.compound_dissonance()
+                //         - Interval::PerfectFifth.compound_dissonance());
+                // normalized_dissonance
+                avg_dissonance
+            })
+            .collect();
+        let consonant_chord = *chord_dissonances
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap();
+        let dissonant_chord = *chord_dissonances
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap();
 
+        for (semi, dissonance) in chord_dissonances.into_iter().enumerate() {
+            let normalized_dissonance = if (dissonant_chord - consonant_chord).abs() > f32::EPSILON {
+                (dissonance - consonant_chord) / (dissonant_chord - consonant_chord)
+            } else {
+                dissonance
+            };
             let pos = pos2(
                 interval_rect.left() + key_width * (semi as f32 + 0.5),
                 interval_rect.bottom(),
