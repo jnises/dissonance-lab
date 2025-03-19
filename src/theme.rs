@@ -28,8 +28,8 @@ const SELECTION_STATE: LazyLock<Color32> =
 
 // Text & Labels
 const TEXT_PRIMARY: Color32 = Color32::from_rgb(255, 255, 255); // #FFFFFF
-const TEXT_SECONDARY: Color32 = Color32::from_rgb(179, 179, 179); // #B3B3B3
-const TEXT_TERTIARY: Color32 = Color32::from_rgb(108, 108, 108); // #6C6C6C
+pub const TEXT_SECONDARY: Color32 = Color32::from_rgb(179, 179, 179); // #B3B3B3
+pub const TEXT_TERTIARY: Color32 = Color32::from_rgb(108, 108, 108); // #6C6C6C
 const TEXT_LINK: Color32 = Color32::from_rgb(140, 140, 255); // #8C8CFF
 
 // Annotation

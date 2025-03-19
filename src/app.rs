@@ -69,27 +69,34 @@ impl eframe::App for TheoryApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 ui.allocate_ui(vec2(PIANO_WIDTH, 40.0), |ui| {
-                    ui.with_layout(Layout::right_to_left(Align::BOTTOM), |ui| {
-                        match self.audio {
-                            AudioState::Uninitialized | AudioState::Setup(_) => {
-                                if ui.button("🔈").clicked() {
-                                    self.audio = AudioState::Muted;
-                                }
-                            }
-                            AudioState::Muted => {
-                                if ui.button("🔇").clicked() {
-                                    self.setup_audio();
-                                }
+                    ui.horizontal(|ui| match self.audio {
+                        AudioState::Uninitialized | AudioState::Setup(_) => {
+                            if ui.button("🔈").clicked() {
+                                self.audio = AudioState::Muted;
                             }
                         }
-                        ui.painter().text(
-                            ui.available_rect_before_wrap().center_bottom(),
-                            Align2::CENTER_BOTTOM,
-                            "theory",
-                            FontId::monospace(12.0),
-                            colorgrad_to_egui(&theme::KEYBOARD_LABEL),
-                        );
+                        AudioState::Muted => {
+                            if ui.button("🔇").clicked() {
+                                self.setup_audio();
+                            }
+                        }
                     });
+                    ui.painter().text(
+                        ui.max_rect().center_bottom(),
+                        Align2::CENTER_BOTTOM,
+                        "theory",
+                        FontId::monospace(12.0),
+                        colorgrad_to_egui(&theme::KEYBOARD_LABEL),
+                    );
+                    if self.piano_gui.selected_keys().count_ones() <= 1 {
+                        ui.painter().text(
+                            ui.max_rect().right_bottom(),
+                            Align2::RIGHT_BOTTOM,
+                            "shift for multi select",
+                            FontId::monospace(10.0),
+                            theme::TEXT_TERTIARY,
+                        );
+                    }
                 });
                 match interval_display::show(&mut self.piano_gui, ui) {
                     None => {}
