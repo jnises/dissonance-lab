@@ -78,11 +78,11 @@ impl Interval {
     }
 
     /// Returns the difference in cents between just intonation and equal temperament
-    /// Positive values mean just intonation is higher than equal temperament
+    /// Positive values mean just intonation is sharper than equal temperament
     pub fn tempered_just_error_cents(&self) -> f32 {
         let just_cents = 1200.0 * (self.just_ratio().to_f32().unwrap().ln() / 2.0_f32.ln());
         let tempered_cents = 100.0 * self.semitones() as f32;
-        tempered_cents - just_cents
+        just_cents - tempered_cents
     }
 
     /// Get the number of semitones in this interval
@@ -106,22 +106,35 @@ impl Interval {
 
     /// dissonance based on just interval and how large the just/tempered error is  
     pub fn compound_dissonance(&self) -> f32 {
-        // TODO: calculate this directly instead
-        match self {
-            Interval::Unison => 0.0,
-            Interval::MinorSecond => 0.7852,
-            Interval::MajorSecond => 0.6117,
-            Interval::MinorThird => 0.3969,
-            Interval::MajorThird => 0.3411,
-            Interval::PerfectFourth => 0.2059,
-            Interval::Tritone => 0.8793,
-            Interval::PerfectFifth => 0.1059,
-            Interval::MinorSixth => 0.4911,
-            Interval::MajorSixth => 0.4469,
-            Interval::MinorSeventh => 0.7617,
-            Interval::MajorSeventh => 0.8352,
-            Interval::Octave => 0.0,
-        }
+        // Factor 1: Ratio complexity - simpler ratios are less dissonant
+        let just = self.just_ratio();
+        let numer = just.numer().abs() as f32;
+        let denom = just.denom().abs() as f32;
+        let complexity = 1.0 - 1.0 / (0.7 * (numer + denom - 1.0)).sqrt();
+
+        // Factor 2: Just/tempered error in cents
+        let cents_error = self.tempered_just_error_cents().abs() / 20.0; // Normalize
+        let error_factor = cents_error.min(1.0);
+
+        // Factor 3: Perceptual/cultural base dissonance
+        let base_dissonance = match self {
+            Self::Unison => 0.00,
+            Self::Octave => 0.05,
+            Self::PerfectFifth => 0.10,
+            Self::PerfectFourth => 0.15,
+            Self::MajorThird => 0.25,
+            Self::MinorThird => 0.30,
+            Self::MajorSixth => 0.35,
+            Self::MinorSixth => 0.40,
+            Self::MajorSecond => 0.60,
+            Self::MinorSeventh => 0.65,
+            Self::MajorSeventh => 0.75,
+            Self::MinorSecond => 0.85,
+            Self::Tritone => 0.90,
+        };
+
+        // Weighted combination of all factors
+        0.5 * base_dissonance + 0.3 * complexity + 0.2 * error_factor
     }
 
     pub fn abbreviated_string(&self) -> &'static str {
@@ -160,7 +173,7 @@ impl Div for Interval {
     type Output = Self;
 
     /// Calculates the interval between two intervals
-    /// 
+    ///
     /// For example, a perfect fifth divided by a major third gives a minor third
     /// (because a minor third interval separates a major third from a perfect fifth)
     fn div(self, rhs: Self) -> Self::Output {
@@ -256,7 +269,7 @@ mod tests {
         );
         assert_approx_eq(
             Interval::MinorSeventh.tempered_just_error_cents(),
-            -17.60,
+            17.60,
             0.01,
         );
 
@@ -271,5 +284,41 @@ mod tests {
             "Expected {expected}, got {actual} (difference: {})",
             (actual - expected).abs()
         );
+    }
+
+    #[test]
+    fn test_interval_dissonance_ordering() {
+        // ordered according to dissonance
+        let intervals = vec![
+            Interval::Unison,
+            Interval::Octave,
+            Interval::PerfectFifth,
+            Interval::PerfectFourth,
+            Interval::MajorThird,
+            Interval::MinorThird,
+            Interval::MajorSixth,
+            Interval::MinorSixth,
+            Interval::MajorSecond,
+            Interval::MinorSeventh,
+            Interval::MajorSeventh,
+            Interval::MinorSecond,
+            Interval::Tritone,
+        ];
+
+        let dissonances: Vec<(Interval, f32)> = intervals
+            .iter()
+            .map(|i| (*i, i.compound_dissonance()))
+            .collect();
+
+        // Check that dissonance increases (or stays the same) as we go through the array
+        for window in dissonances.windows(2) {
+            let (current_interval, current_dissonance) = window[0];
+            let (next_interval, next_dissonance) = window[1];
+
+            assert!(
+                current_dissonance <= next_dissonance,
+                "Expected {current_interval} (dissonance: {current_dissonance:.2}) to be less dissonant than {next_interval} (dissonance: {next_dissonance:.2})"
+            );
+        }
     }
 }
