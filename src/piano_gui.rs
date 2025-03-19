@@ -23,7 +23,7 @@ impl PianoGui {
         let mut action = None;
         let mut piano_size = vec2(PIANO_WIDTH, PIANO_HEIGHT);
         if piano_size.x > ui.available_width() {
-            piano_size *= ui.available_width() / piano_size.x;
+            piano_size *= (ui.available_width() / piano_size.x).max(0.5);
         }
         let (response, painter) =
             ui.allocate_painter(piano_size, Sense::empty());

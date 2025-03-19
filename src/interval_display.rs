@@ -1,6 +1,7 @@
 use crate::{
     interval::{self, Interval},
-    piano_gui, theme,
+    piano_gui::{self, PIANO_WIDTH},
+    theme,
     utils::colorgrad_to_egui,
 };
 use colorgrad::Gradient;
@@ -15,6 +16,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
     ui.allocate_rect(interval_rect, Sense::empty());
     let painter = ui.painter();
     let key_width = interval_rect.width() / 12.0;
+    let font_scale = interval_rect.width() / (PIANO_WIDTH - 4.0);
     for (row, selected_semi) in piano
         .selected_keys()
         .iter_ones()
@@ -40,7 +42,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     score_center_pos,
                     Align2::CENTER_CENTER,
                     "♪",
-                    FontId::monospace(20.0),
+                    FontId::monospace(20.0 * font_scale),
                     Color32::WHITE,
                 );
             } else {
@@ -57,21 +59,21 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     score_center_pos - vec2(0.0, key_width / 2.0 - 4.0),
                     Align2::CENTER_TOP,
                     interval.just_ratio().to_string(),
-                    FontId::monospace(14.0),
+                    FontId::monospace(14.0 * font_scale),
                     Color32::BLACK,
                 );
                 painter.text(
                     score_center_pos - vec2(0.0, key_width / 2.0 - 20.0),
                     Align2::CENTER_TOP,
                     format!("{:+}¢", interval.tempered_just_error_cents() as i32),
-                    FontId::monospace(12.0),
+                    FontId::monospace(12.0 * font_scale),
                     Color32::from_black_alpha(180),
                 );
                 painter.text(
                     score_center_pos + vec2(0.0, key_width / 2.0 - 4.0),
                     Align2::CENTER_BOTTOM,
                     interval.to_string(),
-                    FontId::proportional(7.0),
+                    FontId::proportional(7.0 * font_scale),
                     Color32::from_black_alpha(150),
                 );
             }
@@ -102,7 +104,8 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             .unwrap();
 
         for (semi, dissonance) in chord_dissonances.into_iter().enumerate() {
-            let normalized_dissonance = if (dissonant_chord - consonant_chord).abs() > f32::EPSILON {
+            let normalized_dissonance = if (dissonant_chord - consonant_chord).abs() > f32::EPSILON
+            {
                 (dissonance - consonant_chord) / (dissonant_chord - consonant_chord)
             } else {
                 dissonance
