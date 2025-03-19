@@ -155,13 +155,11 @@ impl Interval {
         }
     }
 
-    pub fn chord_dissonance(intervals: &[Self]) -> f32 {
-        // Calculate chord dissonance using iterators to get all interval pairs
+    pub fn chord_dissonance(intervals: impl Iterator<Item = Self>) -> f32 {
         let (sum, count) = intervals
-            .iter()
             .combinations(2)
             .map(|pair| {
-                let between_interval = *pair[1] / *pair[0];
+                let between_interval = pair[1] / pair[0];
                 between_interval.compound_dissonance()
             })
             .fold((0.0, 0), |acc, dissonance| (acc.0 + dissonance, acc.1 + 1));
@@ -318,6 +316,68 @@ mod tests {
             assert!(
                 current_dissonance <= next_dissonance,
                 "Expected {current_interval} (dissonance: {current_dissonance:.2}) to be less dissonant than {next_interval} (dissonance: {next_dissonance:.2})"
+            );
+        }
+    }
+
+    #[test]
+    fn test_most_consonant_dissonant_intervals() {
+        // Check that unison is the least dissonant
+        assert!(Interval::Unison.compound_dissonance() < Interval::Octave.compound_dissonance());
+        
+        // Check that perfect fifth is the least dissonant non-trivial interval
+        let non_unison_intervals = [
+            Interval::Octave,
+            Interval::PerfectFifth,
+            Interval::PerfectFourth,
+            Interval::MajorThird,
+            Interval::MinorThird,
+            Interval::MajorSixth,
+            Interval::MinorSixth,
+            Interval::MajorSecond,
+            Interval::MinorSeventh,
+            Interval::MajorSeventh,
+            Interval::MinorSecond,
+            Interval::Tritone,
+        ];
+        
+        let fifth_dissonance = Interval::PerfectFifth.compound_dissonance();
+        for interval in non_unison_intervals {
+            if interval == Interval::PerfectFifth {
+                continue;
+            }
+            if interval == Interval::Octave {
+                assert!(
+                    fifth_dissonance > interval.compound_dissonance(),
+                    "Perfect fifth should be more dissonant than octave"
+                );
+            } else {
+                assert!(
+                    fifth_dissonance < interval.compound_dissonance(),
+                    "Perfect fifth should be less dissonant than {interval}"
+                );
+            }
+        }
+        
+        // Check that tritone is the most dissonant
+        let tritone_dissonance = Interval::Tritone.compound_dissonance();
+        for interval in [
+            Interval::Unison,
+            Interval::Octave,
+            Interval::PerfectFifth,
+            Interval::PerfectFourth,
+            Interval::MajorThird,
+            Interval::MinorThird,
+            Interval::MajorSixth,
+            Interval::MinorSixth,
+            Interval::MajorSecond,
+            Interval::MinorSeventh,
+            Interval::MajorSeventh,
+            Interval::MinorSecond,
+        ] {
+            assert!(
+                tritone_dissonance > interval.compound_dissonance(),
+                "Tritone should be more dissonant than {interval}"
             );
         }
     }
