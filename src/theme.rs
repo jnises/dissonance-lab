@@ -53,7 +53,7 @@ pub fn selected_key() -> Color32 {
     KEYBOARD_PRIMARY
 }
 
-pub const DISSONANCE_GRADIENT: LazyLock<BasisGradient> = LazyLock::new(|| {
+pub static DISSONANCE_GRADIENT: LazyLock<BasisGradient> = LazyLock::new(|| {
     colorgrad::GradientBuilder::new()
         .html_colors(&[
             "#4A90E2", "#3CCFCF", "#98D353", "#FFC857", "#FF9A3D", "#FF6B6B", "#FF3366",
