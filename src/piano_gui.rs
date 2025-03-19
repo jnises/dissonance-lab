@@ -21,8 +21,12 @@ impl PianoGui {
 
     pub fn show(&mut self, ui: &mut Ui) -> (Option<Action>, Rect) {
         let mut action = None;
+        let mut piano_size = vec2(PIANO_WIDTH, PIANO_HEIGHT);
+        if piano_size.x > ui.available_width() {
+            piano_size *= ui.available_width() / piano_size.x;
+        }
         let (response, painter) =
-            ui.allocate_painter(vec2(PIANO_WIDTH, PIANO_HEIGHT), Sense::empty());
+            ui.allocate_painter(piano_size, Sense::empty());
         let rect = response.rect;
         painter.rect_filled(rect, 1.0, ui.visuals().panel_fill);
         const MARGIN: f32 = 2.0;

@@ -68,7 +68,7 @@ impl eframe::App for TheoryApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
-                ui.allocate_ui(vec2(PIANO_WIDTH, 40.0), |ui| {
+                ui.allocate_ui(vec2(PIANO_WIDTH.min(ui.available_width()), 40.0), |ui| {
                     ui.horizontal(|ui| match self.audio {
                         AudioState::Uninitialized | AudioState::Setup(_) => {
                             if ui.button("🔈").clicked() {
