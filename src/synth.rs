@@ -1,5 +1,5 @@
 use crate::{audio::Synth, reverb::Reverb};
-use log::info;
+use log::{info, warn};
 use std::f32::consts::PI;
 
 /// Represents a piano key with associated frequency
@@ -132,8 +132,22 @@ impl EnvelopeGenerator {
             }
             EnvelopeState::Release => {
                 if let Some(rate) = self.release_rate {
-                    self.current_level -= rate * self.current_level;
-                    if self.current_level <= 0.0 {
+                    // Piano strings don't follow simple exponential decay
+                    // They have a more complex release with initially faster decay
+                    // followed by a longer tail
+
+                    const RELEASE_THRESHOLD: f32 = 0.0001; // -80dB
+                    const INITIAL_DECAY_FACTOR: f32 = 2.5; // Initial decay is faster
+
+                    self.current_level -= rate
+                        * self.current_level
+                        * if self.current_level > 0.1 {
+                            INITIAL_DECAY_FACTOR
+                        } else {
+                            1.0
+                        };
+
+                    if self.current_level <= RELEASE_THRESHOLD {
                         self.current_level = 0.0;
                         self.state = EnvelopeState::Idle;
                     }
@@ -284,6 +298,7 @@ impl PianoSynth {
         let voice = if let Some(voice) = self.voices.iter_mut().find(|v| !v.is_active) {
             voice
         } else {
+            warn!("voice stolen");
             // Simple voice stealing - just get the first one
             &mut self.voices[0]
         };
