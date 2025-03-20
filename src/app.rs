@@ -75,7 +75,7 @@ impl TheoryApp {
             tx: tx.clone(),
             _audio: audio,
         });
-        self.midi_to_audio_tx = Arc::new(Mutex::new(Some(tx)));
+        *self.midi_to_audio_tx.lock() = Some(tx);
     }
 
     fn ensure_midi(&mut self) {
@@ -88,7 +88,7 @@ impl TheoryApp {
                 let tx = self.midi_to_audio_tx.clone();
                 match MidiReader::new(move |message| {
                     if let Some(tx) = &*tx.lock() {
-                        tx.try_send(message.to_owned()).unwrap();
+                        let _ = tx.try_send(message.to_owned());
                     }
                 }) {
                     Ok(reader) => {
