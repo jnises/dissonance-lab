@@ -2,9 +2,7 @@ use std::sync::{Arc, LazyLock};
 
 use colorgrad::{BlendMode, Gradient as _};
 use egui::{
-    Align, Align2, Color32, FontId, Layout, Pos2, Rect, Sense, ThemePreference, UiBuilder, Vec2,
-    epaint::{PathShape, PathStroke},
-    pos2, vec2,
+    epaint::{PathShape, PathStroke}, pos2, text::LayoutJob, vec2, Align, Align2, Color32, FontId, Layout, Pos2, Rect, Sense, ThemePreference, UiBuilder, Vec2
 };
 use log::{error, info, warn};
 use parking_lot::Mutex;
@@ -140,13 +138,8 @@ impl eframe::App for TheoryApp {
                             }
                             const MIDI_TEXT: &str = "MIDI";
                             const MIDI_FONT: FontId = FontId::proportional(10.0);
-                            let text_size = ui.painter().layout_no_wrap(MIDI_TEXT.to_string(), MIDI_FONT, Color32::WHITE).size();
-                            let (response, painter) =
-                                ui.allocate_painter(text_size, Sense::hover());
-                            painter.text(
-                                response.rect.left_bottom(),
-                                Align2::LEFT_BOTTOM,
-                                MIDI_TEXT,
+                            let galley = ui.painter().layout_no_wrap(
+                                MIDI_TEXT.to_string(),
                                 MIDI_FONT,
                                 if matches!(&self.midi, MidiState::Connected(_)) {
                                     ui.visuals().text_color()
@@ -154,6 +147,10 @@ impl eframe::App for TheoryApp {
                                     ui.visuals().weak_text_color()
                                 },
                             );
+                            let text_size = galley.size();
+                            let (response, painter) =
+                                ui.allocate_painter(text_size, Sense::hover());
+                            painter.galley(response.rect.left_top(), galley, Color32::WHITE);
                             response.on_hover_text(match &self.midi {
                                 MidiState::NotConnected { .. } => "".to_string(),
                                 MidiState::Connected(midi_reader) => {
