@@ -10,3 +10,4 @@ mod reverb;
 mod synth;
 mod theme;
 mod utils;
+mod midi;
