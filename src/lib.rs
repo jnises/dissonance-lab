@@ -11,3 +11,4 @@ mod synth;
 mod theme;
 mod utils;
 mod midi;
+mod limiter;

@@ -174,7 +174,7 @@ impl eframe::App for TheoryApp {
                             Align2::CENTER_BOTTOM,
                             "theory",
                             FontId::proportional(12.0),
-                            colorgrad_to_egui(&theme::KEYBOARD_LABEL),
+                            theme::KEYBOARD_LABEL,
                         );
                         if self.piano_gui.pressed_keys().count_ones() <= 1 {
                             ui.painter().text(

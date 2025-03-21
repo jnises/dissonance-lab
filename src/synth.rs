@@ -1,4 +1,4 @@
-use crate::{audio::Synth, reverb::Reverb};
+use crate::{audio::Synth, limiter::Limiter, reverb::Reverb};
 use log::{info, warn};
 use std::{cmp::Ordering, f32::consts::PI};
 
@@ -298,6 +298,7 @@ pub struct PianoSynth {
     sample_rate: Option<u32>,
     rx: crossbeam::channel::Receiver<wmidi::MidiMessage<'static>>,
     reverb: Option<Reverb>,
+    limiter: Option<Limiter>,
 }
 
 impl PianoSynth {
@@ -307,6 +308,7 @@ impl PianoSynth {
             sample_rate: None,
             rx,
             reverb: None,
+            limiter: None,
         }
     }
 
@@ -394,8 +396,7 @@ impl PianoSynth {
 
     #[inline]
     fn process(&mut self) -> f32 {
-        let output: f32 = self.voices.iter_mut().map(|v| v.process()).sum();
-        output.clamp(-1.0, 1.0)
+        self.voices.iter_mut().map(|v| v.process()).sum()
     }
 }
 
@@ -405,6 +406,7 @@ impl Synth for PianoSynth {
             self.voices.clear();
             self.reverb = None;
             self.sample_rate = Some(sample_rate);
+            self.limiter = None;
         }
         if self.voices.is_empty() {
             const NUM_VOICES: usize = 8;
@@ -434,6 +436,10 @@ impl Synth for PianoSynth {
             let s = self
                 .reverb
                 .get_or_insert_with(|| Reverb::new(sample_rate as f32))
+                .process(s);
+            let s = self
+                .limiter
+                .get_or_insert_with(|| Limiter::new(sample_rate as f32))
                 .process(s);
             for c in out_channels.iter_mut() {
                 *c = s;

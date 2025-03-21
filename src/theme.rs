@@ -42,8 +42,7 @@ const KEYBOARD_PRIMARY: Color32 = Color32::from_rgb(195, 193, 184); // rgb(195, 
 //     LazyLock::new(|| colorgrad::Color::from_oklaba(0.5, 0.0, -0.2, 1.0));
 const KEYBOARD_OUTLINES: LazyLock<colorgrad::Color> =
     LazyLock::new(|| colorgrad::Color::from_oklaba(1.0, -0.02, 0.01, 1.0));
-pub const KEYBOARD_LABEL: LazyLock<colorgrad::Color> =
-    LazyLock::new(|| colorgrad::Color::from_oklaba(0.6, -0.02, -0.02, 1.0));
+pub const KEYBOARD_LABEL: Color32 = Color32::from_rgb(179, 179, 179); // #B3B3B3
 
 pub fn outlines() -> Color32 {
     colorgrad_to_egui(&KEYBOARD_OUTLINES)
