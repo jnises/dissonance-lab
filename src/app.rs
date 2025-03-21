@@ -160,7 +160,7 @@ impl eframe::App for TheoryApp {
                                 ui.allocate_painter(text_size, Sense::hover());
                             painter.galley(response.rect.left_top(), galley, Color32::WHITE);
                             response.on_hover_text(match &self.midi {
-                                MidiState::NotConnected { .. } => "".to_string(),
+                                MidiState::NotConnected { .. } => "not connected".to_string(),
                                 MidiState::Connected(midi_reader) => {
                                     midi_reader.get_name().to_string()
                                 }
