@@ -1,6 +1,6 @@
 use crate::{audio::Synth, reverb::Reverb};
 use log::{info, warn};
-use std::f32::consts::PI;
+use std::{cmp::Ordering, f32::consts::PI};
 
 /// Represents a piano key with associated frequency
 #[derive(Copy, Clone)]
@@ -295,14 +295,57 @@ impl PianoSynth {
 
     fn note_on(&mut self, note: wmidi::Note, _velocity: wmidi::U7) {
         let key = PianoKey::new(note);
+        
+        // First try to find an inactive voice
         let voice = if let Some(voice) = self.voices.iter_mut().find(|v| !v.is_active) {
             voice
         } else {
-            warn!("voice stolen");
-            // Simple voice stealing - just get the first one
-            &mut self.voices[0]
+            // Voice stealing - prioritize voices based on envelope state
+            // Find the voice furthest along in its envelope cycle
+            self.find_voice_to_steal()
         };
+        
         voice.note_on(key);
+    }
+
+    // Helper method to find the best voice to steal
+    fn find_voice_to_steal(&mut self) -> &mut PianoVoice {
+        // Strategy: find index first, then get the voice by index
+        let voice_index = {
+            // First check for voices in release state (already note-off)
+            let release_index = self.voices
+                .iter()
+                .enumerate()
+                .filter(|(_, v)| v.envelope.state == EnvelopeState::Release)
+                .min_by(|(_, a), (_, b)| a.envelope.current_level.partial_cmp(&b.envelope.current_level).unwrap_or(Ordering::Equal))
+                .map(|(idx, _)| idx);
+            
+            if let Some(idx) = release_index {
+                idx
+            } else {
+                // Then check for voices in sustain state
+                let sustain_index = self.voices
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, v)| v.envelope.state == EnvelopeState::Sustain)
+                    .min_by(|(_, a), (_, b)| a.envelope.current_level.partial_cmp(&b.envelope.current_level).unwrap_or(Ordering::Equal))
+                    .map(|(idx, _)| idx);
+                
+                if let Some(idx) = sustain_index {
+                    idx
+                } else {
+                    // Last resort: take the voice with the lowest current envelope level
+                    self.voices
+                        .iter()
+                        .enumerate()
+                        .min_by(|(_, a), (_, b)| a.envelope.current_level.partial_cmp(&b.envelope.current_level).unwrap_or(Ordering::Equal))
+                        .map(|(idx, _)| idx)
+                        .unwrap()
+                }
+            }
+        };
+        
+        &mut self.voices[voice_index]
     }
 
     fn note_off(&mut self, midi_note: wmidi::Note) {
