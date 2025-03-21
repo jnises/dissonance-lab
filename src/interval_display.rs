@@ -18,7 +18,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
     let key_width = interval_rect.width() / 12.0;
     let font_scale = interval_rect.width() / (PIANO_WIDTH - 4.0);
     for (row, selected_semi) in piano
-        .selected_keys()
+        .pressed_keys()
         .iter_ones()
         .map(|i| i8::try_from(i).unwrap())
         .enumerate()
@@ -79,11 +79,11 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             }
         }
     }
-    if piano.selected_keys().count_ones() > 1 {
+    if piano.pressed_keys().count_ones() > 1 {
         let chord_dissonances: Vec<_> = (0..12i8)
             .map(|semi| {
-                let mut chord: Vec<_> = piano.selected_keys().iter_ones().collect();
-                if !piano.selected_keys()[semi as usize] {
+                let mut chord: Vec<_> = piano.pressed_keys().iter_ones().collect();
+                if !piano.pressed_keys()[semi as usize] {
                     chord.push(semi as usize);
                 }
                 let avg_dissonance = Interval::chord_dissonance(
@@ -116,7 +116,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             );
             let score_center_pos = pos
                 - Vec2::Y
-                    * ((piano.selected_keys().count_ones() as f32 + 0.4) * (key_width + 4.0) - 4.0);
+                    * ((piano.pressed_keys().count_ones() as f32 + 0.4) * (key_width + 4.0) - 4.0);
             painter.rect_filled(
                 Rect::from_center_size(score_center_pos, vec2(key_width, 8.0)),
                 0.0,

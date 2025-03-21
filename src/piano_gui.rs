@@ -1,5 +1,6 @@
 use bitvec::{BitArr, order::Msb0};
 use egui::{Color32, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
+use wmidi::Note;
 
 use crate::theme;
 
@@ -7,26 +8,37 @@ pub const PIANO_WIDTH: f32 = 600.0;
 pub const PIANO_HEIGHT: f32 = 200.0;
 
 pub type KeySet = BitArr!(for 12, in u16, Msb0);
+type ExternalKeySet = BitArr!(for 128, in u32, Msb0);
 
 pub struct PianoGui {
     selected_keys: KeySet,
+    external_keys: ExternalKeySet,
 }
 
 impl PianoGui {
     pub fn new() -> Self {
         Self {
             selected_keys: Default::default(),
+            external_keys: Default::default(),
         }
     }
 
+    pub fn external_note_on(&mut self, note: Note) {
+        self.external_keys.set(u8::from(note) as usize, true);
+    }
+
+    pub fn external_note_off(&mut self, note: Note) {
+        self.external_keys.set(u8::from(note) as usize, false);
+    }
+
     pub fn show(&mut self, ui: &mut Ui) -> (Option<Action>, Rect) {
+        let pressed_keys = self.pressed_keys();
         let mut action = None;
         let mut piano_size = vec2(PIANO_WIDTH, PIANO_HEIGHT);
         if piano_size.x > ui.available_width() {
             piano_size *= (ui.available_width() / piano_size.x).max(0.5);
         }
-        let (response, painter) =
-            ui.allocate_painter(piano_size, Sense::empty());
+        let (response, painter) = ui.allocate_painter(piano_size, Sense::empty());
         let rect = response.rect;
         painter.rect_filled(rect, 1.0, ui.visuals().panel_fill);
         const MARGIN: f32 = 2.0;
@@ -69,12 +81,15 @@ impl PianoGui {
                     Color::Black => black_key_to_semitone(key),
                 };
                 let selected = self.selected_keys[semitone];
+                let combined_selected = pressed_keys[semitone];
                 let note = wmidi::Note::C4.step(semitone as i8).unwrap();
                 painter.rect(
                     key_rect,
                     0.0,
                     if selected {
                         theme::selected_key()
+                    } else if combined_selected {
+                        theme::external_selected_key()
                     } else {
                         ui.visuals().panel_fill
                     },
@@ -102,8 +117,12 @@ impl PianoGui {
         (action, keys_rect)
     }
 
-    pub fn selected_keys(&self) -> &KeySet {
-        &self.selected_keys
+    pub fn pressed_keys(&self) -> KeySet {
+        let mut keys = self.selected_keys;
+        for external_key in self.external_keys.iter_ones() {
+            keys.set(external_key % 12, true);
+        }
+        keys
     }
 
     pub fn selected_chord_name(&self) -> Option<String> {

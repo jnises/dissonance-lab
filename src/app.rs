@@ -1,8 +1,13 @@
 use std::sync::{Arc, LazyLock};
 
 use colorgrad::{BlendMode, Gradient as _};
+use crossbeam::channel;
 use egui::{
-    epaint::{PathShape, PathStroke}, pos2, text::LayoutJob, vec2, Align, Align2, Color32, FontId, Layout, Pos2, Rect, Sense, ThemePreference, UiBuilder, Vec2
+    Align, Align2, Color32, FontId, Layout, Pos2, Rect, Sense, ThemePreference, UiBuilder, Vec2,
+    epaint::{PathShape, PathStroke},
+    pos2,
+    text::LayoutJob,
+    vec2,
 };
 use log::{error, info, warn};
 use parking_lot::Mutex;
@@ -18,7 +23,7 @@ use crate::{
     utils::colorgrad_to_egui,
 };
 
-type MidiSender = crossbeam::channel::Sender<wmidi::MidiMessage<'static>>;
+type MidiSender = channel::Sender<wmidi::MidiMessage<'static>>;
 
 struct Audio {
     _audio: AudioManager,
@@ -40,15 +45,20 @@ pub struct TheoryApp {
     piano_gui: PianoGui,
     midi: MidiState,
     midi_to_audio_tx: Arc<Mutex<Option<MidiSender>>>,
+    midi_to_piano_gui_rx: channel::Receiver<wmidi::MidiMessage<'static>>,
+    midi_to_piano_gui_tx: channel::Sender<wmidi::MidiMessage<'static>>,
 }
 
 impl Default for TheoryApp {
     fn default() -> Self {
+        let (midi_to_piano_gui_tx, midi_to_piano_gui_rx) = channel::unbounded();
         Self {
             audio: AudioState::Muted,
             piano_gui: PianoGui::new(),
             midi: MidiState::NotConnected { last_checked: None },
             midi_to_audio_tx: Arc::new(Mutex::new(None)),
+            midi_to_piano_gui_rx,
+            midi_to_piano_gui_tx,
         }
     }
 }
@@ -61,10 +71,7 @@ impl TheoryApp {
     }
 
     fn setup_audio(&mut self) {
-        assert!(matches!(
-            self.audio,
-            AudioState::Muted
-        ));
+        assert!(matches!(self.audio, AudioState::Muted));
         let (tx, rx) = crossbeam::channel::unbounded();
         let synth = Box::new(PianoSynth::new(rx));
         let audio = AudioManager::new(synth, |message| {
@@ -84,11 +91,13 @@ impl TheoryApp {
                 if last_checked.is_none()
                     || last_checked.map(|t| t.elapsed()) > Some(MIDI_CHECK_PERIOD) =>
             {
-                let tx = self.midi_to_audio_tx.clone();
+                let to_synth_tx = self.midi_to_audio_tx.clone();
+                let to_gui_tx = self.midi_to_piano_gui_tx.clone();
                 match MidiReader::new(move |message| {
-                    if let Some(tx) = &*tx.lock() {
+                    if let Some(tx) = &*to_synth_tx.lock() {
                         let _ = tx.try_send(message.to_owned());
                     }
+                    let _ = to_gui_tx.try_send(message.to_owned());
                 }) {
                     Ok(reader) => {
                         self.midi = MidiState::Connected(reader);
@@ -164,7 +173,7 @@ impl eframe::App for TheoryApp {
                             FontId::proportional(12.0),
                             colorgrad_to_egui(&theme::KEYBOARD_LABEL),
                         );
-                        if self.piano_gui.selected_keys().count_ones() <= 1 {
+                        if self.piano_gui.pressed_keys().count_ones() <= 1 {
                             ui.painter().text(
                                 ui.max_rect().right_bottom(),
                                 Align2::RIGHT_BOTTOM,
@@ -183,6 +192,17 @@ impl eframe::App for TheoryApp {
                         }
                     },
                 );
+                for message in self.midi_to_piano_gui_rx.try_iter() {
+                    match message{
+                        wmidi::MidiMessage::NoteOff(_channel, note, _) => {
+                            self.piano_gui.external_note_on(note);
+                        },
+                        wmidi::MidiMessage::NoteOn(_channel, note, _) => {
+                            self.piano_gui.external_note_off(note);
+                        }
+                        _ => {},
+                    }
+                }
                 match interval_display::show(&mut self.piano_gui, ui) {
                     None => {}
                     Some(piano_gui::Action::Pressed(note)) => {

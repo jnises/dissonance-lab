@@ -53,6 +53,10 @@ pub fn selected_key() -> Color32 {
     KEYBOARD_PRIMARY
 }
 
+pub fn external_selected_key() -> Color32 {
+    Color32::from_rgb(150, 148, 140) // rgb(150, 148, 140)
+}
+
 pub static DISSONANCE_GRADIENT: LazyLock<BasisGradient> = LazyLock::new(|| {
     colorgrad::GradientBuilder::new()
         .html_colors(&[
