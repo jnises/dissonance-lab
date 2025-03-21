@@ -42,7 +42,10 @@ impl MidiReader {
                 },
                 (),
             )?;
-            Ok(Self { _connection: connection, name })
+            Ok(Self {
+                _connection: connection,
+                name,
+            })
         } else {
             Err(Error::NoMidiInterface)
         }
@@ -52,4 +55,3 @@ impl MidiReader {
         &self.name
     }
 }
-

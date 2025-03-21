@@ -282,10 +282,8 @@ mod tests {
             Interval::Tritone,
         ];
 
-        let dissonances: Vec<(Interval, f32)> = intervals
-            .iter()
-            .map(|i| (*i, i.dissonance()))
-            .collect();
+        let dissonances: Vec<(Interval, f32)> =
+            intervals.iter().map(|i| (*i, i.dissonance())).collect();
 
         // Check that dissonance increases (or stays the same) as we go through the array
         for window in dissonances.windows(2) {
@@ -303,7 +301,7 @@ mod tests {
     fn test_most_consonant_dissonant_intervals() {
         // Check that unison is the least dissonant
         assert!(Interval::Unison.dissonance() < Interval::Octave.dissonance());
-        
+
         // Check that perfect fifth is the least dissonant non-trivial interval
         let non_unison_intervals = [
             Interval::Octave,
@@ -319,7 +317,7 @@ mod tests {
             Interval::MinorSecond,
             Interval::Tritone,
         ];
-        
+
         let fifth_dissonance = Interval::PerfectFifth.dissonance();
         for interval in non_unison_intervals {
             if interval == Interval::PerfectFifth {
@@ -337,7 +335,7 @@ mod tests {
                 );
             }
         }
-        
+
         // Check that tritone is the most dissonant
         let tritone_dissonance = Interval::Tritone.dissonance();
         for interval in [

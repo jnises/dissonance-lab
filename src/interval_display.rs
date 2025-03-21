@@ -48,8 +48,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             } else {
                 let normalized_dissonance = (interval.dissonance()
                     - Interval::PerfectFifth.dissonance())
-                    / (Interval::Tritone.dissonance()
-                        - Interval::PerfectFifth.dissonance());
+                    / (Interval::Tritone.dissonance() - Interval::PerfectFifth.dissonance());
                 painter.rect_filled(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     0.0,
