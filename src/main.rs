@@ -18,9 +18,9 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "Theory",
+        "Dissonance Lab",
         native_options,
-        Box::new(|cc| Ok(Box::new(theory::TheoryApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(dissonance_lab::DissonanceLabApp::new(cc)))),
     )
 }
 
@@ -49,7 +49,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(theory::TheoryApp::new(cc)))),
+                Box::new(|cc| Ok(Box::new(dissonance_lab::DissonanceLabApp::new(cc)))),
             )
             .await;
 

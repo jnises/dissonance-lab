@@ -1,9 +1,9 @@
-var cacheName = 'theory-pwa';
+var cacheName = 'dissonance-lab-pwa';
 var filesToCache = [
   './',
   './index.html',
-  './theory.js',
-  './theory_bg.wasm',
+  './dissonance_lab.js',
+  './dissonance_lab_bg.wasm',
 ];
 
 /* Start the service worker and cache all of the app's content */

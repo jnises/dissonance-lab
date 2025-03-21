@@ -31,7 +31,7 @@ enum MidiState {
     Connected(MidiReader),
 }
 
-pub struct TheoryApp {
+pub struct DissonanceLabApp {
     audio: AudioState,
     piano_gui: PianoGui,
     midi: MidiState,
@@ -40,7 +40,7 @@ pub struct TheoryApp {
     midi_to_piano_gui_tx: channel::Sender<wmidi::MidiMessage<'static>>,
 }
 
-impl Default for TheoryApp {
+impl Default for DissonanceLabApp {
     fn default() -> Self {
         let (midi_to_piano_gui_tx, midi_to_piano_gui_rx) = channel::unbounded();
         Self {
@@ -54,7 +54,7 @@ impl Default for TheoryApp {
     }
 }
 
-impl TheoryApp {
+impl DissonanceLabApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // Setup custom theme instead of default dark theme
         theme::setup_custom_theme(&cc.egui_ctx);
@@ -115,7 +115,7 @@ impl TheoryApp {
     }
 }
 
-impl eframe::App for TheoryApp {
+impl eframe::App for DissonanceLabApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ensure_midi(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -162,7 +162,7 @@ impl eframe::App for TheoryApp {
                         ui.painter().text(
                             ui.max_rect().center_bottom(),
                             Align2::CENTER_BOTTOM,
-                            "theory",
+                            "dissonance lab",
                             FontId::proportional(12.0),
                             theme::KEYBOARD_LABEL,
                         );

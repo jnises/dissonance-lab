@@ -1,4 +1,4 @@
-# theory
+# Dissonance Lab
 
 ### Testing locally
 

@@ -25,7 +25,7 @@ pub struct MidiReader {
 
 impl MidiReader {
     pub fn new(callback: impl Fn(&MidiMessage<'_>) + Send + 'static) -> Result<Self, Error> {
-        let midi = MidiInput::new("theory")?;
+        let midi = MidiInput::new("dissonance-lab")?;
         let ports = midi.ports();
         if let Some(port) = ports.first() {
             let name = midi.port_name(port)?;
