@@ -198,8 +198,8 @@ impl PianoVoice {
             sample_rate,
             is_active: false,
             current_key: None,
-            detuning: 1.003, // Slight detuning factor
-            brightness: 0.8, // 0.0 to 1.0
+            detuning: 1.003, // Creates chorus-like effect for richer tone
+            brightness: 0.8, // Controls higher harmonic content
             velocity: 1.0,   // Default full velocity
         }
     }
@@ -208,20 +208,16 @@ impl PianoVoice {
         self.current_key = Some(key);
         self.update_phase_delta();
 
-        // Convert MIDI velocity (0-127) to normalized value (0.0-1.0)
-        // Apply a curve to make velocity response more natural
+        // Power curve (0.8) provides more natural dynamic response than linear mapping
         let normalized_velocity = u8::from(velocity) as f32 / 127.0;
-        self.velocity = normalized_velocity.powf(0.8); // Slight curve for more natural response
+        self.velocity = normalized_velocity.powf(0.8);
 
-        // Adjust envelope parameters based on velocity
         self.envelope.set_velocity(self.velocity);
 
-        // TODO: is this how it works? claude seems to think so at least
-        // Calculate frequency-dependent sustain decay
-        // Higher notes decay faster than lower notes
+        // Model frequency-dependent decay behavior of real piano strings
+        // Physics: higher frequency strings have less mass and dissipate energy faster
         if let Some(ref key) = self.current_key {
-            // Base decay rate - will be multiplied by frequency factor
-            // This value is per sample, so we need to scale it according to sample rate
+            // Scale relative to 44.1kHz to maintain consistent behavior across sample rates
             let base_decay_rate = 0.00001 * (44100.0 / self.sample_rate);
 
             // Scale the decay rate based on frequency
