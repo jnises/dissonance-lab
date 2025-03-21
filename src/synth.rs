@@ -28,6 +28,7 @@ struct EnvelopeGenerator {
     attack_rate: Option<f32>,  // Precalculated attack rate
     decay_rate: Option<f32>,   // Precalculated decay rate
     release_rate: Option<f32>, // Precalculated release rate
+    velocity_level: f32,       // Velocity scaling factor (0.0 to 1.0)
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -76,6 +77,7 @@ impl EnvelopeGenerator {
             attack_rate,
             decay_rate,
             release_rate,
+            velocity_level: 1.0, // Default full velocity
         }
     }
 
@@ -90,6 +92,10 @@ impl EnvelopeGenerator {
 
     fn set_sustain_decay_rate(&mut self, rate: f32) {
         self.sustain_decay_rate = rate;
+    }
+
+    fn set_velocity(&mut self, velocity: f32) {
+        self.velocity_level = velocity;
     }
 
     #[inline]
@@ -158,7 +164,8 @@ impl EnvelopeGenerator {
             }
         }
 
-        self.current_level
+        // Apply velocity scaling to the envelope output
+        self.current_level * self.velocity_level
     }
 
     fn is_active(&self) -> bool {
@@ -178,6 +185,7 @@ struct PianoVoice {
     // Piano-specific parameters
     detuning: f32,   // Slight detuning for realism
     brightness: f32, // Controls harmonic content
+    velocity: f32,   // Normalized velocity (0.0 to 1.0)
 }
 
 impl PianoVoice {
@@ -192,12 +200,21 @@ impl PianoVoice {
             current_key: None,
             detuning: 1.003, // Slight detuning factor
             brightness: 0.8, // 0.0 to 1.0
+            velocity: 1.0,   // Default full velocity
         }
     }
 
-    fn note_on(&mut self, key: PianoKey) {
+    fn note_on(&mut self, key: PianoKey, velocity: wmidi::U7) {
         self.current_key = Some(key);
         self.update_phase_delta();
+
+        // Convert MIDI velocity (0-127) to normalized value (0.0-1.0)
+        // Apply a curve to make velocity response more natural
+        let normalized_velocity = u8::from(velocity) as f32 / 127.0;
+        self.velocity = normalized_velocity.powf(0.8); // Slight curve for more natural response
+
+        // Adjust envelope parameters based on velocity
+        self.envelope.set_velocity(self.velocity);
 
         // TODO: is this how it works? claude seems to think so at least
         // Calculate frequency-dependent sustain decay
@@ -212,7 +229,10 @@ impl PianoVoice {
             let freq = key.frequency;
             let freq_factor = (freq / 110.0).sqrt();
 
-            let sustain_decay_rate = base_decay_rate * freq_factor;
+            // Also scale by velocity - higher velocity notes decay slightly slower
+            let velocity_factor = 1.0 - (self.velocity * 0.3); // 0.7 to 1.0 range
+
+            let sustain_decay_rate = base_decay_rate * freq_factor * velocity_factor;
             self.envelope.set_sustain_decay_rate(sustain_decay_rate);
         }
 
@@ -259,8 +279,9 @@ impl PianoVoice {
         // Third harmonic
         sample += 0.15 * (3.0 * 2.0 * PI * self.phase).sin();
 
-        // Fourth and fifth harmonics (controlled by brightness)
-        let bright_factor = self.brightness * 0.2;
+        // Fourth and fifth harmonics (controlled by brightness and velocity)
+        // Higher velocity increases brightness for more attack
+        let bright_factor = self.brightness * 0.2 * (0.7 + 0.3 * self.velocity);
         sample += bright_factor * (4.0 * 2.0 * PI * self.phase).sin();
         sample += bright_factor * 0.7 * (5.0 * 2.0 * PI * self.phase).sin();
 
@@ -293,9 +314,9 @@ impl PianoSynth {
         }
     }
 
-    fn note_on(&mut self, note: wmidi::Note, _velocity: wmidi::U7) {
+    fn note_on(&mut self, note: wmidi::Note, velocity: wmidi::U7) {
         let key = PianoKey::new(note);
-        
+
         // First try to find an inactive voice
         let voice = if let Some(voice) = self.voices.iter_mut().find(|v| !v.is_active) {
             voice
@@ -304,8 +325,8 @@ impl PianoSynth {
             // Find the voice furthest along in its envelope cycle
             self.find_voice_to_steal()
         };
-        
-        voice.note_on(key);
+
+        voice.note_on(key, velocity);
     }
 
     // Helper method to find the best voice to steal
@@ -313,24 +334,36 @@ impl PianoSynth {
         // Strategy: find index first, then get the voice by index
         let voice_index = {
             // First check for voices in release state (already note-off)
-            let release_index = self.voices
+            let release_index = self
+                .voices
                 .iter()
                 .enumerate()
                 .filter(|(_, v)| v.envelope.state == EnvelopeState::Release)
-                .min_by(|(_, a), (_, b)| a.envelope.current_level.partial_cmp(&b.envelope.current_level).unwrap_or(Ordering::Equal))
+                .min_by(|(_, a), (_, b)| {
+                    a.envelope
+                        .current_level
+                        .partial_cmp(&b.envelope.current_level)
+                        .unwrap_or(Ordering::Equal)
+                })
                 .map(|(idx, _)| idx);
-            
+
             if let Some(idx) = release_index {
                 idx
             } else {
                 // Then check for voices in sustain state
-                let sustain_index = self.voices
+                let sustain_index = self
+                    .voices
                     .iter()
                     .enumerate()
                     .filter(|(_, v)| v.envelope.state == EnvelopeState::Sustain)
-                    .min_by(|(_, a), (_, b)| a.envelope.current_level.partial_cmp(&b.envelope.current_level).unwrap_or(Ordering::Equal))
+                    .min_by(|(_, a), (_, b)| {
+                        a.envelope
+                            .current_level
+                            .partial_cmp(&b.envelope.current_level)
+                            .unwrap_or(Ordering::Equal)
+                    })
                     .map(|(idx, _)| idx);
-                
+
                 if let Some(idx) = sustain_index {
                     idx
                 } else {
@@ -338,13 +371,18 @@ impl PianoSynth {
                     self.voices
                         .iter()
                         .enumerate()
-                        .min_by(|(_, a), (_, b)| a.envelope.current_level.partial_cmp(&b.envelope.current_level).unwrap_or(Ordering::Equal))
+                        .min_by(|(_, a), (_, b)| {
+                            a.envelope
+                                .current_level
+                                .partial_cmp(&b.envelope.current_level)
+                                .unwrap_or(Ordering::Equal)
+                        })
                         .map(|(idx, _)| idx)
                         .unwrap()
                 }
             }
         };
-        
+
         &mut self.voices[voice_index]
     }
 
