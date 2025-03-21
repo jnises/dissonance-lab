@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::{Result, anyhow};
 use cpal::{
     BufferSize, Device, OutputCallbackInfo, SampleFormat, Stream, SupportedBufferSize,
@@ -8,6 +6,7 @@ use cpal::{
 };
 use crossbeam::atomic::AtomicCell;
 use log::warn;
+use std::sync::Arc;
 
 pub trait Synth {
     fn play(&mut self, sample_rate: u32, channels: usize, out_samples: &mut [f32]);
@@ -110,6 +109,7 @@ impl AudioManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_name(&self) -> Option<String> {
         self.device.as_ref()?.name().ok()
     }

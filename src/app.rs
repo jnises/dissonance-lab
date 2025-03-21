@@ -1,16 +1,8 @@
-use std::sync::{Arc, LazyLock};
-
-use colorgrad::{BlendMode, Gradient as _};
 use crossbeam::channel;
-use egui::{
-    Align, Align2, Color32, FontId, Layout, Pos2, Rect, Sense, ThemePreference, UiBuilder, Vec2,
-    epaint::{PathShape, PathStroke},
-    pos2,
-    text::LayoutJob,
-    vec2,
-};
-use log::{error, info, warn};
+use egui::{Align, Align2, Color32, FontId, Layout, Sense, vec2};
+use log::{error, warn};
 use parking_lot::Mutex;
+use std::sync::Arc;
 use web_time::{Duration, Instant};
 
 use crate::{
@@ -20,7 +12,6 @@ use crate::{
     piano_gui::{self, PIANO_WIDTH, PianoGui},
     synth::PianoSynth,
     theme,
-    utils::colorgrad_to_egui,
 };
 
 type MidiSender = channel::Sender<wmidi::MidiMessage<'static>>;
@@ -100,7 +91,6 @@ impl TheoryApp {
                     }
                     let _ = to_gui_tx.try_send(message.to_owned());
                     ctx.request_repaint();
-
                 }) {
                     Ok(reader) => {
                         self.midi = MidiState::Connected(reader);
@@ -196,14 +186,14 @@ impl eframe::App for TheoryApp {
                     },
                 );
                 for message in self.midi_to_piano_gui_rx.try_iter() {
-                    match message{
+                    match message {
                         wmidi::MidiMessage::NoteOff(_channel, note, _) => {
                             self.piano_gui.external_note_off(note);
-                        },
+                        }
                         wmidi::MidiMessage::NoteOn(_channel, note, _) => {
                             self.piano_gui.external_note_on(note);
                         }
-                        _ => {},
+                        _ => {}
                     }
                 }
                 match interval_display::show(&mut self.piano_gui, ui) {
