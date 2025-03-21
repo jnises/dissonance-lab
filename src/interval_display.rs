@@ -46,10 +46,10 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     Color32::WHITE,
                 );
             } else {
-                let normalized_dissonance = (interval.compound_dissonance()
-                    - Interval::PerfectFifth.compound_dissonance())
-                    / (Interval::Tritone.compound_dissonance()
-                        - Interval::PerfectFifth.compound_dissonance());
+                let normalized_dissonance = (interval.dissonance()
+                    - Interval::PerfectFifth.dissonance())
+                    / (Interval::Tritone.dissonance()
+                        - Interval::PerfectFifth.dissonance());
                 painter.rect_filled(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     0.0,

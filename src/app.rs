@@ -84,7 +84,7 @@ impl TheoryApp {
         *self.midi_to_audio_tx.lock() = Some(tx);
     }
 
-    fn ensure_midi(&mut self) {
+    fn ensure_midi(&mut self, ctx: &egui::Context) {
         const MIDI_CHECK_PERIOD: Duration = Duration::from_secs(1);
         match &mut self.midi {
             MidiState::NotConnected { last_checked }
@@ -93,11 +93,14 @@ impl TheoryApp {
             {
                 let to_synth_tx = self.midi_to_audio_tx.clone();
                 let to_gui_tx = self.midi_to_piano_gui_tx.clone();
+                let ctx = ctx.clone();
                 match MidiReader::new(move |message| {
                     if let Some(tx) = &*to_synth_tx.lock() {
                         let _ = tx.try_send(message.to_owned());
                     }
                     let _ = to_gui_tx.try_send(message.to_owned());
+                    ctx.request_repaint();
+
                 }) {
                     Ok(reader) => {
                         self.midi = MidiState::Connected(reader);
@@ -124,7 +127,7 @@ impl TheoryApp {
 
 impl eframe::App for TheoryApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.ensure_midi();
+        self.ensure_midi(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 const STATUS_HEIGHT: f32 = 40.0;
@@ -195,10 +198,10 @@ impl eframe::App for TheoryApp {
                 for message in self.midi_to_piano_gui_rx.try_iter() {
                     match message{
                         wmidi::MidiMessage::NoteOff(_channel, note, _) => {
-                            self.piano_gui.external_note_on(note);
+                            self.piano_gui.external_note_off(note);
                         },
                         wmidi::MidiMessage::NoteOn(_channel, note, _) => {
-                            self.piano_gui.external_note_off(note);
+                            self.piano_gui.external_note_on(note);
                         }
                         _ => {},
                     }
@@ -232,7 +235,7 @@ impl eframe::App for TheoryApp {
                 }
             });
         });
-        const REPAINT_PERIOD: Duration = Duration::from_secs(10);
+        const REPAINT_PERIOD: Duration = Duration::from_secs(2);
         ctx.request_repaint_after(REPAINT_PERIOD);
     }
 }

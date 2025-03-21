@@ -98,8 +98,9 @@ impl Interval {
         }
     }
 
-    /// dissonance based on just interval and how large the just/tempered error is  
-    pub fn compound_dissonance(&self) -> f32 {
+    pub fn dissonance(&self) -> f32 {
+        // TODO: perhaps this is overcomplicated. better to just use the base_dissonance directly?
+
         // Factor 1: Ratio complexity - simpler ratios are less dissonant
         let just = self.just_ratio();
         let numer = just.numer().abs() as f32;
@@ -131,30 +132,13 @@ impl Interval {
         0.5 * base_dissonance + 0.3 * complexity + 0.2 * error_factor
     }
 
-    pub fn abbreviated_string(&self) -> &'static str {
-        match self {
-            Self::Unison => "P1",
-            Self::MinorSecond => "m2",
-            Self::MajorSecond => "M2",
-            Self::MinorThird => "m3",
-            Self::MajorThird => "M3",
-            Self::PerfectFourth => "P4",
-            Self::Tritone => "TT",
-            Self::PerfectFifth => "P5",
-            Self::MinorSixth => "m6",
-            Self::MajorSixth => "M6",
-            Self::MinorSeventh => "m7",
-            Self::MajorSeventh => "M7",
-            Self::Octave => "P8",
-        }
-    }
-
+    /// Calculates the average dissonance between all the intervals in a chord
     pub fn chord_dissonance(intervals: impl Iterator<Item = Self>) -> f32 {
         let (sum, count) = intervals
             .combinations(2)
             .map(|pair| {
                 let between_interval = pair[1] / pair[0];
-                between_interval.compound_dissonance()
+                between_interval.dissonance()
             })
             .fold((0.0, 0), |acc, dissonance| (acc.0 + dissonance, acc.1 + 1));
         sum / count as f32
@@ -299,7 +283,7 @@ mod tests {
 
         let dissonances: Vec<(Interval, f32)> = intervals
             .iter()
-            .map(|i| (*i, i.compound_dissonance()))
+            .map(|i| (*i, i.dissonance()))
             .collect();
 
         // Check that dissonance increases (or stays the same) as we go through the array
@@ -317,7 +301,7 @@ mod tests {
     #[test]
     fn test_most_consonant_dissonant_intervals() {
         // Check that unison is the least dissonant
-        assert!(Interval::Unison.compound_dissonance() < Interval::Octave.compound_dissonance());
+        assert!(Interval::Unison.dissonance() < Interval::Octave.dissonance());
         
         // Check that perfect fifth is the least dissonant non-trivial interval
         let non_unison_intervals = [
@@ -335,26 +319,26 @@ mod tests {
             Interval::Tritone,
         ];
         
-        let fifth_dissonance = Interval::PerfectFifth.compound_dissonance();
+        let fifth_dissonance = Interval::PerfectFifth.dissonance();
         for interval in non_unison_intervals {
             if interval == Interval::PerfectFifth {
                 continue;
             }
             if interval == Interval::Octave {
                 assert!(
-                    fifth_dissonance > interval.compound_dissonance(),
+                    fifth_dissonance > interval.dissonance(),
                     "Perfect fifth should be more dissonant than octave"
                 );
             } else {
                 assert!(
-                    fifth_dissonance < interval.compound_dissonance(),
+                    fifth_dissonance < interval.dissonance(),
                     "Perfect fifth should be less dissonant than {interval}"
                 );
             }
         }
         
         // Check that tritone is the most dissonant
-        let tritone_dissonance = Interval::Tritone.compound_dissonance();
+        let tritone_dissonance = Interval::Tritone.dissonance();
         for interval in [
             Interval::Unison,
             Interval::Octave,
@@ -370,7 +354,7 @@ mod tests {
             Interval::MinorSecond,
         ] {
             assert!(
-                tritone_dissonance > interval.compound_dissonance(),
+                tritone_dissonance > interval.dissonance(),
                 "Tritone should be more dissonant than {interval}"
             );
         }

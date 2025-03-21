@@ -127,7 +127,7 @@ impl PianoGui {
 
     pub fn selected_chord_name(&self) -> Option<String> {
         // AI generated. But seems mostly sensible
-        let mut selected_semitones: Vec<usize> = self.selected_keys.iter_ones().collect();
+        let mut selected_semitones: Vec<usize> = self.pressed_keys().iter_ones().collect();
         if selected_semitones.is_empty() {
             return None;
         }
