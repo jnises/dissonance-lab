@@ -26,7 +26,6 @@ struct Audio {
 }
 
 enum AudioState {
-    Uninitialized,
     Muted,
     Setup(Audio),
 }
@@ -46,7 +45,7 @@ pub struct TheoryApp {
 impl Default for TheoryApp {
     fn default() -> Self {
         Self {
-            audio: AudioState::Uninitialized,
+            audio: AudioState::Muted,
             piano_gui: PianoGui::new(),
             midi: MidiState::NotConnected { last_checked: None },
             midi_to_audio_tx: Arc::new(Mutex::new(None)),
@@ -64,7 +63,7 @@ impl TheoryApp {
     fn setup_audio(&mut self) {
         assert!(matches!(
             self.audio,
-            AudioState::Uninitialized | AudioState::Muted
+            AudioState::Muted
         ));
         let (tx, rx) = crossbeam::channel::unbounded();
         let synth = Box::new(PianoSynth::new(rx));
@@ -125,7 +124,7 @@ impl eframe::App for TheoryApp {
                     |ui| {
                         ui.horizontal(|ui| {
                             match self.audio {
-                                AudioState::Uninitialized | AudioState::Setup(_) => {
+                                AudioState::Setup(_) => {
                                     if ui.button("🔈").clicked() {
                                         self.audio = AudioState::Muted;
                                     }
@@ -187,9 +186,6 @@ impl eframe::App for TheoryApp {
                 match interval_display::show(&mut self.piano_gui, ui) {
                     None => {}
                     Some(piano_gui::Action::Pressed(note)) => {
-                        if matches!(self.audio, AudioState::Uninitialized) {
-                            self.setup_audio();
-                        }
                         if let AudioState::Setup(audio) = &self.audio {
                             audio
                                 .tx
@@ -202,9 +198,6 @@ impl eframe::App for TheoryApp {
                         }
                     }
                     Some(piano_gui::Action::Released(note)) => {
-                        if matches!(self.audio, AudioState::Uninitialized) {
-                            self.setup_audio();
-                        }
                         if let AudioState::Setup(audio) = &self.audio {
                             audio
                                 .tx
