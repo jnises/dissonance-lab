@@ -1,5 +1,5 @@
 use crossbeam::channel;
-use egui::{Align, Align2, Color32, FontId, Layout, Sense, vec2};
+use egui::{Align, Align2, Color32, FontId, Layout, RichText, Sense, vec2};
 use log::{error, warn};
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -127,21 +127,26 @@ impl eframe::App for DissonanceLabApp {
                 ui.allocate_ui(
                     vec2(PIANO_WIDTH.min(ui.available_width()), STATUS_HEIGHT),
                     |ui| {
+                        const STATUS_FONT_SIZE: f32 = 16.0;
                         ui.horizontal(|ui| {
                             match self.audio {
                                 AudioState::Setup(_) => {
-                                    if ui.button("🔈").clicked() {
+                                    if ui.button(RichText::new("🔈").size(STATUS_FONT_SIZE)).clicked() {
                                         self.audio = AudioState::Muted;
                                     }
                                 }
                                 AudioState::Muted => {
-                                    if self.unmute_button.show(ui, "🔇").clicked() {
+                                    if self
+                                        .unmute_button
+                                        .show(ui, RichText::new("🔇").size(STATUS_FONT_SIZE))
+                                        .clicked()
+                                    {
                                         self.setup_audio();
                                     }
                                 }
                             }
                             const MIDI_TEXT: &str = "MIDI";
-                            const MIDI_FONT: FontId = FontId::proportional(10.0);
+                            const MIDI_FONT: FontId = FontId::proportional(STATUS_FONT_SIZE);
                             let galley = ui.painter().layout_no_wrap(
                                 MIDI_TEXT.to_string(),
                                 MIDI_FONT,
@@ -166,7 +171,7 @@ impl eframe::App for DissonanceLabApp {
                             ui.max_rect().center_bottom(),
                             Align2::CENTER_BOTTOM,
                             "dissonance lab",
-                            FontId::proportional(12.0),
+                            FontId::proportional(STATUS_FONT_SIZE),
                             theme::KEYBOARD_LABEL,
                         );
                         if self.piano_gui.pressed_keys().count_ones() <= 1 {
@@ -174,7 +179,7 @@ impl eframe::App for DissonanceLabApp {
                                 ui.max_rect().right_bottom(),
                                 Align2::RIGHT_BOTTOM,
                                 "shift for multi select",
-                                FontId::proportional(10.0),
+                                FontId::proportional(STATUS_FONT_SIZE),
                                 theme::TEXT_TERTIARY,
                             );
                         } else {
@@ -182,8 +187,8 @@ impl eframe::App for DissonanceLabApp {
                                 ui.max_rect().right_bottom(),
                                 Align2::RIGHT_BOTTOM,
                                 self.piano_gui.selected_chord_name().unwrap(),
-                                FontId::monospace(10.0),
-                                theme::TEXT_TERTIARY,
+                                FontId::monospace(STATUS_FONT_SIZE),
+                                ui.visuals().text_color(),
                             );
                         }
                     },
