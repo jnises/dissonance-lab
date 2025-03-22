@@ -1,10 +1,7 @@
-use crossbeam::channel;
 use log::error;
 use midir::{MidiInput, MidiInputConnection};
 use std::convert::TryFrom;
 use wmidi::MidiMessage;
-
-pub type MidiSender = channel::Sender<MidiMessage<'static>>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

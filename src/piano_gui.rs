@@ -1,5 +1,5 @@
 use bitvec::{BitArr, order::Msb0};
-use egui::{Color32, Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
+use egui::{Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 use wmidi::Note;
 
 use crate::theme;
