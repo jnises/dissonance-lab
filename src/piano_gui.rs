@@ -98,6 +98,7 @@ impl PianoGui {
                 );
                 let key_response = ui.interact(key_rect, key_id, Sense::click());
                 let mouse_pressed = ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false));
+                // TODO: handle multi touch
                 if key_response.is_pointer_button_down_on() && !mouse_pressed {
                     ui.data_mut(|r| r.insert_temp(key_id, true));
                     debug_assert!(action.is_none());

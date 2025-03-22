@@ -54,7 +54,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     0.0,
                     colorgrad_to_egui(&theme::DISSONANCE_GRADIENT.at(normalized_dissonance)),
                 );
-                painter.text(
+                let ratio_rect = painter.text(
                     score_center_pos - vec2(0.0, key_width / 2.0 - 4.0),
                     Align2::CENTER_TOP,
                     interval.just_ratio().to_string(),
@@ -62,19 +62,21 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     Color32::BLACK,
                 );
                 painter.text(
-                    score_center_pos - vec2(0.0, key_width / 2.0 - 20.0),
+                    ratio_rect.center_bottom() + vec2(0.0, 2.0),
                     Align2::CENTER_TOP,
                     format!("{:+}¢", interval.tempered_just_error_cents() as i32),
                     FontId::monospace(12.0 * font_scale),
                     Color32::from_black_alpha(180),
                 );
-                painter.text(
-                    score_center_pos + vec2(0.0, key_width / 2.0 - 4.0),
-                    Align2::CENTER_BOTTOM,
-                    interval.to_string(),
-                    FontId::proportional(7.0 * font_scale),
-                    Color32::from_black_alpha(150),
-                );
+                if font_scale > 0.7 {
+                    painter.text(
+                        score_center_pos + vec2(0.0, key_width / 2.0 - 4.0),
+                        Align2::CENTER_BOTTOM,
+                        interval.to_string(),
+                        FontId::proportional(7.0 * font_scale),
+                        Color32::from_black_alpha(150),
+                    );
+                }
             }
         }
     }
