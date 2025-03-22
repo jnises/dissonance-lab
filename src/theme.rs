@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 
 pub const TEXT_TERTIARY: Color32 = Color32::from_rgb(108, 108, 108); // #6C6C6C
 const KEYBOARD_PRIMARY: Color32 = Color32::from_rgb(195, 193, 184); // rgb(195, 193, 184)
-const KEYBOARD_OUTLINES: LazyLock<colorgrad::Color> =
+static KEYBOARD_OUTLINES: LazyLock<colorgrad::Color> =
     LazyLock::new(|| colorgrad::Color::from_oklaba(1.0, -0.02, 0.01, 1.0));
 pub const KEYBOARD_LABEL: Color32 = Color32::from_rgb(179, 179, 179); // #B3B3B3
 

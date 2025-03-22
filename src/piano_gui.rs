@@ -171,7 +171,7 @@ impl PianoGui {
 
         // If we can't identify the chord, list the notes
         if selected_semitones.len() == 1 {
-            return Some(semitone_name(selected_semitones[0]).to_string());
+            Some(semitone_name(selected_semitones[0]).to_string())
         } else {
             let notes: Vec<String> = selected_semitones
                 .iter()

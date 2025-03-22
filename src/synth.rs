@@ -414,22 +414,18 @@ impl Synth for PianoSynth {
                 self.voices.push(PianoVoice::new(sample_rate as f32));
             }
         }
-        loop {
-            match self.rx.try_recv() {
-                Ok(message) => match message {
-                    wmidi::MidiMessage::NoteOff(_channel, note, _velocity) => {
-                        self.note_off(note);
-                    }
-                    wmidi::MidiMessage::NoteOn(_channel, note, velocity) => {
-                        self.note_on(note, velocity);
-                    }
-                    _ => {}
-                },
-                Err(_) => {
-                    break;
+        while let Ok(message) = self.rx.try_recv() {
+            match message {
+                wmidi::MidiMessage::NoteOff(_channel, note, _velocity) => {
+                    self.note_off(note);
                 }
+                wmidi::MidiMessage::NoteOn(_channel, note, velocity) => {
+                    self.note_on(note, velocity);
+                }
+                _ => {}
             }
         }
+
         for out_channels in out_samples.chunks_exact_mut(num_channels) {
             let s = self.process();
             let s = self

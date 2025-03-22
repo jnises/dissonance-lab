@@ -135,6 +135,7 @@ impl Interval {
 
     /// Calculates the average dissonance between all the intervals in a chord
     pub fn chord_dissonance(intervals: impl Iterator<Item = Self>) -> f32 {
+        // TODO: is there a better way to calculate the dissonance of a chord?
         let (sum, count) = intervals
             .combinations(2)
             .map(|pair| {
@@ -156,6 +157,8 @@ impl Div for Interval {
     fn div(self, rhs: Self) -> Self::Output {
         let left_semitones = self.semitones() as i8;
         let right_semitones = rhs.semitones() as i8;
+        // we are subtracting semitones which in effect is the log of the interval
+        #[expect(clippy::suspicious_arithmetic_impl)]
         let semitone_diff = (left_semitones - right_semitones).rem_euclid(12) as u8;
         Self::from_semitone_interval(semitone_diff)
     }
@@ -266,7 +269,7 @@ mod tests {
     #[test]
     fn test_interval_dissonance_ordering() {
         // ordered according to dissonance
-        let intervals = vec![
+        let intervals = [
             Interval::Unison,
             Interval::Octave,
             Interval::PerfectFifth,

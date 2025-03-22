@@ -85,12 +85,11 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 if !piano.pressed_keys()[semi as usize] {
                     chord.push(semi as usize);
                 }
-                let avg_dissonance = Interval::chord_dissonance(
+                Interval::chord_dissonance(
                     chord
                         .into_iter()
                         .map(|i| Interval::from_semitone_wrapping(i8::try_from(i).unwrap())),
-                );
-                avg_dissonance
+                )
             })
             .collect();
         let consonant_chord = *chord_dissonances
