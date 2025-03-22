@@ -186,6 +186,7 @@ struct PianoVoice {
     brightness: f32, // Controls harmonic content
     velocity: f32,   // Normalized velocity (0.0 to 1.0)
     attack_phase: f32, // Tracks progress through attack portion (0.0 to 1.0)
+    note_phase: f32, // starts at 0 at note on
 }
 
 impl PianoVoice {
@@ -202,6 +203,7 @@ impl PianoVoice {
             brightness: 0.8, // Controls higher harmonic content
             velocity: 1.0,   // Default full velocity
             attack_phase: 0.0, // Initialize attack phase
+            note_phase: 0.0,
         }
     }
 
@@ -215,6 +217,7 @@ impl PianoVoice {
 
         self.envelope.set_velocity(self.velocity);
         self.attack_phase = 0.0; // Reset attack phase on new note
+        self.note_phase = 0.0;
 
         // Model frequency-dependent decay behavior of real piano strings
         // Physics: higher frequency strings have less mass and dissipate energy faster
@@ -277,6 +280,7 @@ impl PianoVoice {
         self.phase = (self.phase + self.phase_delta).rem_euclid(1.0);
         self.detuned_phase =
             (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(1.0);
+        self.note_phase += self.phase_delta;
 
         // Generate piano-like waveform with improved hammer strike characteristics
         let mut sample = 0.0;
@@ -318,12 +322,12 @@ impl PianoVoice {
             
             // Create noise elements using attack_intensity as the primary phase source
             // attack_intensity smoothly goes from 1.0 to 0.0, creating evolving hammer strike sound
-            let noise1 = (2.0 * PI * attack_intensity * 3.0).sin();
-            let noise2 = (2.0 * PI * attack_intensity * 5.0).cos();
+            let noise1 = (2.0 * PI * attack_intensity * 3.71).sin();
+            let noise2 = (2.0 * PI * attack_intensity * 5.83).cos();
             
             // Add some phase and detuned phase influence to create more complex sound
             // The phase component adds string harmonic characteristics
-            let noise3 = (2.0 * PI * (self.phase + attack_intensity * 0.5) * 7.0).sin();
+            let noise3 = (2.0 * PI * (self.note_phase + attack_intensity * 0.5) * 8.91).sin();
             
             // Combine noise components
             let noise = noise1 * noise2 * noise3;
