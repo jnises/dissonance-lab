@@ -1,5 +1,6 @@
+// AI generated
+
 /// Shroeder reverb
-/// AI generated. Seems to work alright
 pub struct Reverb {
     // Reverb parameters
     room_size: f32,

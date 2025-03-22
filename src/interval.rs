@@ -100,6 +100,7 @@ impl Interval {
     }
 
     pub fn dissonance(&self) -> f32 {
+        // AI generated
         // TODO: perhaps this is overcomplicated. better to just use the base_dissonance directly?
 
         // Factor 1: Ratio complexity - simpler ratios are less dissonant
