@@ -1,4 +1,4 @@
-var cacheName = 'dissonance-lab-pwa';
+var cacheName = 'dissonance-lab-pwa-v1';
 var filesToCache = [
   './',
   './index.html',
@@ -11,6 +11,27 @@ self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(cacheName).then(function (cache) {
       return cache.addAll(filesToCache);
+    }).then(function() {
+      return self.skipWaiting(); // Ensure the new service worker activates immediately
+    })
+  );
+});
+
+/* Clear old caches when a new service worker is activated */
+self.addEventListener('activate', function(e) {
+  var cacheWhitelist = [cacheName]; // Only keep the current cache version
+
+  e.waitUntil(
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames.map(function(name) {
+          if (cacheWhitelist.indexOf(name) === -1) {
+            return caches.delete(name); // Delete old caches
+          }
+        })
+      );
+    }).then(function() {
+      return self.clients.claim(); // Take control of clients immediately
     })
   );
 });

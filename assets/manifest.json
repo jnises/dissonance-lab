@@ -1,6 +1,6 @@
 {
-  "name": "dissonance lab PWA",
-  "short_name": "dissonance-lab-pwa",
+  "name": "Dissonance Lab",
+  "short_name": "dissonance-lab",
   "icons": [
     {
       "src": "./assets/icon-256.png",
