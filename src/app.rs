@@ -1,5 +1,5 @@
 use crossbeam::channel;
-use egui::{Align, Align2, Color32, FontId, Layout, RichText, Sense, vec2};
+use egui::{vec2, Align, Align2, Color32, FontId, Layout, RichText, Sense, Vec2};
 use log::{error, warn};
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -53,7 +53,7 @@ impl Default for DissonanceLabApp {
             midi_to_audio_tx: Arc::new(Mutex::new(None)),
             midi_to_piano_gui_rx,
             midi_to_piano_gui_tx,
-            unmute_button: AttentionButton::new(Duration::from_secs(1)),
+            unmute_button: AttentionButton::new(Duration::from_secs(3)),
         }
     }
 }
@@ -156,6 +156,7 @@ impl eframe::App for DissonanceLabApp {
                                     }
                                 }
                             }
+                            ui.label("|");
                             const MIDI_TEXT: &str = "MIDI";
                             const MIDI_FONT: FontId = FontId::proportional(STATUS_FONT_SIZE);
                             let galley = ui.painter().layout_no_wrap(
