@@ -221,7 +221,7 @@ impl eframe::App for DissonanceLabApp {
                                 .send(wmidi::MidiMessage::NoteOn(
                                     wmidi::Channel::Ch1,
                                     note,
-                                    wmidi::Velocity::MAX,
+                                    wmidi::Velocity::from_u8_lossy(64),
                                 ))
                                 .unwrap();
                         }
@@ -233,7 +233,7 @@ impl eframe::App for DissonanceLabApp {
                                 .send(wmidi::MidiMessage::NoteOff(
                                     wmidi::Channel::Ch1,
                                     note,
-                                    wmidi::Velocity::MAX,
+                                    wmidi::Velocity::from_u8_lossy(64),
                                 ))
                                 .unwrap();
                         }
