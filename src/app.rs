@@ -131,7 +131,10 @@ impl eframe::App for DissonanceLabApp {
                         ui.horizontal(|ui| {
                             match self.audio {
                                 AudioState::Setup(_) => {
-                                    if ui.button(RichText::new("🔈").size(STATUS_FONT_SIZE)).clicked() {
+                                    if ui
+                                        .button(RichText::new("🔈").size(STATUS_FONT_SIZE))
+                                        .clicked()
+                                    {
                                         self.audio = AudioState::Muted;
                                     }
                                 }

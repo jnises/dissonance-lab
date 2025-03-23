@@ -116,7 +116,9 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             );
             let score_center_pos = pos
                 - Vec2::Y
-                    * ((piano.pressed_keys().count_ones() as f32) * (key_width + 4.0) + 14.0 + key_width * 0.1);
+                    * ((piano.pressed_keys().count_ones() as f32) * (key_width + 4.0)
+                        + 14.0
+                        + key_width * 0.1);
             painter.rect_filled(
                 Rect::from_center_size(score_center_pos, vec2(key_width, key_width * 0.2)),
                 0.0,

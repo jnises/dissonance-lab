@@ -182,11 +182,11 @@ struct PianoVoice {
     is_active: bool,
     current_key: Option<PianoKey>,
     // Piano-specific parameters
-    detuning: f32,   // Slight detuning for realism
-    brightness: f32, // Controls harmonic content
-    velocity: f32,   // Normalized velocity (0.0 to 1.0)
+    detuning: f32,     // Slight detuning for realism
+    brightness: f32,   // Controls harmonic content
+    velocity: f32,     // Normalized velocity (0.0 to 1.0)
     attack_phase: f32, // Tracks progress through attack portion (0.0 to 1.0)
-    note_phase: f32, // starts at 0 at note on
+    note_phase: f32,   // starts at 0 at note on
 }
 
 impl PianoVoice {
@@ -199,9 +199,9 @@ impl PianoVoice {
             sample_rate,
             is_active: false,
             current_key: None,
-            detuning: 1.003, // Creates chorus-like effect for richer tone
-            brightness: 0.8, // Controls higher harmonic content
-            velocity: 1.0,   // Default full velocity
+            detuning: 1.003,   // Creates chorus-like effect for richer tone
+            brightness: 0.8,   // Controls higher harmonic content
+            velocity: 1.0,     // Default full velocity
             attack_phase: 0.0, // Initialize attack phase
             note_phase: 0.0,
         }
@@ -268,10 +268,10 @@ impl PianoVoice {
         if self.envelope.state == EnvelopeState::Attack || self.attack_phase < 1.0 {
             // Calculate rate based on sample rate - equivalent to 20ms attack transient
             let attack_rate = 50.0 / self.sample_rate; // 1/0.02s = 50
-            
+
             // Non-linear curve: faster at start, slower near end
             self.attack_phase += attack_rate * (1.0 - self.attack_phase);
-            
+
             if self.attack_phase > 1.0 {
                 self.attack_phase = 1.0;
             }
@@ -287,7 +287,7 @@ impl PianoVoice {
 
         // Calculate attack intensity - strongest at the beginning
         let attack_intensity = (1.0 - self.attack_phase) * self.velocity;
-        
+
         // Fundamental
         sample += 0.6 * (2.0 * PI * self.phase).sin();
 
@@ -299,45 +299,50 @@ impl PianoVoice {
 
         // Higher harmonics with brightness control and dynamic attack
         let dynamic_brightness = self.brightness * (0.7 + 0.3 * self.velocity);
-        
+
         // 4th and 5th harmonics are stronger during attack phase
         let attack_harmonic_boost = 1.0 + (attack_intensity * 2.0);
-        sample += dynamic_brightness * 0.2 * attack_harmonic_boost * (4.0 * 2.0 * PI * self.phase).sin();
-        sample += dynamic_brightness * 0.14 * attack_harmonic_boost * (5.0 * 2.0 * PI * self.phase).sin();
-        
+        sample +=
+            dynamic_brightness * 0.2 * attack_harmonic_boost * (4.0 * 2.0 * PI * self.phase).sin();
+        sample +=
+            dynamic_brightness * 0.14 * attack_harmonic_boost * (5.0 * 2.0 * PI * self.phase).sin();
+
         // Add even higher harmonics during attack for hammer "ping"
         if attack_intensity > 0.01 {
-            sample += dynamic_brightness * 0.05 * attack_intensity * (6.0 * 2.0 * PI * self.phase).sin();
-            sample += dynamic_brightness * 0.03 * attack_intensity * (7.0 * 2.0 * PI * self.phase).sin();
-            sample += dynamic_brightness * 0.02 * attack_intensity * (8.0 * 2.0 * PI * self.phase).sin();
+            sample +=
+                dynamic_brightness * 0.05 * attack_intensity * (6.0 * 2.0 * PI * self.phase).sin();
+            sample +=
+                dynamic_brightness * 0.03 * attack_intensity * (7.0 * 2.0 * PI * self.phase).sin();
+            sample +=
+                dynamic_brightness * 0.02 * attack_intensity * (8.0 * 2.0 * PI * self.phase).sin();
         }
 
         // Detuned oscillator for richness
         sample += 0.1 * (2.0 * PI * self.detuned_phase).sin();
-        
+
         // Add hammer noise/transient during attack
         if attack_intensity > 0.01 {
             // Use attack_intensity as base phase for noise to create evolving hammer sound
             // This ensures a continuous noise transition that doesn't repeat with the waveform cycle
-            
+
             // Create noise elements using attack_intensity as the primary phase source
             // attack_intensity smoothly goes from 1.0 to 0.0, creating evolving hammer strike sound
             let noise1 = (2.0 * PI * attack_intensity * 3.71).sin();
             let noise2 = (2.0 * PI * attack_intensity * 5.83).cos();
-            
+
             // Add some phase and detuned phase influence to create more complex sound
             // The phase component adds string harmonic characteristics
             let noise3 = (2.0 * PI * (self.note_phase + attack_intensity * 0.5) * 8.91).sin();
-            
+
             // Combine noise components
             let noise = noise1 * noise2 * noise3;
-            
+
             // Scale noise by attack intensity and velocity
             sample += noise * attack_intensity * self.velocity * 0.2;
-            
+
             // Add initial "thump" of hammer hitting string - brief low-mid frequency component
-            sample += attack_intensity * self.velocity * 0.15 * 
-                     (2.0 * PI * attack_intensity * 0.5).sin(); // Lower frequency thump
+            sample +=
+                attack_intensity * self.velocity * 0.15 * (2.0 * PI * attack_intensity * 0.5).sin(); // Lower frequency thump
         }
 
         // Reduce overall volume to prevent clipping
