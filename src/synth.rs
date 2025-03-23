@@ -332,7 +332,7 @@ impl PianoVoice {
 
             // Add some phase and detuned phase influence to create more complex sound
             // The phase component adds string harmonic characteristics
-            let noise3 = (2.0 * PI * (self.note_phase + attack_intensity * 0.5) * 8.91).sin();
+            let noise3 = (2.0 * PI * (self.note_phase * 0.5 + attack_intensity * 0.5) * 8.91).sin();
 
             // Combine noise components
             let noise = noise1 * noise2 * noise3;
@@ -342,7 +342,7 @@ impl PianoVoice {
 
             // Add initial "thump" of hammer hitting string - brief low-mid frequency component
             sample +=
-                attack_intensity * self.velocity * 0.15 * (2.0 * PI * attack_intensity * 0.5).sin(); // Lower frequency thump
+                attack_intensity * self.velocity * 0.5 * (2.0 * PI * attack_intensity * 5.0).sin(); // Lower frequency thump
         }
 
         // Reduce overall volume to prevent clipping
