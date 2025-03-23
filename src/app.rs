@@ -100,10 +100,8 @@ impl DissonanceLabApp {
                     }
                     Err(e) => {
                         match e {
-                            crate::midi::Error::NoMidiInterface => {}
-                            crate::midi::Error::Init(_)
-                            | crate::midi::Error::Connect(_)
-                            | crate::midi::Error::PortInfo(_) => {
+                            crate::midi::Error::NoMidiInterface | crate::midi::Error::Init(_) => {}
+                            crate::midi::Error::Connect(_) | crate::midi::Error::PortInfo(_) => {
                                 error!("unable to set up midi: {e:?}");
                             }
                         }
