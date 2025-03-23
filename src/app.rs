@@ -119,18 +119,25 @@ impl DissonanceLabApp {
 impl eframe::App for DissonanceLabApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ensure_midi(ctx);
+        // don't need to start muted if in native mode
+        #[cfg(not(target_arch = "wasm32"))]
+        match self.audio {
+            AudioState::Muted => self.setup_audio(),
+            AudioState::Setup(_) => {},
+        }
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 const STATUS_HEIGHT: f32 = 40.0;
                 ui.allocate_ui(
                     vec2(PIANO_WIDTH.min(ui.available_width()), STATUS_HEIGHT),
                     |ui| {
-                        const STATUS_FONT_SIZE: f32 = 16.0;
+                        const MUTE_FONT_SIZE: f32 = 16.0;
+                        const STATUS_FONT_SIZE: f32 = 14.0;
                         ui.horizontal(|ui| {
                             match self.audio {
                                 AudioState::Setup(_) => {
                                     if ui
-                                        .button(RichText::new("🔈").size(STATUS_FONT_SIZE))
+                                        .button(RichText::new("🔈").size(MUTE_FONT_SIZE))
                                         .clicked()
                                     {
                                         self.audio = AudioState::Muted;
@@ -139,7 +146,7 @@ impl eframe::App for DissonanceLabApp {
                                 AudioState::Muted => {
                                     if self
                                         .unmute_button
-                                        .show(ui, RichText::new("🔇").size(STATUS_FONT_SIZE))
+                                        .show(ui, RichText::new("🔇").size(MUTE_FONT_SIZE))
                                         .clicked()
                                     {
                                         self.setup_audio();
