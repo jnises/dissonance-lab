@@ -23,6 +23,7 @@ struct Audio {
 }
 
 enum AudioState {
+    Uninitialized,
     Muted,
     Setup(Audio),
 }
@@ -46,7 +47,7 @@ impl Default for DissonanceLabApp {
     fn default() -> Self {
         let (midi_to_piano_gui_tx, midi_to_piano_gui_rx) = channel::unbounded();
         Self {
-            audio: AudioState::Muted,
+            audio: AudioState::Uninitialized,
             piano_gui: PianoGui::new(),
             midi: MidiState::NotConnected { last_checked: None },
             midi_to_audio_tx: Arc::new(Mutex::new(None)),
@@ -65,7 +66,10 @@ impl DissonanceLabApp {
     }
 
     fn setup_audio(&mut self) {
-        assert!(matches!(self.audio, AudioState::Muted));
+        assert!(matches!(
+            self.audio,
+            AudioState::Muted | AudioState::Uninitialized
+        ));
         let (tx, rx) = crossbeam::channel::unbounded();
         let synth = Box::new(PianoSynth::new(rx));
         let audio = AudioManager::new(synth, |message| {
@@ -121,9 +125,8 @@ impl eframe::App for DissonanceLabApp {
         self.ensure_midi(ctx);
         // don't need to start muted if in native mode
         #[cfg(not(target_arch = "wasm32"))]
-        match self.audio {
-            AudioState::Muted => self.setup_audio(),
-            AudioState::Setup(_) => {},
+        if let AudioState::Uninitialized = self.audio {
+            self.setup_audio();
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
@@ -143,7 +146,7 @@ impl eframe::App for DissonanceLabApp {
                                         self.audio = AudioState::Muted;
                                     }
                                 }
-                                AudioState::Muted => {
+                                AudioState::Uninitialized | AudioState::Muted => {
                                     if self
                                         .unmute_button
                                         .show(ui, RichText::new("🔇").size(MUTE_FONT_SIZE))
