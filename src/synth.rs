@@ -498,7 +498,6 @@ impl Synth for PianoSynth {
                 .limiter
                 .get_or_insert_with(|| Limiter::new(sample_rate as f32))
                 .process(s);
-            let s = s.clamp(-1.0, 1.0);
             for c in out_channels.iter_mut() {
                 *c = s;
             }
