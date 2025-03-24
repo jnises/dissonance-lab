@@ -82,52 +82,5 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             }
         }
     }
-    if piano.pressed_keys().count_ones() > 1 {
-        let chord_dissonances: Vec<_> = (0..12i8)
-            .map(|semi| {
-                let mut chord: Vec<_> = piano.pressed_keys().iter_ones().collect();
-                if !piano.pressed_keys()[semi as usize] {
-                    chord.push(semi as usize);
-                }
-                Interval::chord_dissonance(
-                    chord
-                        .into_iter()
-                        .map(|i| Interval::from_semitone_wrapping(i8::try_from(i).unwrap())),
-                )
-            })
-            .collect();
-        // normalize the chord dissonance values among the current set of chords
-        let consonant_chord = *chord_dissonances
-            .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap();
-        let dissonant_chord = *chord_dissonances
-            .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap();
-
-        for (semi, dissonance) in chord_dissonances.into_iter().enumerate() {
-            let normalized_dissonance = if (dissonant_chord - consonant_chord).abs() > f32::EPSILON
-            {
-                (dissonance - consonant_chord) / (dissonant_chord - consonant_chord)
-            } else {
-                dissonance
-            };
-            let pos = pos2(
-                interval_rect.left() + key_width * (semi as f32 + 0.5),
-                interval_rect.bottom(),
-            );
-            let score_center_pos = pos
-                - Vec2::Y
-                    * ((piano.pressed_keys().count_ones() as f32) * (key_width + 4.0)
-                        + 14.0
-                        + key_width * 0.1);
-            painter.rect_filled(
-                Rect::from_center_size(score_center_pos, vec2(key_width, key_width * 0.2)),
-                0.0,
-                colorgrad_to_egui(&theme::DISSONANCE_GRADIENT.at(normalized_dissonance)),
-            );
-        }
-    }
     action
 }

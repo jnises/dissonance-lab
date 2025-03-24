@@ -1,4 +1,3 @@
-use itertools::Itertools as _;
 use num_rational::Rational32;
 use num_traits::ToPrimitive;
 use std::fmt::{Display, Formatter, Result};
@@ -132,19 +131,6 @@ impl Interval {
 
         // Weighted combination of all factors
         0.5 * base_dissonance + 0.3 * complexity + 0.2 * error_factor
-    }
-
-    /// Calculates the average dissonance between all the intervals in a chord
-    pub fn chord_dissonance(intervals: impl Iterator<Item = Self>) -> f32 {
-        // TODO: is there a better way to calculate the dissonance of a chord?
-        let (sum, count) = intervals
-            .combinations(2)
-            .map(|pair| {
-                let between_interval = pair[1] / pair[0];
-                between_interval.dissonance()
-            })
-            .fold((0.0, 0), |acc, dissonance| (acc.0 + dissonance, acc.1 + 1));
-        sum / count as f32
     }
 }
 
