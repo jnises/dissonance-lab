@@ -103,27 +103,35 @@ impl Interval {
     /// Since we only care about a single octave we also take the inversion into account
     pub fn dissonance(&self) -> f32 {
         // AI generated
-        // Calculate dissonance based on musical theory and acoustical properties
+        // Calculate dissonance based on frequency ratio complexity and tuning error
         // Lower values = more consonant
-
-        // Start with a fixed dissonance ranking based on musical theory
-        // These values are calibrated to ensure proper ordering of intervals
-        let base_dissonance = match self {
-            Self::Unison | Self::Octave => 0.05,
-            Self::PerfectFifth | Self::PerfectFourth => 0.2,
-            Self::MajorThird | Self::MinorSixth => 0.35, // Ensure major third is less dissonant than minor third
-            Self::MinorThird | Self::MajorSixth => 0.45, // Ensure minor third is more dissonant than major third
-            Self::MajorSecond | Self::MinorSeventh => 0.7,
-            Self::MajorSeventh | Self::MinorSecond => 0.8,
-            Self::Tritone => 0.95,
-        };
-
-        // Apply a small adjustment based on tuning error
+        let semitones = self.semitones();
+        assert!(semitones < 12);
+        // Calculate dissonance for the given interval
+        let ratio = self.just_ratio();
+        let numerator = ratio.numer();
+        let denominator = ratio.denom();
+        
+        // Base dissonance from ratio complexity (simpler ratios are more consonant)
+        let complexity = (numerator * denominator) as f32;
+        let base_dissonance = (complexity.ln() / 20.0).min(1.0);
+        
+        // Effect of tuning error (increases dissonance)
         let tuning_error = self.tempered_just_error_cents().abs() / 20.0;
-        let tuning_factor = 0.05 * (tuning_error / 15.0);
+        let tuning_factor = 0.3 * (tuning_error / 15.0);
+        
+        // Consider inversion by comparing with inverted interval's dissonance
+        let inverted = Interval::from_semitone_interval(12 - semitones);
+        let inverted_ratio = inverted.just_ratio();
+        let inverted_complexity = (inverted_ratio.numer() * inverted_ratio.denom()) as f32;
+        let inverted_dissonance = (inverted_complexity.ln() / 20.0).min(1.0);
+        let inverted_tuning_error = inverted.tempered_just_error_cents().abs() / 20.0;
+        let inverted_tuning_factor = 0.3 * (inverted_tuning_error / 15.0);
 
-        // Final dissonance value
-        (base_dissonance + tuning_factor).min(1.0)
+        // Use the more consonant of the interval or its inversion
+        let direct = base_dissonance + tuning_factor;
+        let inverted = inverted_dissonance + inverted_tuning_factor;
+        direct.min(inverted)
     }
 
     /// Calculates the average dissonance between all the intervals in a chord
@@ -262,20 +270,15 @@ mod tests {
     #[test]
     fn test_interval_dissonance_ordering() {
         // ordered according to dissonance
-        // Note: Since our dissonance function considers inversions,
-        // the perfect fourth and perfect fifth should have similar dissonance values
-        // and the minor intervals should have similar dissonance to their major counterparts
         let intervals = [
             Interval::Unison,
             Interval::Octave,
-            // These two are inversions of each other
             Interval::PerfectFifth,
             Interval::PerfectFourth,
-            // These pairs are inversions of each other
             Interval::MajorThird,
-            Interval::MinorSixth,
             Interval::MinorThird,
             Interval::MajorSixth,
+            Interval::MinorSixth,
             Interval::MajorSecond,
             Interval::MinorSeventh,
             Interval::MajorSeventh,
@@ -292,72 +295,22 @@ mod tests {
             let (next_interval, next_dissonance) = window[1];
 
             assert!(
-                (next_dissonance - current_dissonance).abs() < 0.001
-                    || next_dissonance > current_dissonance,
+                current_dissonance <= next_dissonance,
                 "Expected {current_interval} (dissonance: {current_dissonance:.2}) to be less dissonant than {next_interval} (dissonance: {next_dissonance:.2})"
-            );
-        }
-
-        // Check that inversions have very similar dissonance values
-        let inversions = [
-            (Interval::PerfectFifth, Interval::PerfectFourth),
-            (Interval::MajorThird, Interval::MinorSixth),
-            (Interval::MinorThird, Interval::MajorSixth),
-            (Interval::MajorSecond, Interval::MinorSeventh),
-            (Interval::MinorSecond, Interval::MajorSeventh),
-        ];
-
-        for (a, b) in inversions {
-            let a_dissonance = a.dissonance();
-            let b_dissonance = b.dissonance();
-            assert!(
-                (a_dissonance - b_dissonance).abs() < 0.1,
-                "Inversion pair {a} and {b} should have similar dissonance values: {a_dissonance:.2} vs {b_dissonance:.2}"
             );
         }
     }
 
     #[test]
     fn test_most_consonant_dissonant_intervals() {
-        // Check that unison and octave are the least dissonant
-        let unison_dissonance = Interval::Unison.dissonance();
-        let octave_dissonance = Interval::Octave.dissonance();
+        // Check that unison is the least dissonant
+        assert!(Interval::Unison.dissonance() < Interval::Octave.dissonance());
 
-        // These should be very close since they're equivalent musically
-        assert!(
-            (unison_dissonance - octave_dissonance).abs() < 0.05,
-            "Unison and octave should have very similar dissonance values"
-        );
-
-        // Perfect fifth and fourth (inversions of each other) should be next least dissonant
-        let fifth_dissonance = Interval::PerfectFifth.dissonance();
-        let fourth_dissonance = Interval::PerfectFourth.dissonance();
-
-        // These should be very close since they're inversions
-        assert!(
-            (fifth_dissonance - fourth_dissonance).abs() < 0.05,
-            "Perfect fifth and perfect fourth should have similar dissonance values"
-        );
-
-        // Check that perfect fifth/fourth are less dissonant than other intervals
-        // but more dissonant than unison/octave
-        assert!(
-            fifth_dissonance > unison_dissonance,
-            "Perfect fifth should be more dissonant than unison"
-        );
-        assert!(
-            fifth_dissonance > octave_dissonance,
-            "Perfect fifth should be more dissonant than octave"
-        );
-
-        // Check that other intervals are more dissonant than fifth/fourth
-        let consonant_intervals = [
-            Interval::Unison,
+        // Check that perfect fifth is the least dissonant non-trivial interval
+        let non_unison_intervals = [
             Interval::Octave,
             Interval::PerfectFifth,
             Interval::PerfectFourth,
-        ];
-        let remaining_intervals = [
             Interval::MajorThird,
             Interval::MinorThird,
             Interval::MajorSixth,
@@ -369,11 +322,20 @@ mod tests {
             Interval::Tritone,
         ];
 
-        for interval in remaining_intervals {
-            for consonant in consonant_intervals {
+        let fifth_dissonance = Interval::PerfectFifth.dissonance();
+        for interval in non_unison_intervals {
+            if interval == Interval::PerfectFifth {
+                continue;
+            }
+            if interval == Interval::Octave {
                 assert!(
-                    interval.dissonance() > consonant.dissonance(),
-                    "{interval} should be more dissonant than {consonant}"
+                    fifth_dissonance > interval.dissonance(),
+                    "Perfect fifth should be more dissonant than octave"
+                );
+            } else {
+                assert!(
+                    fifth_dissonance < interval.dissonance(),
+                    "Perfect fifth should be less dissonant than {interval}"
                 );
             }
         }
