@@ -5,7 +5,10 @@ use crate::{
     utils::colorgrad_to_egui,
 };
 use colorgrad::Gradient;
-use egui::{Align2, Color32, FontId, Rect, Sense, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
+use egui::{
+    Align2, Color32, FontId, Rect, Sense, Stroke, StrokeKind, Ui, Vec2, epaint::PathShape, pos2,
+    vec2,
+};
 
 pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::Action> {
     let (action, piano_rect) = piano.show(ui);
@@ -56,6 +59,17 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     0.0,
                     colorgrad_to_egui(&theme::DISSONANCE_GRADIENT.at(normalized_dissonance)),
                 );
+                // draw triangles to indicate that the pressed key is considered the root
+                const TRIANGLE_SIZE: f32 = 1.0 / 8.0;
+                painter.add(PathShape::convex_polygon(
+                    vec![
+                        score_center_pos + vec2(-key_width / 2.0, key_width * TRIANGLE_SIZE),
+                        score_center_pos + vec2(-key_width / 2.0, -key_width * TRIANGLE_SIZE),
+                        score_center_pos + vec2(key_width * (-1.0 / 2.0 + TRIANGLE_SIZE), 0.0),
+                    ],
+                    theme::outlines(),
+                    Stroke::NONE,
+                ));
                 let ratio_rect = painter.text(
                     score_center_pos - vec2(0.0, key_width / 2.0 - 4.0),
                     Align2::CENTER_TOP,
