@@ -1,5 +1,5 @@
 use crossbeam::channel;
-use egui::{vec2, Align, Align2, Color32, FontId, Layout, RichText, Sense};
+use egui::{Align, Align2, Color32, FontId, Layout, RichText, Sense, vec2};
 use log::{error, warn};
 use parking_lot::Mutex;
 use std::sync::Arc;
