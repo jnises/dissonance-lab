@@ -4,8 +4,7 @@
 
 Test at https://jnises.github.io/dissonance-lab/
 
-Small gui to explore the dissonance of different intervals and chords on a single octave of piano.
-Since we only do one octave and wrap the notes we treat inversions the same as the forward invervals.
+Small gui to explore the dissonance of different intervals and chords on a piano.
 
 Includes a simple piano synth and midi input.
 
