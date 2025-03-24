@@ -24,6 +24,8 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
         .enumerate()
     {
         for semi in 0..12i8 {
+            // always consider the pressed key as the base
+            // TODO: if we show more than one octave we show the actual base as the root
             let interval = interval::Interval::from_semitone_wrapping(semi - selected_semi);
             let pos = pos2(
                 interval_rect.left() + key_width * (semi as f32 + 0.5),
@@ -94,6 +96,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 )
             })
             .collect();
+        // normalize the chord dissonance values among the current set of chords
         let consonant_chord = *chord_dissonances
             .iter()
             .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
