@@ -99,39 +99,39 @@ impl Interval {
         }
     }
 
+    /// Dissonance of an interval between 0 and 1
+    /// Since we only care about a single octave we also take the inversion into account
     pub fn dissonance(&self) -> f32 {
         // AI generated
-        // TODO: perhaps this is overcomplicated. better to just use the base_dissonance directly?
+        // Calculate dissonance based on frequency ratio complexity and tuning error
+        // Lower values = more consonant
+        let semitones = self.semitones();
+        assert!(semitones < 12);
+        // Calculate dissonance for the given interval
+        let ratio = self.just_ratio();
+        let numerator = ratio.numer();
+        let denominator = ratio.denom();
+        
+        // Base dissonance from ratio complexity (simpler ratios are more consonant)
+        let complexity = (numerator * denominator) as f32;
+        let base_dissonance = (complexity.ln() / 20.0).min(1.0);
+        
+        // Effect of tuning error (increases dissonance)
+        let tuning_error = self.tempered_just_error_cents().abs() / 20.0;
+        let tuning_factor = 0.3 * (tuning_error / 15.0);
+        
+        // Consider inversion by comparing with inverted interval's dissonance
+        let inverted = Interval::from_semitone_interval(12 - semitones);
+        let inverted_ratio = inverted.just_ratio();
+        let inverted_complexity = (inverted_ratio.numer() * inverted_ratio.denom()) as f32;
+        let inverted_dissonance = (inverted_complexity.ln() / 20.0).min(1.0);
+        let inverted_tuning_error = inverted.tempered_just_error_cents().abs() / 20.0;
+        let inverted_tuning_factor = 0.3 * (inverted_tuning_error / 15.0);
 
-        // Factor 1: Ratio complexity - simpler ratios are less dissonant
-        let just = self.just_ratio();
-        let numer = just.numer().abs() as f32;
-        let denom = just.denom().abs() as f32;
-        let complexity = 1.0 - 1.0 / (0.7 * (numer + denom - 1.0)).sqrt();
-
-        // Factor 2: Just/tempered error in cents
-        let cents_error = self.tempered_just_error_cents().abs() / 20.0; // Normalize
-        let error_factor = cents_error.min(1.0);
-
-        // Factor 3: Perceptual/cultural base dissonance
-        let base_dissonance = match self {
-            Self::Unison => 0.00,
-            Self::Octave => 0.05,
-            Self::PerfectFifth => 0.10,
-            Self::PerfectFourth => 0.15,
-            Self::MajorThird => 0.25,
-            Self::MinorThird => 0.30,
-            Self::MajorSixth => 0.35,
-            Self::MinorSixth => 0.40,
-            Self::MajorSecond => 0.60,
-            Self::MinorSeventh => 0.65,
-            Self::MajorSeventh => 0.75,
-            Self::MinorSecond => 0.85,
-            Self::Tritone => 0.90,
-        };
-
-        // Weighted combination of all factors
-        0.5 * base_dissonance + 0.3 * complexity + 0.2 * error_factor
+        // Use the more consonant of the interval or its inversion
+        let direct = base_dissonance + tuning_factor;
+        let inverted = inverted_dissonance + inverted_tuning_factor;
+        direct.min(inverted)
     }
 
     /// Calculates the average dissonance between all the intervals in a chord
