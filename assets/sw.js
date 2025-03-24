@@ -1,4 +1,4 @@
-var cacheName = 'dissonance-lab-pwa-v5';
+var cacheName = 'dissonance-lab-pwa-v6';
 var filesToCache = [
   './',
   './index.html',
