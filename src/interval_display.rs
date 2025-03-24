@@ -36,11 +36,12 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             );
             let this_selected = semi == selected_semi;
             let score_center_pos = pos - Vec2::Y * ((row as f32 + 0.5) * (key_width + 4.0) + 10.0);
+            const OUTLINE_STROKE_WIDTH: f32 = 2.0;
             if this_selected {
                 painter.rect_stroke(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     0.0,
-                    Stroke::new(2.0, theme::outlines()),
+                    Stroke::new(OUTLINE_STROKE_WIDTH, theme::outlines()),
                     StrokeKind::Inside,
                 );
                 painter.text(
@@ -60,16 +61,27 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     colorgrad_to_egui(&theme::DISSONANCE_GRADIENT.at(normalized_dissonance)),
                 );
                 // draw triangles to indicate that the pressed key is considered the root
-                const TRIANGLE_SIZE: f32 = 1.0 / 8.0;
+                const TRIANGLE_SIZE: f32 = 1.0 / 6.0;
                 painter.add(PathShape::convex_polygon(
                     vec![
-                        score_center_pos + vec2(-key_width / 2.0, key_width * TRIANGLE_SIZE),
-                        score_center_pos + vec2(-key_width / 2.0, -key_width * TRIANGLE_SIZE),
-                        score_center_pos + vec2(key_width * (-1.0 / 2.0 + TRIANGLE_SIZE), 0.0),
+                        score_center_pos + vec2(-key_width / 2.0, key_width / 2.0),
+                        score_center_pos
+                            + vec2(-key_width / 2.0, key_width * (0.5 - TRIANGLE_SIZE)),
+                        score_center_pos
+                            + vec2(key_width * (-0.5 + TRIANGLE_SIZE), key_width / 2.0),
                     ],
                     theme::outlines(),
                     Stroke::NONE,
                 ));
+                if (semi + 1).rem_euclid(12) != selected_semi {
+                    painter.line_segment(
+                        [
+                            score_center_pos + vec2(-key_width / 2.0, key_width / 2.0 - OUTLINE_STROKE_WIDTH / 2.0),
+                            score_center_pos + vec2(key_width / 2.0, key_width / 2.0- OUTLINE_STROKE_WIDTH / 2.0),
+                        ],
+                        Stroke::new(OUTLINE_STROKE_WIDTH, theme::outlines()),
+                    );
+                }
                 let ratio_rect = painter.text(
                     score_center_pos - vec2(0.0, key_width / 2.0 - 4.0),
                     Align2::CENTER_TOP,
