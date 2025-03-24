@@ -76,8 +76,16 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 if (semi + 1).rem_euclid(12) != selected_semi {
                     painter.line_segment(
                         [
-                            score_center_pos + vec2(-key_width / 2.0, key_width / 2.0 - OUTLINE_STROKE_WIDTH / 2.0),
-                            score_center_pos + vec2(key_width / 2.0, key_width / 2.0- OUTLINE_STROKE_WIDTH / 2.0),
+                            score_center_pos
+                                + vec2(
+                                    -key_width / 2.0,
+                                    key_width / 2.0 - OUTLINE_STROKE_WIDTH / 2.0,
+                                ),
+                            score_center_pos
+                                + vec2(
+                                    key_width / 2.0,
+                                    key_width / 2.0 - OUTLINE_STROKE_WIDTH / 2.0,
+                                ),
                         ],
                         Stroke::new(OUTLINE_STROKE_WIDTH, theme::outlines()),
                     );
