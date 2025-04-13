@@ -12,7 +12,6 @@ use crate::{
     piano_gui::{self, PIANO_WIDTH, PianoGui},
     synth::PianoSynth,
     theme,
-    utils::AttentionButton,
 };
 
 type MidiSender = channel::Sender<wmidi::MidiMessage<'static>>;
@@ -40,7 +39,6 @@ pub struct DissonanceLabApp {
     midi_to_audio_tx: Arc<Mutex<Option<MidiSender>>>,
     midi_to_piano_gui_rx: channel::Receiver<wmidi::MidiMessage<'static>>,
     midi_to_piano_gui_tx: channel::Sender<wmidi::MidiMessage<'static>>,
-    unmute_button: AttentionButton,
 }
 
 impl Default for DissonanceLabApp {
@@ -53,7 +51,6 @@ impl Default for DissonanceLabApp {
             midi_to_audio_tx: Arc::new(Mutex::new(None)),
             midi_to_piano_gui_rx,
             midi_to_piano_gui_tx,
-            unmute_button: AttentionButton::new(Duration::from_secs(3)),
         }
     }
 }
@@ -147,9 +144,12 @@ impl eframe::App for DissonanceLabApp {
                                     }
                                 }
                                 AudioState::Uninitialized | AudioState::Muted => {
-                                    if self
-                                        .unmute_button
-                                        .show(ui, RichText::new("🔇").size(MUTE_FONT_SIZE))
+                                    if ui
+                                        .button(
+                                            RichText::new("🔇")
+                                                .size(MUTE_FONT_SIZE)
+                                                .color(theme::ATTENTION_TEXT),
+                                        )
                                         .clicked()
                                     {
                                         self.setup_audio();
