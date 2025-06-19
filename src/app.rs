@@ -10,9 +10,9 @@ use crate::{
     interval_display,
     midi::MidiReader,
     piano_gui::{self, PIANO_WIDTH, PianoGui},
-    synth::PianoSynth,
     theme,
 };
+use dissonance_audio_engine::PianoSynth;
 
 type MidiSender = channel::Sender<wmidi::MidiMessage<'static>>;
 

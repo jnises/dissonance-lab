@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Audio Worklet</title>
+</head>
+<body>
+    <!-- This is just a placeholder - the actual worklet will be loaded as a module -->
+    <script type="module">
+        // This will be the entry point for the audio worklet
+        import init from './pkg/dissonance_audio_worklet.js';
+        
+        async function run() {
+            await init();
+            console.log('Audio worklet module loaded');
+        }
+        
+        run();
+    </script>
+</body>
+</html>

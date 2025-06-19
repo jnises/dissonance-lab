@@ -1,0 +1,10 @@
+[build]
+target = "audio-worklet/index.html"
+dist = "dist/audio-worklet"
+
+[watch]
+watch = ["audio-worklet/src"]
+
+[serve]
+address = "127.0.0.1"
+port = 8081
