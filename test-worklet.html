@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AudioWorklet Test</title>
+</head>
+<body>
+    <h1>AudioWorklet Test</h1>
+    <button id="testBtn">Test AudioWorklet</button>
+    <div id="output"></div>
+    
+    <script>
+        document.getElementById('testBtn').addEventListener('click', async () => {
+            const output = document.getElementById('output');
+            
+            try {
+                output.innerHTML += '<p>Checking secure context...</p>';
+                if (!window.isSecureContext) {
+                    output.innerHTML += '<p style="color: red;">ERROR: Not in a secure context!</p>';
+                    return;
+                }
+                output.innerHTML += '<p style="color: green;">Secure context OK</p>';
+                
+                output.innerHTML += '<p>Creating AudioContext...</p>';
+                const context = new AudioContext();
+                output.innerHTML += '<p style="color: green;">AudioContext created</p>';
+                
+                output.innerHTML += '<p>Checking AudioWorklet support...</p>';
+                if (!context.audioWorklet) {
+                    output.innerHTML += '<p style="color: red;">ERROR: AudioWorklet not supported!</p>';
+                    return;
+                }
+                output.innerHTML += '<p style="color: green;">AudioWorklet supported</p>';
+                
+                output.innerHTML += '<p>Loading minimal processor...</p>';
+                await context.audioWorklet.addModule('./minimal-processor.js');
+                output.innerHTML += '<p style="color: green;">Module loaded successfully!</p>';
+                
+                output.innerHTML += '<p>Creating AudioWorkletNode...</p>';
+                const node = new AudioWorkletNode(context, 'minimal-processor');
+                output.innerHTML += '<p style="color: green;">AudioWorkletNode created!</p>';
+                
+                node.connect(context.destination);
+                output.innerHTML += '<p style="color: green;">Connected to destination</p>';
+                
+            } catch (error) {
+                output.innerHTML += `<p style="color: red;">ERROR: ${error.message}</p>`;
+                console.error('Full error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,4 +1,5 @@
-use crate::{audio::Synth, limiter::Limiter, reverb::Reverb};
+use dissonance_audio_types::Synth;
+use crate::{limiter::Limiter, reverb::Reverb};
 use std::{cmp::Ordering, f32::consts::PI};
 
 /// Represents a piano key with associated frequency

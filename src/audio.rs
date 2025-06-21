@@ -1,25 +1,26 @@
 use anyhow::{Result, anyhow};
-use cpal::{
-    BufferSize, Device, OutputCallbackInfo, SampleFormat, Stream, SupportedBufferSize,
-    SupportedStreamConfigRange,
-    traits::{DeviceTrait, HostTrait, StreamTrait},
-};
-use crossbeam::atomic::AtomicCell;
-use log::warn;
+use web_sys::{AudioContext, AudioWorkletNode, MessagePort};
 use std::sync::Arc;
+use crossbeam::atomic::AtomicCell;
+use log::{warn, info, error};
+use dissonance_audio_types::Synth;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::JsFuture;
+use parking_lot::Mutex;
 
-pub trait Synth {
-    fn play(&mut self, sample_rate: u32, channels: usize, out_samples: &mut [f32]);
+#[derive(Clone)]
+pub struct AudioManager {
+    inner: Arc<Mutex<AudioManagerInner>>,
 }
 
-pub struct AudioManager {
-    device: Option<Device>,
-    config_range: Option<SupportedStreamConfigRange>,
+struct AudioManagerInner {
+    context: Option<AudioContext>,
+    worklet_node: Option<AudioWorkletNode>,
+    worklet_port: Option<MessagePort>,
     buffer_size: Arc<AtomicCell<u32>>,
-    forced_buffer_size: Option<u32>,
-    stream: Option<Stream>,
     error_callback: Arc<Box<dyn Fn(String) + Send + Sync>>,
     synth: Option<Box<dyn Synth + Send + Sync>>,
+    ready: bool,
 }
 
 impl AudioManager {
@@ -27,90 +28,151 @@ impl AudioManager {
     where
         U: Fn(String) + Send + Sync + 'static,
     {
-        let mut s = Self {
-            device: None,
-            config_range: None,
-            buffer_size: Arc::new(AtomicCell::new(0)),
-            forced_buffer_size: None,
-            stream: None,
+        let inner = AudioManagerInner {
+            context: None,
+            worklet_node: None,
+            worklet_port: None,
+            buffer_size: Arc::new(AtomicCell::new(128)),
             error_callback: Arc::new(Box::new(error_callback)),
             synth: Some(synth),
+            ready: false,
         };
-        s.setup();
-        s
+        
+        Self {
+            inner: Arc::new(Mutex::new(inner)),
+        }
     }
 
-    fn setup(&mut self) {
-        self.stream = None;
+    pub fn initialize(&self) {
+        let mut inner = self.inner.lock();
         let r = (|| -> Result<_> {
-            if self.device.is_none() {
-                let host = cpal::default_host();
-                self.device = host.default_output_device();
-                self.config_range = None;
-            }
-            if let Some(ref device) = self.device {
-                if self.config_range.is_none() {
-                    self.config_range = Some(
-                        device
-                            .supported_output_configs()?
-                            // just pick the first valid config
-                            .find(|config| {
-                                // only stereo configs
-                                config.sample_format() == SampleFormat::F32
-                                    && config.channels() == 2
-                            })
-                            .ok_or_else(|| anyhow!("no valid output audio config found"))?,
-                    );
-                }
-                if let Some(ref supported_config) = self.config_range {
-                    let sample_rate = device.default_output_config()?.sample_rate().clamp(
-                        supported_config.min_sample_rate(),
-                        supported_config.max_sample_rate(),
-                    );
-                    let mut config = supported_config.with_sample_rate(sample_rate).config();
-                    if let SupportedBufferSize::Range { min, max } = supported_config.buffer_size()
-                    {
-                        match self.forced_buffer_size {
-                            Some(size) => {
-                                config.buffer_size = BufferSize::Fixed(size.clamp(*min, *max));
-                            }
-                            None => {
-                                config.buffer_size = BufferSize::Default;
-                            }
-                        }
-                    }
-                    let sample_rate = sample_rate.0;
-                    let channels = config.channels.into();
-                    let mut synth = self.synth.take().unwrap();
-                    let error_callback = self.error_callback.clone();
-                    let buffer_size = self.buffer_size.clone();
-                    let stream = device.build_output_stream(
-                        &config,
-                        move |data: &mut [f32], _: &OutputCallbackInfo| {
-                            buffer_size.store((data.len() / channels) as u32);
-                            synth.play(sample_rate, channels, data);
-                        },
-                        move |error| {
-                            error_callback(format!("error: {:?}", error));
-                        },
-                        // no timeout
-                        None,
-                    )?;
-                    stream.play()?;
-                    self.stream = Some(stream);
-                }
-            } else {
-                warn!("no output device found");
-            }
+            let context = AudioContext::new().map_err(|e| anyhow!("Failed to create AudioContext: {:?}", e))?;
+            inner.context = Some(context);
+            info!("WebAudio context created.");
             Ok(())
         })();
+        
         if let Err(e) = r {
-            (self.error_callback)(format!("error: {:?}", e));
+            (inner.error_callback)(format!("WebAudio context setup error: {:?}", e));
         }
+    }
+
+    pub async fn setup_worklet(&self) -> Result<()> {
+        let context = {
+            let inner = self.inner.lock();
+            inner.context.as_ref()
+                .ok_or_else(|| anyhow!("AudioContext not initialized"))?
+                .clone()
+        };
+
+        // Ensure AudioContext is running (try to resume if suspended)
+        info!("Attempting to resume AudioContext...");
+        let resume_promise = context.resume()
+            .map_err(|e| anyhow!("Failed to get resume promise: {:?}", e))?;
+        JsFuture::from(resume_promise).await
+            .map_err(|e| anyhow!("Failed to resume AudioContext: {:?}", e))?;
+        info!("AudioContext resume completed");
+
+        // Add the audio worklet module
+        let worklet_url = "./ultra-minimal-processor.js";
+        let audioworklet = context.audio_worklet()
+            .map_err(|e| anyhow!("AudioWorklet not supported: {:?}", e))?;
+        
+        let add_module_promise = audioworklet.add_module(worklet_url)
+            .map_err(|e| anyhow!("Failed to get add_module promise: {:?}", e))?;
+
+        info!("About to await add_module promise for: {}", worklet_url);
+        let result = JsFuture::from(add_module_promise).await;
+        match result {
+            Ok(_) => {
+                info!("AudioWorklet module loaded successfully");
+            }
+            Err(e) => {
+                error!("Failed to load AudioWorklet module '{}': {:?}", worklet_url, e);
+                return Err(anyhow!("Failed to load AudioWorklet module: {:?}", e));
+            }
+        }
+
+        // Create the AudioWorkletNode
+        let worklet_node = AudioWorkletNode::new(&context, "ultra-minimal-processor")
+            .map_err(|e| anyhow!("Failed to create AudioWorkletNode: {:?}", e))?;
+
+        // Connect to destination
+        worklet_node.connect_with_audio_node(&context.destination())
+            .map_err(|e| anyhow!("Failed to connect AudioWorkletNode: {:?}", e))?;
+
+        // Get the message port for communication
+        let port = worklet_node.port()
+            .map_err(|e| anyhow!("Failed to get message port: {:?}", e))?;
+
+        // Set up message listener for responses from the worklet
+        let closure = Closure::wrap(Box::new(move |event: web_sys::MessageEvent| {
+            if let Ok(data) = event.data().dyn_into::<js_sys::Object>() {
+                warn!("Received message from AudioWorklet: {:?}", data);
+            }
+        }) as Box<dyn FnMut(_)>);
+
+        port.set_onmessage(Some(closure.as_ref().unchecked_ref()));
+        closure.forget(); // Keep the closure alive
+
+        // Update the inner state
+        {
+            let mut inner = self.inner.lock();
+            inner.worklet_node = Some(worklet_node);
+            inner.worklet_port = Some(port);
+            inner.ready = true;
+        }
+
+        info!("AudioWorklet setup complete!");
+        Ok(())
+    }
+
+    // Method to send MIDI messages to the worklet
+    pub fn send_midi_message(&self, message: wmidi::MidiMessage<'static>) {
+        let inner = self.inner.lock();
+        if let Some(ref worklet_port) = inner.worklet_port {
+            // Convert wmidi message to simple format for JavaScript processor
+            let js_message = js_sys::Object::new();
+            
+            unsafe {
+                js_sys::Reflect::set(&js_message, &"type".into(), &"midi".into()).unwrap();
+                
+                let midi_data = js_sys::Object::new();
+                
+                match message {
+                    wmidi::MidiMessage::NoteOn(ch, note, vel) => {
+                        js_sys::Reflect::set(&midi_data, &"status".into(), &(144u8 + ch.index()).into()).unwrap();
+                        js_sys::Reflect::set(&midi_data, &"data1".into(), &u8::from(note).into()).unwrap();
+                        js_sys::Reflect::set(&midi_data, &"data2".into(), &u8::from(vel).into()).unwrap();
+                    }
+                    wmidi::MidiMessage::NoteOff(ch, note, vel) => {
+                        js_sys::Reflect::set(&midi_data, &"status".into(), &(128u8 + ch.index()).into()).unwrap();
+                        js_sys::Reflect::set(&midi_data, &"data1".into(), &u8::from(note).into()).unwrap();
+                        js_sys::Reflect::set(&midi_data, &"data2".into(), &u8::from(vel).into()).unwrap();
+                    }
+                    _ => {
+                        warn!("Unsupported MIDI message type");
+                        return;
+                    }
+                }
+                
+                js_sys::Reflect::set(&js_message, &"data".into(), &midi_data).unwrap();
+            }
+            
+            if let Err(e) = worklet_port.post_message(&js_message) {
+                warn!("Failed to send MIDI message to worklet: {:?}", e);
+            }
+        } else {
+            warn!("AudioWorklet not initialized, cannot send MIDI message");
+        }
+    }
+
+    pub fn is_ready(&self) -> bool {
+        self.inner.lock().ready
     }
 
     #[allow(dead_code)]
     pub fn get_name(&self) -> Option<String> {
-        self.device.as_ref()?.name().ok()
+        Some("WebAudio".to_string())
     }
 }

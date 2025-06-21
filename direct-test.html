@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct AudioWorklet Test</title>
+</head>
+<body>
+    <h1>Direct AudioWorklet Test</h1>
+    <button id="testBtn">Start Audio Test</button>
+    <div id="log"></div>
+    
+    <script>
+        const log = document.getElementById('log');
+        function addLog(message, isError = false) {
+            const p = document.createElement('p');
+            p.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            if (isError) p.style.color = 'red';
+            else p.style.color = 'green';
+            log.appendChild(p);
+            console.log(message);
+        }
+        
+        document.getElementById('testBtn').addEventListener('click', async () => {
+            try {
+                addLog('Starting test...');
+                
+                // Check secure context
+                if (!window.isSecureContext) {
+                    addLog('ERROR: Not in secure context', true);
+                    return;
+                }
+                addLog('Secure context: OK');
+                
+                // Create AudioContext
+                addLog('Creating AudioContext...');
+                const context = new AudioContext();
+                addLog(`AudioContext created, state: ${context.state}, sampleRate: ${context.sampleRate}`);
+                
+                // Resume context if needed
+                if (context.state === 'suspended') {
+                    addLog('Resuming AudioContext...');
+                    await context.resume();
+                    addLog(`AudioContext resumed, state: ${context.state}`);
+                }
+                
+                // Check AudioWorklet support
+                if (!context.audioWorklet) {
+                    addLog('ERROR: AudioWorklet not supported', true);
+                    return;
+                }
+                addLog('AudioWorklet: Supported');
+                
+                // Load module
+                addLog('Loading js-audio-processor.js...');
+                await context.audioWorklet.addModule('./js-audio-processor.js');
+                addLog('Module loaded successfully!');
+                
+                // Create node
+                addLog('Creating AudioWorkletNode...');
+                const node = new AudioWorkletNode(context, 'audio-processor');
+                addLog('AudioWorkletNode created!');
+                
+                // Connect
+                addLog('Connecting to destination...');
+                node.connect(context.destination);
+                addLog('Connected!');
+                
+                // Test message
+                addLog('Sending test message...');
+                node.port.postMessage({
+                    type: 'midi',
+                    data: { status: 144, data1: 60, data2: 100 }
+                });
+                addLog('Test message sent!');
+                
+                // Listen for messages
+                node.port.onmessage = (event) => {
+                    addLog(`Received from worklet: ${JSON.stringify(event.data)}`);
+                };
+                
+                addLog('Test completed successfully!');
+                
+            } catch (error) {
+                addLog(`ERROR: ${error.message}`, true);
+                console.error('Full error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
