@@ -1,20 +1,15 @@
 use wasm_bindgen::prelude::*;
-use web_sys::{AudioWorkletGlobalScope, MessageEvent};
+use web_sys::MessageEvent;
 use js_sys::Float32Array;
-use serde_wasm_bindgen::{from_value, to_value};
-use dissonance_audio_types::{WorkletMessage, WorkletResponse, AudioConfig, Synth, MidiMsg};
+use serde_wasm_bindgen::from_value;
+use dissonance_audio_types::{WorkletMessage, Synth};
 use dissonance_audio_engine::PianoSynth;
 use crossbeam::channel;
-use std::collections::VecDeque;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
 
 macro_rules! console_log {
-    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+    ($($t:tt)*) => {
+        web_sys::console::log_1(&format!($($t)*).into());
+    };
 }
 
 #[wasm_bindgen]
@@ -31,9 +26,7 @@ pub struct AudioProcessor {
 impl AudioProcessor {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        unsafe {
-            console_log!("AudioProcessor created");
-        }
+        console_log!("AudioProcessor created");
         let (midi_tx, midi_rx) = channel::unbounded();
         Self {
             sample_rate: 44100.0,
@@ -46,7 +39,7 @@ impl AudioProcessor {
     }
 
     #[wasm_bindgen]
-    pub fn process(&mut self, inputs: &js_sys::Array, outputs: &js_sys::Array) -> bool {
+    pub fn process(&mut self, _inputs: &js_sys::Array, outputs: &js_sys::Array) -> bool {
         let output = outputs.get(0);
         if output.is_undefined() {
             return true;
@@ -91,17 +84,13 @@ impl AudioProcessor {
             if let Ok(message) = from_value::<WorkletMessage>(data.into()) {
                 match message {
                     WorkletMessage::Config(config) => {
-                        unsafe {
-                            console_log!("Received config: {:?}", config);
-                        }
+                        console_log!("Received config: {:?}", config);
                         self.sample_rate = config.sample_rate;
                         self.channels = config.channels;
                         self.buffer_size = config.buffer_size;
                     }
                     WorkletMessage::MidiMessage(midi_msg) => {
-                        unsafe {
-                            console_log!("Received MIDI message: {:?}", midi_msg);
-                        }
+                        console_log!("Received MIDI message: {:?}", midi_msg);
                         // Convert MidiMsg back to wmidi::MidiMessage and send to synth
                         if let Ok(wmidi_msg) = midi_msg.try_into() {
                             if let Some(ref tx) = self.midi_tx {
@@ -109,7 +98,7 @@ impl AudioProcessor {
                             }
                         }
                     }
-                    WorkletMessage::RequestAudio { buffer_size } => {
+                    WorkletMessage::RequestAudio { buffer_size: _ } => {
                         // Generate audio data and send back
                         // This will be integrated with the actual synthesizer
                     }

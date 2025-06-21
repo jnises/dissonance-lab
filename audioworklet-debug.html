@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AudioWorklet Debug Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .error { color: red; }
+        .success { color: green; }
+        .warning { color: orange; }
+        .info { color: blue; }
+        #log { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; }
+        .log-entry { margin: 2px 0; }
+    </style>
+</head>
+<body>
+    <h1>AudioWorklet Debug Test</h1>
+    <button id="startTest">Start AudioWorklet Test</button>
+    <button id="clearLog">Clear Log</button>
+    <div id="log"></div>
+    
+    <script>
+        const logDiv = document.getElementById('log');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        document.getElementById('clearLog').addEventListener('click', () => {
+            logDiv.innerHTML = '';
+        });
+        
+        document.getElementById('startTest').addEventListener('click', async () => {
+            try {
+                log('Starting comprehensive AudioWorklet test...', 'info');
+                
+                // Test 1: Check secure context
+                if (!window.isSecureContext) {
+                    log('ERROR: Not in secure context!', 'error');
+                    return;
+                }
+                log('✓ Secure context check passed', 'success');
+                
+                // Test 2: Check AudioWorklet support
+                if (!window.AudioWorklet) {
+                    log('ERROR: AudioWorklet not supported in window!', 'error');
+                    return;
+                }
+                log('✓ AudioWorklet supported in window', 'success');
+                
+                // Test 3: Create AudioContext
+                log('Creating AudioContext...', 'info');
+                const context = new AudioContext();
+                log(`✓ AudioContext created, baseLatency: ${context.baseLatency}, sampleRate: ${context.sampleRate}`, 'success');
+                
+                // Test 4: Check AudioContext.audioWorklet
+                if (!context.audioWorklet) {
+                    log('ERROR: AudioContext.audioWorklet not available!', 'error');
+                    return;
+                }
+                log('✓ AudioContext.audioWorklet is available', 'success');
+                
+                // Test 5: Resume AudioContext if needed
+                log('Resuming AudioContext...', 'info');
+                try {
+                    await context.resume();
+                    log('✓ AudioContext resume completed', 'success');
+                } catch (error) {
+                    log(`⚠ AudioContext resume failed: ${error.message}`, 'warning');
+                }
+                
+                // Test 6: Try loading ultra-minimal processor
+                log('Loading ultra-minimal-processor.js...', 'info');
+                try {
+                    await context.audioWorklet.addModule('./ultra-minimal-processor.js');
+                    log('✓ ultra-minimal-processor.js loaded successfully!', 'success');
+                } catch (error) {
+                    log(`✗ Failed to load ultra-minimal-processor.js: ${error.message}`, 'error');
+                    log(`Error details: ${error.toString()}`, 'error');
+                    
+                    // Try fallback
+                    log('Trying fallback: minimal-processor.js...', 'info');
+                    try {
+                        await context.audioWorklet.addModule('./minimal-processor.js');
+                        log('✓ minimal-processor.js loaded successfully!', 'success');
+                    } catch (error2) {
+                        log(`✗ Failed to load minimal-processor.js: ${error2.message}`, 'error');
+                        return;
+                    }
+                }
+                
+                // Test 7: Create AudioWorkletNode
+                log('Creating AudioWorkletNode...', 'info');
+                try {
+                    const node = new AudioWorkletNode(context, 'ultra-minimal-processor');
+                    log('✓ AudioWorkletNode created successfully!', 'success');
+                    
+                    // Test 8: Connect node
+                    log('Connecting to destination...', 'info');
+                    node.connect(context.destination);
+                    log('✓ Node connected to destination', 'success');
+                    
+                    log('🎉 All tests passed! AudioWorklet is working correctly.', 'success');
+                    
+                } catch (error) {
+                    try {
+                        const node = new AudioWorkletNode(context, 'minimal-processor');
+                        log('✓ Fallback AudioWorkletNode (minimal-processor) created successfully!', 'success');
+                        node.connect(context.destination);
+                        log('✓ Fallback node connected to destination', 'success');
+                        log('🎉 AudioWorklet working with fallback processor!', 'success');
+                    } catch (error2) {
+                        log(`✗ Failed to create AudioWorkletNode: ${error2.message}`, 'error');
+                        return;
+                    }
+                }
+                
+            } catch (error) {
+                log(`✗ Unexpected error: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        });
+        
+        // Log browser info
+        log(`Browser: ${navigator.userAgent}`, 'info');
+        log(`Location: ${window.location.href}`, 'info');
+        log(`Secure context: ${window.isSecureContext}`, 'info');
+    </script>
+</body>
+</html>

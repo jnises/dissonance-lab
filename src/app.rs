@@ -17,13 +17,15 @@ use dissonance_audio_engine::PianoSynth;
 type MidiSender = channel::Sender<wmidi::MidiMessage<'static>>;
 
 struct Audio {
-    _audio: AudioManager,
+    audio: AudioManager,
     tx: MidiSender,
+    worklet_midi_tx: channel::Sender<wmidi::MidiMessage<'static>>,
 }
 
 enum AudioState {
     Uninitialized,
     Muted,
+    Initializing(Audio),
     Setup(Audio),
 }
 
@@ -68,14 +70,37 @@ impl DissonanceLabApp {
             AudioState::Muted | AudioState::Uninitialized
         ));
         let (tx, rx) = crossbeam::channel::unbounded();
+        let (worklet_midi_tx, worklet_midi_rx) = crossbeam::channel::unbounded();
+        
         let synth = Box::new(PianoSynth::new(rx));
-        let audio = AudioManager::new(synth, |message| {
+        let audio_manager = AudioManager::new(synth, |message| {
             warn!("{message}");
         });
-        self.audio = AudioState::Setup(Audio {
+        
+        // Initialize the audio context
+        audio_manager.initialize();
+        
+        let audio = Audio {
+            audio: audio_manager.clone(),
             tx: tx.clone(),
-            _audio: audio,
+            worklet_midi_tx: worklet_midi_tx.clone(),
+        };
+        
+        // Start async worklet setup and MIDI message handling
+        let audio_manager_clone = audio_manager.clone();
+        wasm_bindgen_futures::spawn_local(async move {
+            if let Err(e) = audio_manager_clone.setup_worklet().await {
+                warn!("AudioWorklet setup failed: {:?}", e);
+                return;
+            }
+            
+            // Handle MIDI messages for the worklet
+            while let Ok(midi_msg) = worklet_midi_rx.recv() {
+                audio_manager_clone.send_midi_message(midi_msg);
+            }
         });
+        
+        self.audio = AudioState::Initializing(audio);
         *self.midi_to_audio_tx.lock() = Some(tx);
     }
 
@@ -88,11 +113,22 @@ impl DissonanceLabApp {
             {
                 let to_synth_tx = self.midi_to_audio_tx.clone();
                 let to_gui_tx = self.midi_to_piano_gui_tx.clone();
+                let worklet_midi_tx = match &self.audio {
+                    AudioState::Setup(audio) | AudioState::Initializing(audio) => Some(audio.worklet_midi_tx.clone()),
+                    _ => None,
+                };
                 let ctx = ctx.clone();
                 match MidiReader::new(move |message| {
+                    // Send to synth channel (for backwards compatibility)
                     if let Some(tx) = &*to_synth_tx.lock() {
                         let _ = tx.try_send(message.to_owned());
                     }
+                    
+                    // Send to AudioWorklet via channel if available
+                    if let Some(ref worklet_tx) = worklet_midi_tx {
+                        let _ = worklet_tx.try_send(message.to_owned());
+                    }
+                    
                     let _ = to_gui_tx.try_send(message.to_owned());
                     ctx.request_repaint();
                 }) {
@@ -120,6 +156,17 @@ impl DissonanceLabApp {
 impl eframe::App for DissonanceLabApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ensure_midi(ctx);
+        
+        // Handle audio state transitions
+        if let AudioState::Initializing(ref audio) = self.audio {
+            if audio.audio.is_ready() {
+                // Transition to setup state
+                if let AudioState::Initializing(audio) = std::mem::replace(&mut self.audio, AudioState::Muted) {
+                    self.audio = AudioState::Setup(audio);
+                }
+            }
+        }
+        
         // don't need to start muted if in native mode
         #[cfg(not(target_arch = "wasm32"))]
         if let AudioState::Uninitialized = self.audio {
@@ -142,6 +189,10 @@ impl eframe::App for DissonanceLabApp {
                                     {
                                         self.audio = AudioState::Muted;
                                     }
+                                }
+                                AudioState::Initializing(_) => {
+                                    ui.add(egui::Spinner::new());
+                                    ui.label(RichText::new("Initializing audio...").size(STATUS_FONT_SIZE));
                                 }
                                 AudioState::Uninitialized | AudioState::Muted => {
                                     if ui

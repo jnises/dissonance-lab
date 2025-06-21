@@ -1,9 +1,9 @@
 [build]
-target = "audio-worklet/index.html"
-dist = "dist/audio-worklet"
+target = "index.html"
+dist = "dist"
 
 [watch]
-watch = ["audio-worklet/src"]
+watch = ["src"]
 
 [serve]
 address = "127.0.0.1"
