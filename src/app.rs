@@ -6,25 +6,25 @@ use std::sync::Arc;
 use web_time::{Duration, Instant};
 
 use crate::{
-    audio::AudioManager,
     interval_display,
     midi::MidiReader,
     piano_gui::{self, PIANO_WIDTH, PianoGui},
-    synth::PianoSynth,
+    //synth::PianoSynth,
     theme,
+    webaudio::{self, WebAudio},
 };
 
 type MidiSender = channel::Sender<wmidi::MidiMessage<'static>>;
 
 struct Audio {
-    _audio: AudioManager,
+    //_audio: AudioManager,
     tx: MidiSender,
 }
 
 enum AudioState {
     Uninitialized,
     Muted,
-    Setup(Audio),
+    Playing(WebAudio),
 }
 
 enum MidiState {
@@ -33,7 +33,7 @@ enum MidiState {
 }
 
 pub struct DissonanceLabApp {
-    audio: AudioState,
+    audio: Arc<Mutex<AudioState>>,
     piano_gui: PianoGui,
     midi: MidiState,
     midi_to_audio_tx: Arc<Mutex<Option<MidiSender>>>,
@@ -45,7 +45,7 @@ impl Default for DissonanceLabApp {
     fn default() -> Self {
         let (midi_to_piano_gui_tx, midi_to_piano_gui_rx) = channel::unbounded();
         Self {
-            audio: AudioState::Uninitialized,
+            audio: Arc::new(Mutex::new(AudioState::Uninitialized)),
             piano_gui: PianoGui::new(),
             midi: MidiState::NotConnected { last_checked: None },
             midi_to_audio_tx: Arc::new(Mutex::new(None)),
@@ -64,19 +64,21 @@ impl DissonanceLabApp {
 
     fn setup_audio(&mut self) {
         assert!(matches!(
-            self.audio,
+            *self.audio.lock(),
             AudioState::Muted | AudioState::Uninitialized
         ));
-        let (tx, rx) = crossbeam::channel::unbounded();
-        let synth = Box::new(PianoSynth::new(rx));
-        let audio = AudioManager::new(synth, |message| {
-            warn!("{message}");
-        });
-        self.audio = AudioState::Setup(Audio {
-            tx: tx.clone(),
-            _audio: audio,
-        });
-        *self.midi_to_audio_tx.lock() = Some(tx);
+        *self.audio.lock() =
+            AudioState::Playing(WebAudio::new(include_str!("audio_worklet_processor.js")));
+        // let (tx, rx) = crossbeam::channel::unbounded();
+        // let synth = Box::new(PianoSynth::new(rx));
+        // // let audio = AudioManager::new(synth, |message| {
+        // //     warn!("{message}");
+        // // });
+        // self.audio = AudioState::Setup(Audio {
+        //     tx: tx.clone(),
+        //     //_audio: audio,
+        // });
+        // *self.midi_to_audio_tx.lock() = Some(tx);
     }
 
     fn ensure_midi(&mut self, ctx: &egui::Context) {
@@ -86,13 +88,30 @@ impl DissonanceLabApp {
                 if last_checked.is_none()
                     || last_checked.map(|t| t.elapsed()) > Some(MIDI_CHECK_PERIOD) =>
             {
-                let to_synth_tx = self.midi_to_audio_tx.clone();
+                // let to_synth_tx = self.midi_to_audio_tx.clone();
                 let to_gui_tx = self.midi_to_piano_gui_tx.clone();
                 let ctx = ctx.clone();
+                let audio = self.audio.clone();
                 match MidiReader::new(move |message| {
-                    if let Some(tx) = &*to_synth_tx.lock() {
-                        let _ = tx.try_send(message.to_owned());
+                    if let AudioState::Playing(web_audio) = &*audio.lock() {
+                        match message {
+                            wmidi::MidiMessage::NoteOff(_, note, _) => {
+                                web_audio.send_message(webaudio::Message::NoteOff {
+                                    note: u8::from(*note),
+                                });
+                            }
+                            wmidi::MidiMessage::NoteOn(_, note, velocity) => {
+                                web_audio.send_message(webaudio::Message::NoteOn {
+                                    note: u8::from(*note),
+                                    velocity: u8::from(*velocity),
+                                });
+                            }
+                            _ => {}
+                        }
                     }
+                    // if let Some(tx) = &*to_synth_tx.lock() {
+                    //     let _ = tx.try_send(message.to_owned());
+                    // }
                     let _ = to_gui_tx.try_send(message.to_owned());
                     ctx.request_repaint();
                 }) {
@@ -134,13 +153,14 @@ impl eframe::App for DissonanceLabApp {
                         const MUTE_FONT_SIZE: f32 = 16.0;
                         const STATUS_FONT_SIZE: f32 = 14.0;
                         ui.horizontal(|ui| {
-                            match self.audio {
-                                AudioState::Setup(_) => {
+                            let audio = self.audio.clone();
+                            match *audio.lock() {
+                                AudioState::Playing(_) => {
                                     if ui
                                         .button(RichText::new("🔈").size(MUTE_FONT_SIZE))
                                         .clicked()
                                     {
-                                        self.audio = AudioState::Muted;
+                                        *self.audio.lock() = AudioState::Muted;
                                     }
                                 }
                                 AudioState::Uninitialized | AudioState::Muted => {
@@ -219,27 +239,18 @@ impl eframe::App for DissonanceLabApp {
                 match interval_display::show(&mut self.piano_gui, ui) {
                     None => {}
                     Some(piano_gui::Action::Pressed(note)) => {
-                        if let AudioState::Setup(audio) = &self.audio {
-                            audio
-                                .tx
-                                .send(wmidi::MidiMessage::NoteOn(
-                                    wmidi::Channel::Ch1,
-                                    note,
-                                    wmidi::Velocity::from_u8_lossy(64),
-                                ))
-                                .unwrap();
+                        if let AudioState::Playing(web_audio) = &*self.audio.lock() {
+                            web_audio.send_message(webaudio::Message::NoteOn {
+                                note: u8::from(note),
+                                velocity: u8::from(64),
+                            });
                         }
                     }
                     Some(piano_gui::Action::Released(note)) => {
-                        if let AudioState::Setup(audio) = &self.audio {
-                            audio
-                                .tx
-                                .send(wmidi::MidiMessage::NoteOff(
-                                    wmidi::Channel::Ch1,
-                                    note,
-                                    wmidi::Velocity::from_u8_lossy(64),
-                                ))
-                                .unwrap();
+                        if let AudioState::Playing(web_audio) = &*self.audio.lock() {
+                            web_audio.send_message(webaudio::Message::NoteOff {
+                                note: u8::from(note),
+                            });
                         }
                     }
                 }

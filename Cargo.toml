@@ -33,6 +33,19 @@ midir = "0.10.1"
 thiserror = "2.0.12"
 web-time = "1.1.0"
 parking_lot = "0.12.3"
+js-sys = "0.3.77"
+serde = { version = "1.0.219", features = ["derive"] }
+web-sys = { version = "0.3.70", features = [
+    "AudioContext",
+    "AudioWorklet",
+    "Worklet",
+    "Blob",
+    "Url",
+    "AudioWorkletNode",
+    "AudioDestinationNode",
+    "MessagePort",
+] }
+serde-wasm-bindgen = "0.6.5"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
