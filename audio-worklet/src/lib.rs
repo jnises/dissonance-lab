@@ -1,6 +1,6 @@
-use wasm_bindgen::prelude::*;
 use js_sys::{Array, Float32Array, Object};
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 pub mod limiter;
 pub mod reverb;
@@ -39,10 +39,10 @@ impl AudioProcessor {
     pub fn new() -> AudioProcessor {
         // Set up console panic hook for better error reporting in worklets
         // console_error_panic_hook::set_once();
-        
+
         // Create a channel for MIDI messages (though we won't use the sender in this context)
         let (_tx, rx) = crossbeam::channel::unbounded();
-        
+
         AudioProcessor {
             synth: synth::PianoSynth::new(rx),
             sample_rate: 44100.0, // Default sample rate, will be updated when available
@@ -70,12 +70,7 @@ impl AudioProcessor {
 
     // This is the main processing method called by the Web Audio API
     #[wasm_bindgen]
-    pub fn process(
-        &mut self,
-        _inputs: Array,
-        outputs: Array,
-        _parameters: Object,
-    ) -> bool {
+    pub fn process(&mut self, _inputs: Array, outputs: Array, _parameters: Object) -> bool {
         // Get the first output
         if let Ok(output_array) = outputs.get(0).dyn_into::<Array>() {
             // Process each channel
@@ -83,23 +78,23 @@ impl AudioProcessor {
                 if let Ok(output_channel) = output_array.get(channel).dyn_into::<Float32Array>() {
                     // Get the buffer length
                     let buffer_length = output_channel.length() as usize;
-                    
+
                     // Create a temporary buffer for processing
                     let mut temp_buffer = vec![0.0f32; buffer_length];
-                    
+
                     // Use the synth to generate audio
-                    self.synth.play(self.sample_rate as u32, 1, &mut temp_buffer);
-                    
+                    self.synth
+                        .play(self.sample_rate as u32, 1, &mut temp_buffer);
+
                     // Copy processed data to output
                     output_channel.copy_from(&temp_buffer);
                 }
             }
         }
-        
+
         true // Continue processing
     }
 }
 
 // JavaScript class that extends AudioWorkletProcessor
 // This will be created dynamically in the binary's start function
-

@@ -67,8 +67,7 @@ impl DissonanceLabApp {
             *self.audio.lock(),
             AudioState::Muted | AudioState::Uninitialized
         ));
-        *self.audio.lock() =
-            AudioState::Playing(WebAudio::new());
+        *self.audio.lock() = AudioState::Playing(WebAudio::new());
         // let (tx, rx) = crossbeam::channel::unbounded();
         // let synth = Box::new(PianoSynth::new(rx));
         // // let audio = AudioManager::new(synth, |message| {

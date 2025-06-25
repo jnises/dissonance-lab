@@ -37,13 +37,13 @@ impl WebAudio {
     pub fn set_audio_worklet_wasm(&mut self) {
         self.node = None;
         let context = AudioContext::new().unwrap();
-        
+
         // Load the audio worklet WASM module
         let node = FutureData::spawn(async move {
             // Load the audio worklet built by Trunk
             let worklet_url = "./audio-worklet.js";
             JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await?;
-            
+
             // Create the AudioWorkletNode
             let node = AudioWorkletNode::new(&context, "sine-processor")?;
 
@@ -65,7 +65,7 @@ impl AudioNodeConnection {
     fn new(context: AudioContext, node: AudioWorkletNode) -> Self {
         let destination = context.destination();
         node.connect_with_audio_node(&destination).unwrap();
-        Self { node } //, context}
+        Self { node } //, context
     }
 }
 

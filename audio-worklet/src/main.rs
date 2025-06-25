@@ -13,7 +13,7 @@ extern "C" {
 #[wasm_bindgen(start)]
 pub fn start() {
     console_error_panic_hook::set_once();
-    
+
     // Create the JavaScript class that extends AudioWorkletProcessor
     let processor_class = js_sys::Function::new_with_args(
         "options",
@@ -35,9 +35,9 @@ pub fn start() {
             }
         }
         return AudioProcessorWorklet;
-        "#
+        "#,
     );
-    
+
     // Register the processor
     register_processor("sine-processor", &processor_class);
 }
