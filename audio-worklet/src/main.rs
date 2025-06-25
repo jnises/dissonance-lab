@@ -4,32 +4,41 @@ use wasm_bindgen::prelude::*;
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
+
+    #[wasm_bindgen(js_name = registerProcessor)]
+    fn register_processor(name: &str, processor_constructor: &JsValue);
 }
 
-#[wasm_bindgen]
-pub struct AudioProcessor;
-
-#[wasm_bindgen]
-impl AudioProcessor {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> AudioProcessor {
-        AudioProcessor
-    }
-
-    #[wasm_bindgen]
-    pub fn process(&mut self, inputs: &[f32], outputs: &mut [f32]) -> bool {
-        // Process audio here
-        for (input, output) in inputs.iter().zip(outputs.iter_mut()) {
-            *output = *input; // Pass-through for now
+// Entry point for the worklet
+#[wasm_bindgen(start)]
+pub fn start() {
+    console_error_panic_hook::set_once();
+    
+    // Create the JavaScript class that extends AudioWorkletProcessor
+    let processor_class = js_sys::Function::new_with_args(
+        "options",
+        r#"
+        class AudioProcessorWorklet extends AudioWorkletProcessor {
+            constructor(options) {
+                super(options);
+                // Import the WASM module - Trunk will make it available globally
+                this.processor = new AudioProcessor();
+            }
+            
+            process(inputs, outputs, parameters) {
+                return this.processor.process(inputs, outputs, parameters);
+            }
         }
-        true
-    }
+        return AudioProcessorWorklet;
+        "#
+    );
+    
+    // Register the processor
+    register_processor("audio-processor", &processor_class);
 }
 
 fn main() {
-    // Set up console panic hook for better error reporting in worklets
-    console_error_panic_hook::set_once();
-    
-    // This function is required for the crate to compile as a binary
-    // but won't be called in a WebAudio worklet context
+    // This main function is required for the binary
+    // The actual worklet initialization happens in the start() function
+    // which is called automatically by wasm-bindgen
 }
