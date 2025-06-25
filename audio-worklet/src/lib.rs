@@ -73,21 +73,39 @@ impl AudioProcessor {
     pub fn process(&mut self, _inputs: Array, outputs: Array, _parameters: Object) -> bool {
         // Get the first output
         if let Ok(output_array) = outputs.get(0).dyn_into::<Array>() {
-            // Process each channel
-            for channel in 0..output_array.length() {
-                if let Ok(output_channel) = output_array.get(channel).dyn_into::<Float32Array>() {
-                    // Get the buffer length
-                    let buffer_length = output_channel.length() as usize;
-
-                    // Create a temporary buffer for processing
-                    let mut temp_buffer = vec![0.0f32; buffer_length];
-
-                    // Use the synth to generate audio
-                    self.synth
-                        .play(self.sample_rate as u32, 1, &mut temp_buffer);
-
-                    // Copy processed data to output
-                    output_channel.copy_from(&temp_buffer);
+            let num_channels = output_array.length() as usize;
+            
+            if num_channels > 0 {
+                // Get the buffer length from the first channel
+                if let Ok(first_channel) = output_array.get(0).dyn_into::<Float32Array>() {
+                    let buffer_length = first_channel.length() as usize;
+                    
+                    // TODO: avoid the interleaving to fit better with the webaudio audioprocessor api
+                    
+                    // Create interleaved buffer for all channels
+                    let mut interleaved_buffer = vec![0.0f32; buffer_length * num_channels];
+                    
+                    // Generate audio with proper channel count
+                    self.synth.play(
+                        self.sample_rate as u32, 
+                        num_channels, 
+                        &mut interleaved_buffer
+                    );
+                    
+                    // De-interleave and copy to output channels
+                    for channel in 0..num_channels {
+                        if let Ok(output_channel) = output_array.get(channel as u32).dyn_into::<Float32Array>() {
+                            let mut channel_buffer = vec![0.0f32; buffer_length];
+                            
+                            // Extract samples for this channel from interleaved buffer
+                            for frame in 0..buffer_length {
+                                channel_buffer[frame] = interleaved_buffer[frame * num_channels + channel];
+                            }
+                            
+                            // Copy to output
+                            output_channel.copy_from(&channel_buffer);
+                        }
+                    }
                 }
             }
         }
