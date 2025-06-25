@@ -153,29 +153,31 @@ impl eframe::App for DissonanceLabApp {
                         const MUTE_FONT_SIZE: f32 = 16.0;
                         const STATUS_FONT_SIZE: f32 = 14.0;
                         ui.horizontal(|ui| {
-                            let audio = self.audio.clone();
-                            match *audio.lock() {
-                                AudioState::Playing(_) => {
-                                    if ui
-                                        .button(RichText::new("🔈").size(MUTE_FONT_SIZE))
-                                        .clicked()
-                                    {
-                                        *self.audio.lock() = AudioState::Muted;
-                                    }
+                            let playing = match *self.audio.lock() {
+                                AudioState::Playing(_) => true,
+                                AudioState::Uninitialized | AudioState::Muted => false,
+                            };
+                            if playing {
+                                if ui
+                                    .button(RichText::new("🔈").size(MUTE_FONT_SIZE))
+                                    .clicked()
+                                {
+                                    *self.audio.lock() = AudioState::Muted;
                                 }
-                                AudioState::Uninitialized | AudioState::Muted => {
-                                    if ui
-                                        .button(
-                                            RichText::new("🔇")
-                                                .size(MUTE_FONT_SIZE)
-                                                .color(theme::ATTENTION_TEXT),
-                                        )
-                                        .clicked()
-                                    {
-                                        self.setup_audio();
-                                    }
+                            } else {
+                                #[allow(clippy::collapsible_else_if)]
+                                if ui
+                                    .button(
+                                        RichText::new("🔇")
+                                            .size(MUTE_FONT_SIZE)
+                                            .color(theme::ATTENTION_TEXT),
+                                    )
+                                    .clicked()
+                                {
+                                    self.setup_audio();
                                 }
                             }
+
                             ui.label("|");
                             const MIDI_TEXT: &str = "MIDI";
                             const MIDI_FONT: FontId = FontId::proportional(STATUS_FONT_SIZE);
