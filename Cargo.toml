@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "audio-worklet"]
+resolver = "2"
+
 [package]
 name = "dissonance-lab"
 version = "0.1.1"

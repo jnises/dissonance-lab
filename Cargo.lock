@@ -673,6 +673,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dissonance-lab-audio-worklet"
+version = "0.0.1"
+dependencies = [
+ "crossbeam",
+ "wmidi",
+]
+
+[[package]]
 name = "dlib"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

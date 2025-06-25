@@ -1,5 +1,11 @@
 //use crate::{audio::Synth, limiter::Limiter, reverb::Reverb};
+use crate::{limiter::Limiter, reverb::Reverb};
 use std::{cmp::Ordering, f32::consts::PI};
+
+/// Synth trait for audio synthesis
+pub trait Synth {
+    fn play(&mut self, sample_rate: u32, num_channels: usize, out_samples: &mut [f32]);
+}
 
 /// Represents a piano key with associated frequency
 #[derive(Copy, Clone)]

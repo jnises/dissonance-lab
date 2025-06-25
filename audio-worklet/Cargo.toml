@@ -4,3 +4,7 @@ version = "0.0.1"
 authors = ["Joel Nises <joel.nises@gmail.com>"]
 edition = "2024"
 rust-version = "1.87"
+
+[dependencies]
+wmidi = "4.0.10"
+crossbeam = "0.8.4"
