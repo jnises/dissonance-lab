@@ -13,6 +13,7 @@ extern "C" {
 #[wasm_bindgen(start)]
 pub fn start() {
     console_error_panic_hook::set_once();
+    log("foo");
 
     // Create the JavaScript class that extends AudioWorkletProcessor
     let processor_class = js_sys::Function::new_with_args(

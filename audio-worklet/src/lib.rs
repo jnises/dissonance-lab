@@ -41,11 +41,8 @@ impl AudioProcessor {
         // Set up console panic hook for better error reporting in worklets
         // console_error_panic_hook::set_once();
 
-        // Create a channel for MIDI messages (though we won't use the sender in this context)
-        let (_tx, rx) = crossbeam::channel::unbounded();
-
         AudioProcessor {
-            synth: synth::PianoSynth::new(rx),
+            synth: synth::PianoSynth::new(),
             sample_rate: 44100.0, // Default sample rate, will be updated when available
         }
     }

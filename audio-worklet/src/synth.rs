@@ -363,17 +363,15 @@ impl PianoVoice {
 pub struct PianoSynth {
     voices: Vec<PianoVoice>,
     sample_rate: Option<u32>,
-    rx: crossbeam::channel::Receiver<wmidi::MidiMessage<'static>>,
     reverb: Option<Reverb>,
     limiter: Option<Limiter>,
 }
 
 impl PianoSynth {
-    pub fn new(rx: crossbeam::channel::Receiver<wmidi::MidiMessage<'static>>) -> Self {
+    pub fn new() -> Self {
         Self {
             voices: Vec::new(),
             sample_rate: None,
-            rx,
             reverb: None,
             limiter: None,
         }
@@ -480,17 +478,6 @@ impl Synth for PianoSynth {
             self.voices.reserve(NUM_VOICES);
             for _ in 0..NUM_VOICES {
                 self.voices.push(PianoVoice::new(sample_rate as f32));
-            }
-        }
-        while let Ok(message) = self.rx.try_recv() {
-            match message {
-                wmidi::MidiMessage::NoteOff(_channel, note, _velocity) => {
-                    self.note_off(note);
-                }
-                wmidi::MidiMessage::NoteOn(_channel, note, velocity) => {
-                    self.note_on(note, velocity);
-                }
-                _ => {}
             }
         }
 
