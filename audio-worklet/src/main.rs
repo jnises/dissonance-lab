@@ -39,7 +39,7 @@ pub fn start() {
     );
 
     // Register the processor
-    register_processor("sine-processor", &processor_class);
+    register_processor("dissonance-processor", &processor_class);
 }
 
 fn main() {

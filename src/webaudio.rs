@@ -45,7 +45,7 @@ impl WebAudio {
             JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await?;
 
             // Create the AudioWorkletNode
-            let node = AudioWorkletNode::new(&context, "sine-processor")?;
+            let node = AudioWorkletNode::new(&context, "dissonance-processor")?;
 
             // Connect the node to the audio context destination (speakers)
             let connection = AudioNodeConnection::new(context, node);
