@@ -37,6 +37,7 @@ impl Default for AudioProcessor {
 impl AudioProcessor {
     #[wasm_bindgen(constructor)]
     pub fn new() -> AudioProcessor {
+        log("AudioProcessor initialized");
         // Set up console panic hook for better error reporting in worklets
         // console_error_panic_hook::set_once();
 
