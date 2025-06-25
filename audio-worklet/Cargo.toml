@@ -5,13 +5,13 @@ authors = ["Joel Nises <joel.nises@gmail.com>"]
 edition = "2024"
 rust-version = "1.87"
 
-# Support both library and binary
-[lib]
-crate-type = ["cdylib", "rlib"]
-
-[[bin]]
-name = "audio-worklet"
-path = "src/main.rs"
+# # Support both library and binary
+# [lib]
+# crate-type = ["cdylib", "rlib"]
+# 
+# [[bin]]
+# name = "audio-worklet"
+# path = "src/main.rs"
 
 [dependencies]
 wmidi = "4.0.10"
