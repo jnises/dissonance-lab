@@ -1,0 +1,6 @@
+[package]
+name = "dissonance-lab-audio-worklet"
+version = "0.0.1"
+authors = ["Joel Nises <joel.nises@gmail.com>"]
+edition = "2024"
+rust-version = "1.87"
