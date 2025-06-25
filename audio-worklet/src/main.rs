@@ -23,6 +23,11 @@ pub fn start() {
                 super(options);
                 // Import the WASM module - Trunk will make it available globally
                 this.processor = new AudioProcessor();
+                
+                // Handle messages from the main thread
+                this.port.onmessage = (event) => {
+                    this.processor.handle_message(event.data);
+                };
             }
             
             process(inputs, outputs, parameters) {
@@ -34,7 +39,7 @@ pub fn start() {
     );
     
     // Register the processor
-    register_processor("audio-processor", &processor_class);
+    register_processor("sine-processor", &processor_class);
 }
 
 fn main() {

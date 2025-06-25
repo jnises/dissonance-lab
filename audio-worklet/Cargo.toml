@@ -5,13 +5,13 @@ authors = ["Joel Nises <joel.nises@gmail.com>"]
 edition = "2024"
 rust-version = "1.87"
 
-# # Support both library and binary
-# [lib]
-# crate-type = ["cdylib", "rlib"]
-# 
-# [[bin]]
-# name = "audio-worklet"
-# path = "src/main.rs"
+# Support both library and binary
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "audio-worklet"
+path = "src/main.rs"
 
 [dependencies]
 wmidi = "4.0.10"
@@ -19,6 +19,8 @@ crossbeam = "0.8.4"
 wasm-bindgen = "0.2.100"
 console_error_panic_hook = "0.1.7"
 js-sys = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
 
 [dependencies.web-sys]
 version = "0.3"

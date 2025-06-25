@@ -379,7 +379,7 @@ impl PianoSynth {
         }
     }
 
-    fn note_on(&mut self, note: wmidi::Note, velocity: wmidi::U7) {
+    pub fn note_on(&mut self, note: wmidi::Note, velocity: wmidi::U7) {
         let key = PianoKey::new(note);
 
         // First try to find an inactive voice
@@ -451,7 +451,7 @@ impl PianoSynth {
         &mut self.voices[voice_index]
     }
 
-    fn note_off(&mut self, midi_note: wmidi::Note) {
+    pub fn note_off(&mut self, midi_note: wmidi::Note) {
         for voice in self.voices.iter_mut() {
             if let Some(key) = &voice.current_key {
                 if key.midi_note == midi_note {

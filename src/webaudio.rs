@@ -1,10 +1,8 @@
-use crate::utils::{FutureData, Task};
-use crossbeam::channel::Receiver;
+use crate::utils::FutureData;
 use js_sys::wasm_bindgen::JsValue;
-use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use wasm_bindgen_futures::{JsFuture, future_to_promise, spawn_local};
-use web_sys::{AudioContext, AudioWorkletNode, Blob, BlobPropertyBag};
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{AudioContext, AudioWorkletNode};
 
 pub struct WebAudio {
     //context: AudioContext,
@@ -16,9 +14,10 @@ pub struct WebAudio {
 unsafe impl Send for WebAudio {}
 
 impl WebAudio {
-    pub fn new(code: &str) -> Self {
+    pub fn new() -> Self {
         let mut s = Self { node: None };
-        s.set_audio_worklet(code);
+        // Load the audio worklet WASM instead of JavaScript
+        s.set_audio_worklet_wasm();
         s
     }
 
@@ -35,62 +34,24 @@ impl WebAudio {
         }
     }
 
-    pub fn set_audio_worklet(&mut self, code: &str) {
+    pub fn set_audio_worklet_wasm(&mut self) {
         self.node = None;
         let context = AudioContext::new().unwrap();
-        let blob_options = BlobPropertyBag::new();
-        blob_options.set_type("application/javascript");
-        let blob = web_sys::Blob::new_with_str_sequence_and_options(
-            &js_sys::Array::of1(&code.into()),
-            &blob_options,
-        )
-        .unwrap();
-        let url = BlobUrl::new(&blob);
+        
+        // Load the audio worklet WASM module
         let node = FutureData::spawn(async move {
-            JsFuture::from(context.audio_worklet()?.add_module(url.url())?).await?;
+            // Load the audio worklet built by Trunk
+            let worklet_url = "./audio-worklet.js";
+            JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await?;
+            
             // Create the AudioWorkletNode
             let node = AudioWorkletNode::new(&context, "sine-processor")?;
 
             // Connect the node to the audio context destination (speakers)
             let connection = AudioNodeConnection::new(context, node);
-            // let destination = context.destination();
-            // node.connect_with_audio_node(&destination)?;
-            // Ok(node)
             Ok(connection)
         });
         self.node = Some(node);
-    }
-
-    pub fn error(&self) -> Option<JsValue> {
-        self.node
-            .as_ref()
-            .unwrap()
-            .try_get()?
-            .as_ref()
-            .err()
-            .cloned()
-    }
-}
-
-struct BlobUrl {
-    url: String,
-}
-
-impl BlobUrl {
-    fn new(blob: &Blob) -> Self {
-        Self {
-            url: web_sys::Url::create_object_url_with_blob(blob).unwrap(),
-        }
-    }
-
-    fn url(&self) -> &str {
-        &self.url
-    }
-}
-
-impl Drop for BlobUrl {
-    fn drop(&mut self) {
-        web_sys::Url::revoke_object_url(&self.url).unwrap();
     }
 }
 
