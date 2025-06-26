@@ -1,8 +1,10 @@
 use crate::utils::FutureData;
 use js_sys::wasm_bindgen::JsValue;
-use serde::{Deserialize, Serialize};
+pub use shared_types::{FromWorkletMessage, ToWorkletMessage};
+use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{AudioContext, AudioWorkletNode};
+use web_sys::{AudioContext, AudioWorkletNode, MessageEvent};
 
 pub struct WebAudio {
     //context: AudioContext,
@@ -21,16 +23,21 @@ impl WebAudio {
         s
     }
 
-    pub fn send_message(&self, message: Message) {
-        if let Some(node) = self.node.as_ref().unwrap().try_get() {
-            if let Ok(connection) = node.as_ref() {
-                connection
-                    .node
-                    .port()
-                    .unwrap()
-                    .post_message(&message.into())
-                    .unwrap();
-            }
+    pub fn send_message(&self, message: ToWorkletMessage) {
+        // it might take a while to load the worklet, so early messages might get a None from try_get
+        if let Some(node) = self
+            .node
+            .as_ref()
+            .expect("Audio worklet node not initialized")
+            .try_get()
+        {
+            let connection = node.as_ref().expect("Audio worklet connection failed");
+            connection
+                .node
+                .port()
+                .expect("Failed to get audio worklet port")
+                .post_message(&message.into())
+                .expect("Failed to send message to audio worklet");
         }
     }
 
@@ -42,10 +49,39 @@ impl WebAudio {
         let node = FutureData::spawn(async move {
             // Load the audio worklet built by Trunk
             let worklet_url = "./audio-worklet.js";
-            JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await?;
+            log::info!("Loading audio worklet from: {}", worklet_url);
+            
+            match JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await {
+                Ok(_) => {
+                    log::info!("Audio worklet module loaded successfully");
+                    // Add a small delay to ensure the processor is registered
+                    let delay_promise = js_sys::Promise::new(&mut |resolve, _| {
+                        let callback = Closure::once_into_js(move || resolve.call0(&JsValue::NULL));
+                        web_sys::window().unwrap().set_timeout_with_callback_and_timeout_and_arguments_0(
+                            callback.as_ref().unchecked_ref(), 
+                            50  // 50ms delay
+                        ).unwrap();
+                    });
+                    let _ = JsFuture::from(delay_promise).await;
+                }
+                Err(e) => {
+                    log::error!("Failed to load audio worklet module: {:?}", e);
+                    return Err(e);
+                }
+            }
 
             // Create the AudioWorkletNode
-            let node = AudioWorkletNode::new(&context, "dissonance-processor")?;
+            log::info!("Creating AudioWorkletNode with processor 'dissonance-processor'");
+            let node = match AudioWorkletNode::new(&context, "dissonance-processor") {
+                Ok(node) => {
+                    log::info!("AudioWorkletNode created successfully");
+                    node
+                }
+                Err(e) => {
+                    log::error!("Failed to create AudioWorkletNode: {:?}", e);
+                    return Err(e);
+                }
+            };
 
             // Connect the node to the audio context destination (speakers)
             let connection = AudioNodeConnection::new(context, node);
@@ -57,33 +93,37 @@ impl WebAudio {
 
 #[derive(Debug)]
 struct AudioNodeConnection {
-    //context: AudioContext,
     node: AudioWorkletNode,
+    _onmessage: Closure<dyn FnMut(MessageEvent)>,
 }
 
 impl AudioNodeConnection {
     fn new(context: AudioContext, node: AudioWorkletNode) -> Self {
         let destination = context.destination();
         node.connect_with_audio_node(&destination).unwrap();
-        Self { node } //, context
+
+        let port = node.port().unwrap();
+        let onmessage = Closure::<dyn FnMut(_)>::new(move |event: MessageEvent| {
+            let msg = serde_wasm_bindgen::from_value(event.data())
+                .expect("Failed to deserialize message from audio worklet");
+            match msg {
+                FromWorkletMessage::Log(msg) => {
+                    log::info!("[audio-worklet] {}", msg);
+                }
+            }
+        });
+        port.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
+
+        Self {
+            node,
+            _onmessage: onmessage,
+        }
     }
 }
 
 impl Drop for AudioNodeConnection {
     fn drop(&mut self) {
+        self.node.port().unwrap().set_onmessage(None);
         self.node.disconnect().unwrap();
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum Message {
-    NoteOn { note: u8, velocity: u8 },
-    NoteOff { note: u8 },
-}
-
-impl From<Message> for JsValue {
-    fn from(value: Message) -> Self {
-        serde_wasm_bindgen::to_value(&value).unwrap()
     }
 }

@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "audio-worklet"]
+members = [".", "audio-worklet", "shared-types"]
 resolver = "2"
 
 [package]
@@ -38,6 +38,9 @@ web-time = "1.1.0"
 parking_lot = "0.12.3"
 js-sys = "0.3.77"
 serde = { version = "1.0.219", features = ["derive"] }
+serde-wasm-bindgen = "0.6.5"
+wasm-bindgen = "0.2.100"
+wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3.70", features = [
     "AudioContext",
     "AudioWorklet",
@@ -47,8 +50,9 @@ web-sys = { version = "0.3.70", features = [
     "AudioWorkletNode",
     "AudioDestinationNode",
     "MessagePort",
+    "MessageEvent",
 ] }
-serde-wasm-bindgen = "0.6.5"
+shared-types = { path = "shared-types" }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -56,8 +60,6 @@ env_logger = "0.11"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4"
-web-sys = "0.3.70"           # to access the DOM (to hide the loading text)
 
 [profile.release]
 opt-level = 2 # fast and small wasm

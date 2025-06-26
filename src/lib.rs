@@ -11,4 +11,4 @@ mod piano_gui;
 //mod synth;
 mod theme;
 mod utils;
-mod webaudio;
+pub mod webaudio;
