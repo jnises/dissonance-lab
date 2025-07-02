@@ -1,7 +1,7 @@
 use js_sys::{Array, Float32Array, Object};
 use shared_types::{FromWorkletMessage, ToWorkletMessage};
 use wasm_bindgen::prelude::*;
-use web_sys::MessagePort;
+use web_sys::{AudioWorkletGlobalScope, MessagePort};
 
 pub mod limiter;
 pub mod reverb;
@@ -9,33 +9,50 @@ pub mod synth;
 
 pub use synth::Synth;
 
-#[wasm_bindgen]
-pub struct AudioProcessor {
-    synth: synth::PianoSynth,
-    sample_rate: f32,
-    port: MessagePort,
+// This is called when the module is loaded
+#[wasm_bindgen(start)]
+pub fn main() {
+    console_error_panic_hook::set_once();
+    console_log::init_with_level(log::Level::Info).expect("error initializing log");
 }
 
 #[wasm_bindgen]
-impl AudioProcessor {
-    #[wasm_bindgen(constructor)]
-    pub fn new(port: MessagePort) -> AudioProcessor {
-        // Set up console panic hook for better error reporting in worklets
-        // console_error_panic_hook::set_once();
+pub struct DissonanceProcessor {
+    synth: synth::PianoSynth,
+    sample_rate: f32,
+    port: Option<MessagePort>,
+}
 
-        let processor = AudioProcessor {
+#[wasm_bindgen]
+impl DissonanceProcessor {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> DissonanceProcessor {
+        let global: AudioWorkletGlobalScope = js_sys::global().unchecked_into();
+        let sample_rate = global.sample_rate();
+
+        let processor = DissonanceProcessor {
             synth: synth::PianoSynth::new(),
-            sample_rate: 44100.0, // Default sample rate, will be updated when available
-            port,
+            sample_rate,
+            port: None,
         };
-        processor.log("AudioProcessor constructor");
+        
+        processor.log("DissonanceProcessor constructor initialized");
         processor
     }
 
+    #[wasm_bindgen]
+    pub fn set_port(&mut self, port: MessagePort) {
+        self.port = Some(port);
+        self.log("Port set successfully");
+    }
+
     fn log(&self, msg: &str) {
-        self.port
-            .post_message(&FromWorkletMessage::Log(msg.to_string()).into())
-            .unwrap();
+        if let Some(port) = &self.port {
+            let _ = port.post_message(&FromWorkletMessage::Log { message: msg.to_string() }.into());
+        } else {
+            // Fallback to console log if port is not available
+            web_sys::console::log_1(&msg.into());
+        }
     }
 
     #[wasm_bindgen]
@@ -98,5 +115,11 @@ impl AudioProcessor {
         }
 
         true // Continue processing
+    }
+}
+
+impl Default for DissonanceProcessor {
+    fn default() -> Self {
+        Self::new()
     }
 }

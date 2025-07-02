@@ -17,7 +17,7 @@ impl From<ToWorkletMessage> for JsValue {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum FromWorkletMessage {
-    Log(String),
+    Log { message: String },
 }
 
 impl From<FromWorkletMessage> for JsValue {

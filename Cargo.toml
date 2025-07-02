@@ -8,7 +8,7 @@ version = "0.1.1"
 authors = ["Joel Nises <joel.nises@gmail.com>"]
 edition = "2024"
 include = ["LICENSE", "**/*.rs", "Cargo.toml"]
-rust-version = "1.87"
+rust-version = "1.88"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -48,9 +48,13 @@ web-sys = { version = "0.3.70", features = [
     "Blob",
     "Url",
     "AudioWorkletNode",
+    "AudioWorkletNodeOptions",
+    "AudioNodeOptions",
     "AudioDestinationNode",
     "MessagePort",
     "MessageEvent",
+    "Response",
+    "Window",
 ] }
 shared-types = { path = "shared-types" }
 

@@ -1,10 +1,21 @@
 use crate::utils::FutureData;
 use js_sys::wasm_bindgen::JsValue;
 pub use shared_types::{FromWorkletMessage, ToWorkletMessage};
+use serde::Serialize;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{AudioContext, AudioWorkletNode, MessageEvent};
+
+#[derive(Serialize)]
+struct ProcessorOptions {
+    #[serde(with = "serde_wasm_bindgen::preserve")]
+    #[serde(rename = "wasmBytes")]
+    wasm_bytes: JsValue,
+    #[serde(with = "serde_wasm_bindgen::preserve")]
+    #[serde(rename = "jsGlueCode")]
+    js_glue_code: JsValue,
+}
 
 pub struct WebAudio {
     //context: AudioContext,
@@ -47,9 +58,27 @@ impl WebAudio {
 
         // Load the audio worklet WASM module
         let node = FutureData::spawn(async move {
-            // Load the audio worklet built by Trunk
-            let worklet_url = "./audio-worklet.js";
+            // Load the audio worklet JavaScript wrapper
+            let worklet_url = "./worklet.js";
             log::info!("Loading audio worklet from: {}", worklet_url);
+            
+            // Load the WASM bytes and JS glue code
+            let wasm_url = "./audio-worklet_bg.wasm";
+            let js_url = "./audio-worklet.js";
+            
+            log::info!("Loading WASM bytes from: {}", wasm_url);
+            let wasm_response = JsFuture::from(
+                web_sys::window().unwrap().fetch_with_str(wasm_url)
+            ).await?;
+            let wasm_response: web_sys::Response = wasm_response.dyn_into()?;
+            let wasm_bytes = JsFuture::from(wasm_response.array_buffer()?).await?;
+            
+            log::info!("Loading JS glue code from: {}", js_url);
+            let js_response = JsFuture::from(
+                web_sys::window().unwrap().fetch_with_str(js_url)
+            ).await?;
+            let js_response: web_sys::Response = js_response.dyn_into()?;
+            let js_glue_code = JsFuture::from(js_response.text()?).await?;
             
             match JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await {
                 Ok(_) => {
@@ -59,7 +88,7 @@ impl WebAudio {
                         let callback = Closure::once_into_js(move || resolve.call0(&JsValue::NULL));
                         web_sys::window().unwrap().set_timeout_with_callback_and_timeout_and_arguments_0(
                             callback.as_ref().unchecked_ref(), 
-                            50  // 50ms delay
+                            100  // 100ms delay to ensure registration
                         ).unwrap();
                     });
                     let _ = JsFuture::from(delay_promise).await;
@@ -70,21 +99,44 @@ impl WebAudio {
                 }
             }
 
-            // Create the AudioWorkletNode
+            // Create processor options with WASM data using serde
+            let processor_options = ProcessorOptions {
+                wasm_bytes,
+                js_glue_code,
+            };
+            
+            // Serialize the processor options to a JS object
+            let processor_options_js = serde_wasm_bindgen::to_value(&processor_options)
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize processor options: {}", e)))?;
+            
+            // Convert to js_sys::Object for web-sys compatibility
+            let processor_options_obj: js_sys::Object = processor_options_js.dyn_into()
+                .map_err(|_| JsValue::from_str("Failed to convert processor options to Object"))?;
+
+            // Create the AudioWorkletNode with options using new_with_options
             log::info!("Creating AudioWorkletNode with processor 'dissonance-processor'");
-            let node = match AudioWorkletNode::new(&context, "dissonance-processor") {
+            
+            // Clone context for later use before it's moved
+            let context_clone = context.clone();
+            
+            // Create AudioWorkletNodeOptions and set processor options
+            let worklet_options = web_sys::AudioWorkletNodeOptions::new();
+            worklet_options.set_processor_options(Some(&processor_options_obj));
+            
+            // Create the node with options
+            let node = match AudioWorkletNode::new_with_options(&context, "dissonance-processor", &worklet_options) {
                 Ok(node) => {
                     log::info!("AudioWorkletNode created successfully");
                     node
                 }
                 Err(e) => {
-                    log::error!("Failed to create AudioWorkletNode: {:?}", e);
+                    log::error!("Failed to create AudioWorkletNode: {e:?}");
                     return Err(e);
                 }
             };
 
             // Connect the node to the audio context destination (speakers)
-            let connection = AudioNodeConnection::new(context, node);
+            let connection = AudioNodeConnection::new(context_clone, node);
             Ok(connection)
         });
         self.node = Some(node);
@@ -104,11 +156,37 @@ impl AudioNodeConnection {
 
         let port = node.port().unwrap();
         let onmessage = Closure::<dyn FnMut(_)>::new(move |event: MessageEvent| {
-            let msg = serde_wasm_bindgen::from_value(event.data())
-                .expect("Failed to deserialize message from audio worklet");
-            match msg {
-                FromWorkletMessage::Log(msg) => {
-                    log::info!("[audio-worklet] {}", msg);
+            let data = event.data();
+            
+            // Try to get the message type first
+            if data.is_object() {
+                if let Ok(type_val) = js_sys::Reflect::get(&data, &JsValue::from_str("type")) {
+                    if let Some(type_str) = type_val.as_string() {
+                        match type_str.as_str() {
+                            "init-complete" => {
+                                log::info!("[audio-worklet] Initialization complete");
+                                return;
+                            }
+                            "init-error" => {
+                                if let Ok(error_val) = js_sys::Reflect::get(&data, &JsValue::from_str("error")) {
+                                    if let Some(error_str) = error_val.as_string() {
+                                        log::error!("[audio-worklet] Initialization error: {}", error_str);
+                                    }
+                                }
+                                return;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            
+            // Try to deserialize as FromWorkletMessage for other messages
+            if let Ok(msg) = serde_wasm_bindgen::from_value::<FromWorkletMessage>(data) {
+                match msg {
+                    FromWorkletMessage::Log { message } => {
+                        log::info!("[audio-worklet] {}", message);
+                    }
                 }
             }
         });

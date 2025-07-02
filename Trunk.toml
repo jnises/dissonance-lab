@@ -1,3 +1,21 @@
 [build]
 filehash = false
 minify = "on_release"
+#dist = "dist"
+
+[watch]
+ignore = ["audio-worklet/pkg"]
+
+# Build hooks to compile the audio worklet
+[[hooks]]
+stage = "pre_build"
+command = "./build-audio-worklet.sh"
+
+# [[hooks]]
+# stage = "pre_build"
+# command = "./copy-worklet.sh"
+# 
+# # Explicitly copy worklet files
+# [[copy]]
+# from = "assets/worklet"
+# to = "assets/worklet"
