@@ -62,9 +62,6 @@ shared-types = { path = "shared-types" }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.11"
 
-# web:
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-
 [profile.release]
 opt-level = 2 # fast and small wasm
 
