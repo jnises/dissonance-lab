@@ -1,7 +1,6 @@
 [build]
 filehash = false
 minify = "on_release"
-#dist = "dist"
 
 [watch]
 ignore = ["audio-worklet/pkg"]
