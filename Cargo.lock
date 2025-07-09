@@ -2343,6 +2343,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
