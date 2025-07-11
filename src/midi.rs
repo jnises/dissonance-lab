@@ -34,7 +34,7 @@ impl MidiReader {
                         callback(&message);
                     }
                     Err(e) => {
-                        error!("error parsing midi event {}", e);
+                        error!("error parsing midi event {e}");
                     }
                 },
                 (),

@@ -26,6 +26,12 @@ pub struct WebAudio {
 // SAFETY: we need to send messages from the midi callback. and midir requires Send. JsValue is !Send, but since we aren't using wasm threads that should not be a problem
 unsafe impl Send for WebAudio {}
 
+impl Default for WebAudio {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WebAudio {
     pub fn new() -> Self {
         let mut s = Self { node: None };
@@ -60,20 +66,20 @@ impl WebAudio {
         let node = FutureData::spawn(async move {
             // Load the audio worklet JavaScript wrapper
             let worklet_url = "./worklet.js";
-            log::info!("Loading audio worklet from: {}", worklet_url);
+            log::info!("Loading audio worklet from: {worklet_url}");
             
             // Load the WASM bytes and JS glue code
             let wasm_url = "./audio-worklet_bg.wasm";
             let js_url = "./audio-worklet.js";
             
-            log::info!("Loading WASM bytes from: {}", wasm_url);
+            log::info!("Loading WASM bytes from: {wasm_url}");
             let wasm_response = JsFuture::from(
                 web_sys::window().unwrap().fetch_with_str(wasm_url)
             ).await?;
             let wasm_response: web_sys::Response = wasm_response.dyn_into()?;
             let wasm_bytes = JsFuture::from(wasm_response.array_buffer()?).await?;
             
-            log::info!("Loading JS glue code from: {}", js_url);
+            log::info!("Loading JS glue code from: {js_url}");
             let js_response = JsFuture::from(
                 web_sys::window().unwrap().fetch_with_str(js_url)
             ).await?;
@@ -94,7 +100,7 @@ impl WebAudio {
                     let _ = JsFuture::from(delay_promise).await;
                 }
                 Err(e) => {
-                    log::error!("Failed to load audio worklet module: {:?}", e);
+                    log::error!("Failed to load audio worklet module: {e:?}");
                     return Err(e);
                 }
             }
@@ -107,7 +113,7 @@ impl WebAudio {
             
             // Serialize the processor options to a JS object
             let processor_options_js = serde_wasm_bindgen::to_value(&processor_options)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize processor options: {}", e)))?;
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize processor options: {e}")))?;
             
             // Convert to js_sys::Object for web-sys compatibility
             let processor_options_obj: js_sys::Object = processor_options_js.dyn_into()
@@ -170,7 +176,7 @@ impl AudioNodeConnection {
                             "init-error" => {
                                 if let Ok(error_val) = js_sys::Reflect::get(&data, &JsValue::from_str("error")) {
                                     if let Some(error_str) = error_val.as_string() {
-                                        log::error!("[audio-worklet] Initialization error: {}", error_str);
+                                        log::error!("[audio-worklet] Initialization error: {error_str}");
                                     }
                                 }
                                 return;
@@ -185,7 +191,7 @@ impl AudioNodeConnection {
             if let Ok(msg) = serde_wasm_bindgen::from_value::<FromWorkletMessage>(data) {
                 match msg {
                     FromWorkletMessage::Log { message } => {
-                        log::info!("[audio-worklet] {}", message);
+                        log::info!("[audio-worklet] {message}");
                     }
                 }
             }

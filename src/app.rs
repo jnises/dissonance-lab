@@ -225,7 +225,7 @@ impl eframe::App for DissonanceLabApp {
                         if let AudioState::Playing(web_audio) = &*self.audio.lock() {
                             web_audio.send_message(ToWorkletMessage::NoteOn {
                                 note: u8::from(note),
-                                velocity: u8::from(64),
+                                velocity: 64,
                             });
                         }
                     }

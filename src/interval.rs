@@ -168,7 +168,7 @@ impl Display for Interval {
             Self::MajorSeventh => "major seventh",
             Self::Octave => "octave",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
