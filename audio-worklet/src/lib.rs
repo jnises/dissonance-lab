@@ -60,14 +60,14 @@ impl DissonanceProcessor {
         let msg = serde_wasm_bindgen::from_value::<ToWorkletMessage>(message).unwrap();
         match msg {
             ToWorkletMessage::NoteOn { note, velocity } => {
-                self.log(&format!("NoteOn: note={}, velocity={}", note, velocity));
+                self.log(&format!("NoteOn: note={note}, velocity={velocity}"));
                 let midi_note = wmidi::Note::try_from(note)
                     .expect("Invalid MIDI note value");
                 let midi_velocity = wmidi::U7::try_from(velocity).unwrap_or(wmidi::U7::MAX);
                 self.synth.note_on(midi_note, midi_velocity);
             }
             ToWorkletMessage::NoteOff { note } => {
-                self.log(&format!("NoteOff: note={}", note));
+                self.log(&format!("NoteOff: note={note}"));
                 let midi_note = wmidi::Note::try_from(note)
                     .expect("Invalid MIDI note value");
                 self.synth.note_off(midi_note);

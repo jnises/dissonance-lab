@@ -366,6 +366,12 @@ pub struct PianoSynth {
     limiter: Option<Limiter>,
 }
 
+impl Default for PianoSynth {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PianoSynth {
     pub fn new() -> Self {
         Self {

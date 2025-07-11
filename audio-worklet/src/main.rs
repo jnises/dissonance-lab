@@ -14,11 +14,11 @@ pub fn start() {
     
     // Add a test to see if we're in the right context
     let global = js_sys::global();
-    web_sys::console::log_1(&format!("Global object type: {:?}", global).into());
+    web_sys::console::log_1(&format!("Global object type: {global:?}").into());
     
     // Check if AudioWorkletGlobalScope is available
     let has_register_processor = js_sys::Reflect::has(&global, &"registerProcessor".into()).unwrap_or(false);
-    web_sys::console::log_1(&format!("Has registerProcessor: {}", has_register_processor).into());
+    web_sys::console::log_1(&format!("Has registerProcessor: {has_register_processor}").into());
     
     if !has_register_processor {
         web_sys::console::error_1(&"registerProcessor not found in global scope!".into());
