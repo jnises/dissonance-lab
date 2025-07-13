@@ -18,9 +18,7 @@ struct ProcessorOptions {
 }
 
 pub struct WebAudio {
-    //context: AudioContext,
-    node: Option<FutureData<Result<AudioNodeConnection, JsValue>>>,
-    //node: AudioWorkletNode,
+    node: FutureData<Result<AudioNodeConnection, JsValue>>,
 }
 
 // SAFETY: we need to send messages from the midi callback. and midir requires Send. JsValue is !Send, but since we aren't using wasm threads that should not be a problem
@@ -34,32 +32,6 @@ impl Default for WebAudio {
 
 impl WebAudio {
     pub fn new() -> Self {
-        let mut s = Self { node: None };
-        // Load the audio worklet WASM instead of JavaScript
-        s.set_audio_worklet_wasm();
-        s
-    }
-
-    pub fn send_message(&self, message: ToWorkletMessage) {
-        // it might take a while to load the worklet, so early messages might get a None from try_get
-        if let Some(node) = self
-            .node
-            .as_ref()
-            .expect("Audio worklet node not initialized")
-            .try_get()
-        {
-            let connection = node.as_ref().expect("Audio worklet connection failed");
-            connection
-                .node
-                .port()
-                .expect("Failed to get audio worklet port")
-                .post_message(&message.into())
-                .expect("Failed to send message to audio worklet");
-        }
-    }
-
-    pub fn set_audio_worklet_wasm(&mut self) {
-        self.node = None;
         let context = AudioContext::new().unwrap();
 
         // Load the audio worklet WASM module
@@ -145,7 +117,24 @@ impl WebAudio {
             let connection = AudioNodeConnection::new(context_clone, node);
             Ok(connection)
         });
-        self.node = Some(node);
+        Self { node }
+    }
+
+    pub fn send_message(&self, message: ToWorkletMessage) {
+        // it might take a while to load the worklet, so early messages might get a None from try_get
+        // TODO: if we get None after a certain number of seconds after loading the module, report the error 
+        if let Some(node) = self
+            .node
+            .try_get()
+        {
+            let connection = node.as_ref().expect("Audio worklet connection failed");
+            connection
+                .node
+                .port()
+                .expect("Failed to get audio worklet port")
+                .post_message(&message.into())
+                .expect("Failed to send message to audio worklet");
+        }
     }
 }
 
