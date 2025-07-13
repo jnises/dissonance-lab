@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Build script for audio-worklet
+# Called from a trunk hook, no need to run manually
 
 set -e
 

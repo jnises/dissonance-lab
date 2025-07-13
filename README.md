@@ -17,15 +17,17 @@ The pressed keys are considered the root of each interval even when it isn't the
 
 ## Running
 
-### Wasm
 ```
 trunk serve --release
 ```
 Navigate to http://127.0.0.1:8080/
 
-Note that the we version requires you to manually unmute by clickin the 🔇 button. This is due to the browser autoplay blocking feature.
+Note that you need to manually unmute by clickin the 🔇 button. This is due to the browser autoplay blocking feature.
 
-### Native
+## Testing
 ```
-cargo run -r
+./test.sh
 ```
+
+You can't use `cargo test` directly since that would compile as wasm.
+`test.sh` runs the tests as a native binary.
