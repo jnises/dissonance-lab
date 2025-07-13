@@ -60,6 +60,9 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
             globalThis.self = globalThis;
         }
         
+        // Add polyfills for TextDecoder and TextEncoder if not available
+        // TODO: why is this needed? is there a better way?
+
         class TextDecoderPolyfill {
             constructor(encoding = 'utf-8') {
                 this.encoding = encoding;
@@ -92,7 +95,6 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
             }
         }
 
-        // Add polyfills for TextDecoder and TextEncoder if not available
         if (typeof globalThis.TextDecoder === 'undefined') {
             globalThis.TextDecoder = TextDecoderPolyfill;
         }

@@ -9,6 +9,6 @@ echo "Building audio-worklet..."
 cd audio-worklet
 
 echo "Building WASM module..."
-wasm-pack build --target no-modules --out-dir pkg --out-name audio-worklet
+wasm-pack build --release --no-typescript --target no-modules --out-dir pkg --out-name audio-worklet
 
 echo "Audio worklet build complete!"
