@@ -19,6 +19,7 @@ struct ProcessorOptions {
 
 pub struct WebAudio {
     node: FutureData<Result<AudioNodeConnection, JsValue>>,
+    message_attempt_count: std::cell::Cell<u32>,
 }
 
 // SAFETY: we need to send messages from the midi callback. and midir requires Send. JsValue is !Send, but since we aren't using wasm threads that should not be a problem
@@ -101,12 +102,14 @@ impl WebAudio {
             let connection = AudioNodeConnection::new(context, node);
             Ok(connection)
         });
-        Self { node }
+        Self {
+            node,
+            message_attempt_count: std::cell::Cell::new(0),
+        }
     }
 
     pub fn send_message(&self, message: ToWorkletMessage) {
         // it might take a while to load the worklet, so early messages might get a None from try_get
-        // TODO: if we get None after a certain number of seconds after loading the module, report the error
         if let Some(node) = self.node.try_get() {
             let connection = node.as_ref().expect("Audio worklet connection failed");
             connection
@@ -115,6 +118,21 @@ impl WebAudio {
                 .expect("Failed to get audio worklet port")
                 .post_message(&message.into())
                 .expect("Failed to send message to audio worklet");
+            // Reset counter on successful send
+            self.message_attempt_count.set(0);
+        } else {
+            // Increment attempt counter and log warning if too many attempts
+            let count = self.message_attempt_count.get();
+            self.message_attempt_count.set(count + 1);
+
+            // Log warning after 100 attempts (arbitrary threshold)
+            if count == 100 {
+                log::warn!(
+                    "Audio worklet still not ready after {count} message attempts. This may indicate a loading problem."
+                );
+            } else if count > 100 && count % 50 == 0 {
+                log::warn!("Audio worklet still not ready after {count} message attempts.");
+            }
         }
     }
 }

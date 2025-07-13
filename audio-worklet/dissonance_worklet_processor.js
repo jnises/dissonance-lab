@@ -87,7 +87,7 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
                         i += 3;
                     } else {
                         // Skip 4-byte sequences for simplicity
-                        // TODO: log error if this ever happens
+                        console.warn('[DissonanceWorkletProcessor] Skipping 4-byte UTF-8 sequence at position', i, 'byte value:', byte);
                         i += 4;
                     }
                 }
