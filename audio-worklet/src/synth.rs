@@ -287,7 +287,6 @@ impl PianoVoice {
             (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(1.0);
         self.note_phase += self.phase_delta;
 
-        // Generate piano-like waveform with improved hammer strike characteristics
         let mut sample = 0.0;
 
         // Calculate attack intensity - strongest at the beginning
@@ -339,10 +338,8 @@ impl PianoVoice {
             // The phase component adds string harmonic characteristics
             let noise3 = (2.0 * PI * (self.note_phase * 0.5 + attack_intensity * 0.5) * 8.91).sin();
 
-            // Combine noise components
             let noise = noise1 * noise2 * noise3;
 
-            // Scale noise by attack intensity and velocity
             sample += noise * attack_intensity * self.velocity * 0.2;
 
             // Add initial "thump" of hammer hitting string - brief low-mid frequency component

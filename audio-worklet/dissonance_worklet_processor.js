@@ -1,5 +1,6 @@
 // AudioWorklet processor for Dissonance Lab
 // This JavaScript file properly registers the WASM-based AudioWorkletProcessor
+// Tricker to do the AudioWorkletProcessor inheritance in rust
 
 // TODO: do we need to do this in javascript? could we do it in rust instead?
 
@@ -13,7 +14,6 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
         const { wasmBytes, jsGlueCode } = options.processorOptions || {};
         
         if (wasmBytes && jsGlueCode) {
-            // Initialize WASM immediately in constructor
             this.initializeWasm(wasmBytes, jsGlueCode)
                 .then(() => {
                     this.initialized = true;
@@ -30,7 +30,6 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
         // Handle messages from the main thread
         this.port.onmessage = (event) => {
             if (this.initialized && this.wasmProcessor) {
-                // Forward messages to WASM processor
                 this.wasmProcessor.handle_message(event.data);
             } else {
                 console.warn('[DissonanceWorkletProcessor] Received message before initialization:', event.data);

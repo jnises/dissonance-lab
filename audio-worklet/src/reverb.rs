@@ -111,13 +111,11 @@ impl Reverb {
     pub fn process(&mut self, input: f32) -> f32 {
         let mut output = 0.0;
 
-        // Process through comb filters in parallel
         for filter in &mut self.comb_filters {
             output += filter.process(input);
         }
         output /= self.comb_filters.len() as f32;
 
-        // Pass the signal through allpass filters in series
         for filter in &mut self.allpass_filters {
             output = filter.process(output);
         }

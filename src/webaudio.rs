@@ -64,7 +64,6 @@ impl WebAudio {
                 js_glue_code,
             };
 
-            // Serialize the processor options to a JS object
             let processor_options_js =
                 serde_wasm_bindgen::to_value(&processor_options).map_err(|e| {
                     JsValue::from_str(&format!("Failed to serialize processor options: {e}"))
@@ -75,14 +74,11 @@ impl WebAudio {
                 .dyn_into()
                 .map_err(|_| JsValue::from_str("Failed to convert processor options to Object"))?;
 
-            // Create the AudioWorkletNode with options using new_with_options
             log::debug!("Creating AudioWorkletNode with processor 'dissonance-processor'");
 
-            // Create AudioWorkletNodeOptions and set processor options
             let worklet_options = web_sys::AudioWorkletNodeOptions::new();
             worklet_options.set_processor_options(Some(&processor_options_obj));
 
-            // Create the node with options
             let node = match AudioWorkletNode::new_with_options(
                 &context,
                 "dissonance-processor",
@@ -118,10 +114,8 @@ impl WebAudio {
                 .expect("Failed to get audio worklet port")
                 .post_message(&message.into())
                 .expect("Failed to send message to audio worklet");
-            // Reset counter on successful send
             self.message_attempt_count.set(0);
         } else {
-            // Increment attempt counter and log warning if too many attempts
             let count = self.message_attempt_count.get();
             self.message_attempt_count.set(count + 1);
 

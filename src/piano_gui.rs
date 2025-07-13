@@ -141,7 +141,6 @@ impl PianoGui {
             let root_semitone = selected_semitones[rotation];
             let root = semitone_name(root_semitone);
 
-            // Calculate intervals relative to this potential root
             let mut intervals: Vec<usize> = Vec::new();
             for &semitone in selected_semitones.iter() {
                 if semitone != root_semitone {
@@ -151,7 +150,6 @@ impl PianoGui {
             }
             intervals.sort();
 
-            // Check for standard chord types
             let chord_type = match (intervals.as_slice(), selected_semitones.len()) {
                 ([4, 7], 3) => "maj",      // Major triad
                 ([3, 7], 3) => "min",      // Minor triad
@@ -170,7 +168,6 @@ impl PianoGui {
             }
         }
 
-        // If we can't identify the chord, list the notes
         if selected_semitones.len() == 1 {
             Some(semitone_name(selected_semitones[0]).to_string())
         } else {

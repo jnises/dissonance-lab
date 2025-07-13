@@ -61,7 +61,6 @@ impl Limiter {
     }
 
     fn update_coefficients(&mut self) {
-        // Calculate time constants based on the sample rate
         self.attack_coef = (-1.0 / (self.sample_rate * self.attack)).exp();
         self.release_coef = (-1.0 / (self.sample_rate * self.release)).exp();
     }
@@ -71,7 +70,6 @@ impl Limiter {
         // Convert threshold from dB to linear
         let threshold_linear = 10.0_f32.powf(self.threshold / 20.0);
 
-        // Calculate the absolute value of the input
         let input_abs = input.abs();
 
         // Envelope detection (peak detection)
@@ -83,16 +81,13 @@ impl Limiter {
             self.envelope = self.release_coef * (self.envelope - input_abs) + input_abs;
         }
 
-        // Calculate gain reduction if envelope exceeds threshold
         if self.envelope > threshold_linear {
             // Calculate gain reduction in linear scale
             self.gain_reduction = threshold_linear / self.envelope;
         } else {
-            // No gain reduction needed
             self.gain_reduction = 1.0;
         }
 
-        // Apply gain reduction and makeup gain
         let makeup_gain_linear = 10.0_f32.powf(self.makeup_gain / 20.0);
         input * self.gain_reduction * makeup_gain_linear
     }
