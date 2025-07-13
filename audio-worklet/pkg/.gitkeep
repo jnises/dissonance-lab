@@ -1,0 +1,1 @@
+The pkg directory needs to exist since trunk does not allow ignoring non-existant directories for watch.

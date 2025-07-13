@@ -1,6 +1,8 @@
 // AudioWorklet processor for Dissonance Lab
 // This JavaScript file properly registers the WASM-based AudioWorkletProcessor
 
+// TODO: do we need to do this in javascript? could we do it in rust instead?
+
 class DissonanceWorkletProcessor extends AudioWorkletProcessor {
     constructor(options) {
         super();
