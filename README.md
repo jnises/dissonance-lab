@@ -5,10 +5,11 @@
 Test at https://jnises.github.io/dissonance-lab/
 
 Small gui to explore the dissonance of different intervals and chords on a piano.
-Includes a simple piano synth and midi input.
+Includes midi input and a simple piano synth implemented as a webaudio worklet.
 
 The colorful rows above the piano show the interval for each other key when one or more is pressed.
 The pressed keys are considered the root of each interval even when it isn't the lower note.
+
 
 ## Requirements
 * Rust toolchain ([rustup.rs](https://rustup.rs/))
