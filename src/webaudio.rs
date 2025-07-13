@@ -1,7 +1,7 @@
 use crate::utils::FutureData;
 use js_sys::wasm_bindgen::JsValue;
-pub use shared_types::{FromWorkletMessage, ToWorkletMessage};
 use serde::Serialize;
+pub use shared_types::{FromWorkletMessage, ToWorkletMessage};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -37,25 +37,23 @@ impl WebAudio {
             // Load the audio worklet JavaScript wrapper
             let worklet_url = "./worklet.js";
             log::debug!("Loading audio worklet from: {worklet_url}");
-            
+
             // Load the WASM bytes and JS glue code
             let wasm_url = "./audio-worklet_bg.wasm";
             let js_url = "./audio-worklet.js";
-            
+
             log::debug!("Loading WASM bytes from: {wasm_url}");
-            let wasm_response = JsFuture::from(
-                web_sys::window().unwrap().fetch_with_str(wasm_url)
-            ).await?;
+            let wasm_response =
+                JsFuture::from(web_sys::window().unwrap().fetch_with_str(wasm_url)).await?;
             let wasm_response: web_sys::Response = wasm_response.dyn_into()?;
             let wasm_bytes = JsFuture::from(wasm_response.array_buffer()?).await?;
-            
+
             log::debug!("Loading JS glue code from: {js_url}");
-            let js_response = JsFuture::from(
-                web_sys::window().unwrap().fetch_with_str(js_url)
-            ).await?;
+            let js_response =
+                JsFuture::from(web_sys::window().unwrap().fetch_with_str(js_url)).await?;
             let js_response: web_sys::Response = js_response.dyn_into()?;
             let js_glue_code = JsFuture::from(js_response.text()?).await?;
-            
+
             let context = AudioContext::new().unwrap();
             JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await?;
 
@@ -64,24 +62,31 @@ impl WebAudio {
                 wasm_bytes,
                 js_glue_code,
             };
-            
+
             // Serialize the processor options to a JS object
-            let processor_options_js = serde_wasm_bindgen::to_value(&processor_options)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize processor options: {e}")))?;
-            
+            let processor_options_js =
+                serde_wasm_bindgen::to_value(&processor_options).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to serialize processor options: {e}"))
+                })?;
+
             // Convert to js_sys::Object for web-sys compatibility
-            let processor_options_obj: js_sys::Object = processor_options_js.dyn_into()
+            let processor_options_obj: js_sys::Object = processor_options_js
+                .dyn_into()
                 .map_err(|_| JsValue::from_str("Failed to convert processor options to Object"))?;
 
             // Create the AudioWorkletNode with options using new_with_options
             log::debug!("Creating AudioWorkletNode with processor 'dissonance-processor'");
-            
+
             // Create AudioWorkletNodeOptions and set processor options
             let worklet_options = web_sys::AudioWorkletNodeOptions::new();
             worklet_options.set_processor_options(Some(&processor_options_obj));
-            
+
             // Create the node with options
-            let node = match AudioWorkletNode::new_with_options(&context, "dissonance-processor", &worklet_options) {
+            let node = match AudioWorkletNode::new_with_options(
+                &context,
+                "dissonance-processor",
+                &worklet_options,
+            ) {
                 Ok(node) => {
                     log::debug!("AudioWorkletNode created successfully");
                     node
@@ -101,11 +106,8 @@ impl WebAudio {
 
     pub fn send_message(&self, message: ToWorkletMessage) {
         // it might take a while to load the worklet, so early messages might get a None from try_get
-        // TODO: if we get None after a certain number of seconds after loading the module, report the error 
-        if let Some(node) = self
-            .node
-            .try_get()
-        {
+        // TODO: if we get None after a certain number of seconds after loading the module, report the error
+        if let Some(node) = self.node.try_get() {
             let connection = node.as_ref().expect("Audio worklet connection failed");
             connection
                 .node
@@ -131,7 +133,7 @@ impl AudioNodeConnection {
         let port = node.port().unwrap();
         let onmessage = Closure::<dyn FnMut(_)>::new(move |event: MessageEvent| {
             let data = event.data();
-            
+
             // Try to get the message type first
             if data.is_object() {
                 if let Ok(type_val) = js_sys::Reflect::get(&data, &JsValue::from_str("type")) {
@@ -142,9 +144,13 @@ impl AudioNodeConnection {
                                 return;
                             }
                             "init-error" => {
-                                if let Ok(error_val) = js_sys::Reflect::get(&data, &JsValue::from_str("error")) {
+                                if let Ok(error_val) =
+                                    js_sys::Reflect::get(&data, &JsValue::from_str("error"))
+                                {
                                     if let Some(error_str) = error_val.as_string() {
-                                        log::error!("[audio-worklet] Initialization error: {error_str}");
+                                        log::error!(
+                                            "[audio-worklet] Initialization error: {error_str}"
+                                        );
                                     }
                                 }
                                 return;
@@ -154,7 +160,7 @@ impl AudioNodeConnection {
                     }
                 }
             }
-            
+
             // Try to deserialize as FromWorkletMessage for other messages
             if let Ok(msg) = serde_wasm_bindgen::from_value::<FromWorkletMessage>(data) {
                 match msg {

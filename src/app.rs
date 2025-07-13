@@ -1,6 +1,6 @@
 use crossbeam::channel;
 use egui::{Align, Align2, Color32, FontId, Layout, RichText, Sense, vec2};
-use log::{error};
+use log::error;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use web_time::{Duration, Instant};
@@ -9,12 +9,9 @@ use crate::{
     interval_display,
     midi::MidiReader,
     piano_gui::{self, PIANO_WIDTH, PianoGui},
-    //synth::PianoSynth,
     theme,
     webaudio::{ToWorkletMessage, WebAudio},
 };
-
-
 
 enum AudioState {
     Uninitialized,
@@ -61,7 +58,6 @@ impl DissonanceLabApp {
             AudioState::Muted | AudioState::Uninitialized
         ));
         *self.audio.lock() = AudioState::Playing(WebAudio::new());
-        
     }
 
     fn ensure_midi(&mut self, ctx: &egui::Context) {
@@ -71,7 +67,6 @@ impl DissonanceLabApp {
                 if last_checked.is_none()
                     || last_checked.map(|t| t.elapsed()) > Some(MIDI_CHECK_PERIOD) =>
             {
-                
                 let to_gui_tx = self.midi_to_piano_gui_tx.clone();
                 let ctx = ctx.clone();
                 let audio = self.audio.clone();
@@ -92,7 +87,7 @@ impl DissonanceLabApp {
                             _ => {}
                         }
                     }
-                    
+
                     to_gui_tx.send(message.to_owned()).unwrap();
                     ctx.request_repaint();
                 }) {

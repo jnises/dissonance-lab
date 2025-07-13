@@ -17,7 +17,7 @@ impl From<ToWorkletMessage> for JsValue {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum FromWorkletMessage {
-    // no typed messages sent back from the worklet currently. 
+    // no typed messages sent back from the worklet currently.
 }
 
 impl From<FromWorkletMessage> for JsValue {
