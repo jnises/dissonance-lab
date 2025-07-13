@@ -32,8 +32,6 @@ impl Default for WebAudio {
 
 impl WebAudio {
     pub fn new() -> Self {
-        let context = AudioContext::new().unwrap();
-
         // Load the audio worklet WASM module
         let node = FutureData::spawn(async move {
             // Load the audio worklet JavaScript wrapper
@@ -58,6 +56,7 @@ impl WebAudio {
             let js_response: web_sys::Response = js_response.dyn_into()?;
             let js_glue_code = JsFuture::from(js_response.text()?).await?;
             
+            let context = AudioContext::new().unwrap();
             match JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await {
                 Ok(_) => {
                     log::info!("Audio worklet module loaded successfully");
