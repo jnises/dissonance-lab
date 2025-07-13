@@ -47,6 +47,8 @@ impl Default for DissonanceLabApp {
 
 impl DissonanceLabApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        assert!(cfg!(target_arch = "wasm32"), "This application only supports WebAssembly target architecture");
+
         // Setup custom theme instead of default dark theme
         theme::setup_custom_theme(&cc.egui_ctx);
         Default::default()
@@ -115,11 +117,6 @@ impl DissonanceLabApp {
 impl eframe::App for DissonanceLabApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ensure_midi(ctx);
-        // don't need to start muted if in native mode
-        #[cfg(not(target_arch = "wasm32"))]
-        if matches!(*self.audio.lock(), AudioState::Uninitialized) {
-            self.setup_audio();
-        }
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 const STATUS_HEIGHT: f32 = 40.0;
