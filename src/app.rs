@@ -47,7 +47,10 @@ impl Default for DissonanceLabApp {
 
 impl DissonanceLabApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        assert!(cfg!(target_arch = "wasm32"), "This application only supports WebAssembly target architecture");
+        assert!(
+            cfg!(target_arch = "wasm32"),
+            "This application only supports WebAssembly target architecture"
+        );
 
         // Setup custom theme instead of default dark theme
         theme::setup_custom_theme(&cc.egui_ctx);
