@@ -35,7 +35,7 @@ impl WebAudio {
         // Load the audio worklet WASM module
         let node = FutureData::spawn(async move {
             // Load the audio worklet JavaScript wrapper
-            let worklet_url = "./worklet.js";
+            let worklet_url = "./dissonance_worklet_processor.js";
             log::debug!("Loading audio worklet from: {worklet_url}");
 
             // Load the WASM bytes and JS glue code
