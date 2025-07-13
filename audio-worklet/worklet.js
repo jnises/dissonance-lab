@@ -15,7 +15,6 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
             this.initializeWasm(wasmBytes, jsGlueCode)
                 .then(() => {
                     this.initialized = true;
-                    console.log('[DissonanceWorkletProcessor] WASM processor initialized');
                     this.port.postMessage({ type: 'init-complete' });
                 })
                 .catch(err => {
@@ -53,8 +52,6 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
     }
 
     async initializeWasm(wasmBytes, jsGlueCode) {
-        console.log('[DissonanceWorkletProcessor] Starting WASM initialization');
-        
         // Set up the environment for the wasm-bindgen code
         // In AudioWorklet context, we need to provide 'self' as globalThis
         if (typeof self === 'undefined') {
@@ -131,8 +128,6 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
             globalThis.TextEncoder = TextEncoderPolyfill;
         }
         
-        console.log('[DissonanceWorkletProcessor] Evaluating JS glue code...');
-        
         // The no-modules target creates an IIFE that assigns to a local wasm_bindgen variable
         // We need to wrap the code to capture this variable
         const wrappedCode = `
@@ -145,7 +140,6 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
         let wasmBindgen;
         try {
             wasmBindgen = eval(wrappedCode);
-            console.log('[DissonanceWorkletProcessor] Successfully captured wasm_bindgen');
         } catch (error) {
             console.error('[DissonanceWorkletProcessor] Failed to capture wasm_bindgen:', error);
             throw new Error(`Failed to evaluate WASM glue code: ${error.message}`);
@@ -157,14 +151,10 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
         }
         
         // Initialize the WASM module with the provided bytes
-        console.log('[DissonanceWorkletProcessor] Initializing WASM module...');
         await wasmBindgen(wasmBytes);
         
-        // Create the processor instance
-        console.log('[DissonanceWorkletProcessor] Creating DissonanceProcessor...');
         this.wasmProcessor = new wasmBindgen.DissonanceProcessor();
         this.wasmProcessor.set_port(this.port);
-        console.log('[DissonanceWorkletProcessor] WASM initialization complete');
     }
 }
 
