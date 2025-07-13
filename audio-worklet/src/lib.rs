@@ -21,6 +21,8 @@ pub struct DissonanceProcessor {
     synth: synth::PianoSynth,
     sample_rate: f32,
     port: Option<MessagePort>,
+    interleaved_buffer: Vec<f32>,
+    channel_buffer: Vec<f32>,
 }
 
 #[wasm_bindgen]
@@ -34,6 +36,8 @@ impl DissonanceProcessor {
             synth: synth::PianoSynth::new(),
             sample_rate,
             port: None,
+            interleaved_buffer: Vec::new(),
+            channel_buffer: Vec::new(),
         };
 
         log::debug!("DissonanceProcessor constructor initialized");
@@ -79,27 +83,32 @@ impl DissonanceProcessor {
             // TODO: avoid the interleaving to fit better with the webaudio audioprocessor api
 
             // Create interleaved buffer for all channels
-            let mut interleaved_buffer = vec![0.0f32; buffer_length * num_channels];
+            let interleaved_len = buffer_length * num_channels;
+            if self.interleaved_buffer.len() != interleaved_len {
+                self.interleaved_buffer.resize(interleaved_len, 0f32);
+            }
 
             // Generate audio with proper channel count
             self.synth.play(
                 self.sample_rate as u32,
                 num_channels,
-                &mut interleaved_buffer,
+                &mut self.interleaved_buffer,
             );
 
             // De-interleave and copy to output channels
             for channel in 0..num_channels {
                 let output_channel: Float32Array = output_array.get(channel as u32).into();
-                let mut channel_buffer = vec![0.0f32; buffer_length];
+                if self.channel_buffer.len() != buffer_length {
+                    self.channel_buffer.resize(buffer_length, 0.0);
+                }
 
                 // Extract samples for this channel from interleaved buffer
-                for frame in 0..buffer_length {
-                    channel_buffer[frame] = interleaved_buffer[frame * num_channels + channel];
+                for (frame_nr, sample) in self.channel_buffer.iter_mut().enumerate() {
+                    *sample = self.interleaved_buffer[frame_nr * num_channels + channel];
                 }
 
                 // Copy to output
-                output_channel.copy_from(&channel_buffer);
+                output_channel.copy_from(&self.channel_buffer);
             }
         }
 
