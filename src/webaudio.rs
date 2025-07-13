@@ -76,9 +76,6 @@ impl WebAudio {
             // Create the AudioWorkletNode with options using new_with_options
             log::debug!("Creating AudioWorkletNode with processor 'dissonance-processor'");
             
-            // Clone context for later use before it's moved
-            let context_clone = context.clone();
-            
             // Create AudioWorkletNodeOptions and set processor options
             let worklet_options = web_sys::AudioWorkletNodeOptions::new();
             worklet_options.set_processor_options(Some(&processor_options_obj));
@@ -86,7 +83,7 @@ impl WebAudio {
             // Create the node with options
             let node = match AudioWorkletNode::new_with_options(&context, "dissonance-processor", &worklet_options) {
                 Ok(node) => {
-                    log::info!("AudioWorkletNode created successfully");
+                    log::debug!("AudioWorkletNode created successfully");
                     node
                 }
                 Err(e) => {
@@ -96,7 +93,7 @@ impl WebAudio {
             };
 
             // Connect the node to the audio context destination (speakers)
-            let connection = AudioNodeConnection::new(context_clone, node);
+            let connection = AudioNodeConnection::new(context, node);
             Ok(connection)
         });
         Self { node }
