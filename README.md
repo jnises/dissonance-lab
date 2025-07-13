@@ -22,7 +22,7 @@ trunk serve --release
 ```
 Navigate to http://127.0.0.1:8080/
 
-Note that you need to manually unmute by clickin the 🔇 button. This is due to the browser autoplay blocking feature.
+Note that you need to manually unmute by clicking the 🔇 button. This is due to the browser autoplay blocking feature.
 
 ## Testing
 ```
