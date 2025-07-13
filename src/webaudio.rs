@@ -36,20 +36,20 @@ impl WebAudio {
         let node = FutureData::spawn(async move {
             // Load the audio worklet JavaScript wrapper
             let worklet_url = "./worklet.js";
-            log::info!("Loading audio worklet from: {worklet_url}");
+            log::debug!("Loading audio worklet from: {worklet_url}");
             
             // Load the WASM bytes and JS glue code
             let wasm_url = "./audio-worklet_bg.wasm";
             let js_url = "./audio-worklet.js";
             
-            log::info!("Loading WASM bytes from: {wasm_url}");
+            log::debug!("Loading WASM bytes from: {wasm_url}");
             let wasm_response = JsFuture::from(
                 web_sys::window().unwrap().fetch_with_str(wasm_url)
             ).await?;
             let wasm_response: web_sys::Response = wasm_response.dyn_into()?;
             let wasm_bytes = JsFuture::from(wasm_response.array_buffer()?).await?;
             
-            log::info!("Loading JS glue code from: {js_url}");
+            log::debug!("Loading JS glue code from: {js_url}");
             let js_response = JsFuture::from(
                 web_sys::window().unwrap().fetch_with_str(js_url)
             ).await?;
@@ -57,24 +57,7 @@ impl WebAudio {
             let js_glue_code = JsFuture::from(js_response.text()?).await?;
             
             let context = AudioContext::new().unwrap();
-            match JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await {
-                Ok(_) => {
-                    log::info!("Audio worklet module loaded successfully");
-                    // Add a small delay to ensure the processor is registered
-                    let delay_promise = js_sys::Promise::new(&mut |resolve, _| {
-                        let callback = Closure::once_into_js(move || resolve.call0(&JsValue::NULL));
-                        web_sys::window().unwrap().set_timeout_with_callback_and_timeout_and_arguments_0(
-                            callback.as_ref().unchecked_ref(), 
-                            100  // 100ms delay to ensure registration
-                        ).unwrap();
-                    });
-                    let _ = JsFuture::from(delay_promise).await;
-                }
-                Err(e) => {
-                    log::error!("Failed to load audio worklet module: {e:?}");
-                    return Err(e);
-                }
-            }
+            JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await?;
 
             // Create processor options with WASM data using serde
             let processor_options = ProcessorOptions {
@@ -91,7 +74,7 @@ impl WebAudio {
                 .map_err(|_| JsValue::from_str("Failed to convert processor options to Object"))?;
 
             // Create the AudioWorkletNode with options using new_with_options
-            log::info!("Creating AudioWorkletNode with processor 'dissonance-processor'");
+            log::debug!("Creating AudioWorkletNode with processor 'dissonance-processor'");
             
             // Clone context for later use before it's moved
             let context_clone = context.clone();
