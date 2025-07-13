@@ -122,6 +122,7 @@ impl WebAudio {
 #[derive(Debug)]
 struct AudioNodeConnection {
     node: AudioWorkletNode,
+    // needs to be kept alive
     _onmessage: Closure<dyn FnMut(MessageEvent)>,
 }
 
@@ -140,7 +141,7 @@ impl AudioNodeConnection {
                     if let Some(type_str) = type_val.as_string() {
                         match type_str.as_str() {
                             "init-complete" => {
-                                log::info!("[audio-worklet] Initialization complete");
+                                log::debug!("[audio-worklet] Initialization complete");
                                 return;
                             }
                             "init-error" => {
