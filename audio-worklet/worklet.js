@@ -95,62 +95,40 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
 
         // Add polyfills for TextDecoder and TextEncoder if not available
         if (typeof globalThis.TextDecoder === 'undefined') {
-            console.log('[DissonanceWorkletProcessor] Adding TextDecoder polyfill');
             globalThis.TextDecoder = TextDecoderPolyfill;
         }
         if (typeof TextDecoder === 'undefined') {
             globalThis.TextDecoder = TextDecoderPolyfill;
         }
         
-        if (typeof globalThis.TextEncoder === 'undefined') {
-            console.log('[DissonanceWorkletProcessor] Adding TextEncoder polyfill');
-            globalThis.TextEncoder = class TextEncoder {
-                encode(input) {
-                    if (!input) return new Uint8Array(0);
-                    
-                    // Simple UTF-8 encoder
-                    const result = [];
-                    for (let i = 0; i < input.length; i++) {
-                        const code = input.charCodeAt(i);
-                        if (code < 0x80) {
-                            result.push(code);
-                        } else if (code < 0x800) {
-                            result.push(0xC0 | (code >> 6));
-                            result.push(0x80 | (code & 0x3F));
-                        } else {
-                            result.push(0xE0 | (code >> 12));
-                            result.push(0x80 | ((code >> 6) & 0x3F));
-                            result.push(0x80 | (code & 0x3F));
-                        }
+        class TextEncoderPolyfill {
+            encode(input) {
+                if (!input) return new Uint8Array(0);
+                
+                // Simple UTF-8 encoder
+                const result = [];
+                for (let i = 0; i < input.length; i++) {
+                    const code = input.charCodeAt(i);
+                    if (code < 0x80) {
+                        result.push(code);
+                    } else if (code < 0x800) {
+                        result.push(0xC0 | (code >> 6));
+                        result.push(0x80 | (code & 0x3F));
+                    } else {
+                        result.push(0xE0 | (code >> 12));
+                        result.push(0x80 | ((code >> 6) & 0x3F));
+                        result.push(0x80 | (code & 0x3F));
                     }
-                    return new Uint8Array(result);
                 }
-            };
+                return new Uint8Array(result);
+            }
         }
-        
-        
-        
+
+        if (typeof globalThis.TextEncoder === 'undefined') {
+            globalThis.TextEncoder = TextEncoderPolyfill;
+        }
         if (typeof TextEncoder === 'undefined') {
-            globalThis.TextEncoder = class TextEncoder {
-                encode(input) {
-                    // Simple UTF-8 encoder
-                    const result = [];
-                    for (let i = 0; i < input.length; i++) {
-                        const code = input.charCodeAt(i);
-                        if (code < 0x80) {
-                            result.push(code);
-                        } else if (code < 0x800) {
-                            result.push(0xC0 | (code >> 6));
-                            result.push(0x80 | (code & 0x3F));
-                        } else {
-                            result.push(0xE0 | (code >> 12));
-                            result.push(0x80 | ((code >> 6) & 0x3F));
-                            result.push(0x80 | (code & 0x3F));
-                        }
-                    }
-                    return new Uint8Array(result);
-                }
-            };
+            globalThis.TextEncoder = TextEncoderPolyfill;
         }
         
         console.log('[DissonanceWorkletProcessor] Evaluating JS glue code...');
