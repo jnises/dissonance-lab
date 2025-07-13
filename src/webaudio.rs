@@ -158,9 +158,7 @@ impl AudioNodeConnection {
             // Try to deserialize as FromWorkletMessage for other messages
             if let Ok(msg) = serde_wasm_bindgen::from_value::<FromWorkletMessage>(data) {
                 match msg {
-                    FromWorkletMessage::Log { message } => {
-                        log::info!("[audio-worklet] {message}");
-                    }
+                    // no messages sent back from the worklet currently
                 }
             }
         });
