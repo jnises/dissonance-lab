@@ -1,5 +1,5 @@
 use js_sys::{Array, Float32Array, Object};
-use shared_types::{FromWorkletMessage, ToWorkletMessage};
+use shared_types::ToWorkletMessage;
 use wasm_bindgen::prelude::*;
 use web_sys::{AudioWorkletGlobalScope, MessagePort};
 
@@ -35,24 +35,15 @@ impl DissonanceProcessor {
             sample_rate,
             port: None,
         };
-        
-        processor.log("DissonanceProcessor constructor initialized");
+
+        log::debug!("DissonanceProcessor constructor initialized");
         processor
     }
 
     #[wasm_bindgen]
     pub fn set_port(&mut self, port: MessagePort) {
         self.port = Some(port);
-        self.log("Port set successfully");
-    }
-
-    fn log(&self, msg: &str) {
-        if let Some(port) = &self.port {
-            let _ = port.post_message(&FromWorkletMessage::Log { message: msg.to_string() }.into());
-        } else {
-            // Fallback to console log if port is not available
-            web_sys::console::log_1(&msg.into());
-        }
+        log::debug!("Port set successfully");
     }
 
     #[wasm_bindgen]
@@ -60,16 +51,14 @@ impl DissonanceProcessor {
         let msg = serde_wasm_bindgen::from_value::<ToWorkletMessage>(message).unwrap();
         match msg {
             ToWorkletMessage::NoteOn { note, velocity } => {
-                self.log(&format!("NoteOn: note={note}, velocity={velocity}"));
-                let midi_note = wmidi::Note::try_from(note)
-                    .expect("Invalid MIDI note value");
+                log::debug!("NoteOn: note={note}, velocity={velocity}");
+                let midi_note = wmidi::Note::try_from(note).expect("Invalid MIDI note value");
                 let midi_velocity = wmidi::U7::try_from(velocity).unwrap_or(wmidi::U7::MAX);
                 self.synth.note_on(midi_note, midi_velocity);
             }
             ToWorkletMessage::NoteOff { note } => {
-                self.log(&format!("NoteOff: note={note}"));
-                let midi_note = wmidi::Note::try_from(note)
-                    .expect("Invalid MIDI note value");
+                log::debug!("NoteOff: note={note}");
+                let midi_note = wmidi::Note::try_from(note).expect("Invalid MIDI note value");
                 self.synth.note_off(midi_note);
             }
         }
