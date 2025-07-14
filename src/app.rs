@@ -1,5 +1,5 @@
 use crossbeam::channel;
-use egui::{Align, Align2, Color32, FontId, Layout, RichText, Sense, vec2};
+use egui::{Align, Align2, FontId, Layout, RichText, vec2};
 use log::error;
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -155,21 +155,17 @@ impl eframe::App for DissonanceLabApp {
                             }
 
                             ui.label("|");
-                            const MIDI_TEXT: &str = "MIDI";
-                            const MIDI_FONT: FontId = FontId::proportional(STATUS_FONT_SIZE);
-                            let galley = ui.painter().layout_no_wrap(
-                                MIDI_TEXT.to_string(),
-                                MIDI_FONT,
-                                if matches!(&self.midi, MidiState::Connected(_)) {
-                                    ui.visuals().text_color()
-                                } else {
-                                    ui.visuals().weak_text_color()
-                                },
-                            );
-                            let text_size = galley.size();
-                            let (response, painter) =
-                                ui.allocate_painter(text_size, Sense::hover());
-                            painter.galley(response.rect.left_top(), galley, Color32::WHITE);
+                            let is_connected = matches!(&self.midi, MidiState::Connected(_));
+                            let midi_text = RichText::new("MIDI").size(STATUS_FONT_SIZE);
+                            let midi_text = if is_connected {
+                                midi_text.color(ui.visuals().text_color())
+                            } else {
+                                midi_text
+                                    .color(ui.visuals().weak_text_color())
+                                    .strikethrough()
+                            };
+
+                            let response = ui.label(midi_text);
                             response.on_hover_text(match &self.midi {
                                 MidiState::NotConnected { .. } => "not connected".to_string(),
                                 MidiState::Connected(midi_reader) => {

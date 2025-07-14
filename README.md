@@ -14,6 +14,7 @@ The pressed keys are considered the root of each interval even when it isn't the
 ## Requirements
 * Rust toolchain ([rustup.rs](https://rustup.rs/))
 * Trunk `cargo install trunk`
+* wasm-pack `cargo install wasm-pack`
 
 ## Running
 
