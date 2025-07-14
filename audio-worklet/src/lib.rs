@@ -21,8 +21,8 @@ pub struct DissonanceProcessor {
     synth: synth::PianoSynth,
     sample_rate: f32,
     port: Option<MessagePort>,
-    interleaved_buffer: Vec<f32>,
-    channel_buffer: Vec<f32>,
+    interleaved_buffer_cache: Vec<f32>,
+    channel_buffer_cache: Vec<f32>,
 }
 
 #[wasm_bindgen]
@@ -36,8 +36,8 @@ impl DissonanceProcessor {
             synth: synth::PianoSynth::new(),
             sample_rate,
             port: None,
-            interleaved_buffer: Vec::new(),
-            channel_buffer: Vec::new(),
+            interleaved_buffer_cache: Vec::new(),
+            channel_buffer_cache: Vec::new(),
         };
 
         log::debug!("DissonanceProcessor constructor initialized");
@@ -84,31 +84,31 @@ impl DissonanceProcessor {
 
             // Create interleaved buffer for all channels
             let interleaved_len = buffer_length * num_channels;
-            if self.interleaved_buffer.len() != interleaved_len {
-                self.interleaved_buffer.resize(interleaved_len, 0f32);
+            if self.interleaved_buffer_cache.len() != interleaved_len {
+                self.interleaved_buffer_cache.resize(interleaved_len, 0f32);
             }
 
             // Generate audio with proper channel count
             self.synth.play(
                 self.sample_rate as u32,
                 num_channels,
-                &mut self.interleaved_buffer,
+                &mut self.interleaved_buffer_cache,
             );
 
             // De-interleave and copy to output channels
             for channel in 0..num_channels {
                 let output_channel: Float32Array = output_array.get(channel as u32).into();
-                if self.channel_buffer.len() != buffer_length {
-                    self.channel_buffer.resize(buffer_length, 0.0);
+                if self.channel_buffer_cache.len() != buffer_length {
+                    self.channel_buffer_cache.resize(buffer_length, 0.0);
                 }
 
                 // Extract samples for this channel from interleaved buffer
-                for (frame_nr, sample) in self.channel_buffer.iter_mut().enumerate() {
-                    *sample = self.interleaved_buffer[frame_nr * num_channels + channel];
+                for (frame_nr, sample) in self.channel_buffer_cache.iter_mut().enumerate() {
+                    *sample = self.interleaved_buffer_cache[frame_nr * num_channels + channel];
                 }
 
                 // Copy to output
-                output_channel.copy_from(&self.channel_buffer);
+                output_channel.copy_from(&self.channel_buffer_cache);
             }
         }
 
