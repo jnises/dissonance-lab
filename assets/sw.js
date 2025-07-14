@@ -1,9 +1,12 @@
-var cacheName = 'dissonance-lab-pwa-v9';
-var filesToCache = [
+const cacheName = 'dissonance-lab-pwa-v11';
+const filesToCache = [
   './',
   './index.html',
   './dissonance-lab.js',
   './dissonance-lab_bg.wasm',
+  './dissonance_worklet_processor.js',
+  './audio-worklet.js',
+  './audio-worklet_bg.wasm',
 ];
 
 /* Start the service worker and cache all of the app's content */
