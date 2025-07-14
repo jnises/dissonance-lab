@@ -1,0 +1,22 @@
+[package]
+name = "audio-worklet"
+version = "0.0.1"
+authors = ["Joel Nises <joel.nises@gmail.com>"]
+edition = "2024"
+rust-version = "1.88"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wmidi.workspace = true
+crossbeam.workspace = true
+wasm-bindgen.workspace = true
+console_error_panic_hook.workspace = true
+js-sys.workspace = true
+serde.workspace = true
+serde-wasm-bindgen.workspace = true
+log.workspace = true
+console_log.workspace = true
+shared-types = { path = "../shared-types" }
+web-sys.workspace = true

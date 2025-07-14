@@ -1,5 +1,10 @@
-use crate::{audio::Synth, limiter::Limiter, reverb::Reverb};
+use crate::{limiter::Limiter, reverb::Reverb};
 use std::{cmp::Ordering, f32::consts::PI};
+
+/// Synth trait for audio synthesis
+pub trait Synth {
+    fn play(&mut self, sample_rate: u32, num_channels: usize, out_samples: &mut [f32]);
+}
 
 /// Represents a piano key with associated frequency
 #[derive(Copy, Clone)]
@@ -282,7 +287,6 @@ impl PianoVoice {
             (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(1.0);
         self.note_phase += self.phase_delta;
 
-        // Generate piano-like waveform with improved hammer strike characteristics
         let mut sample = 0.0;
 
         // Calculate attack intensity - strongest at the beginning
@@ -334,10 +338,8 @@ impl PianoVoice {
             // The phase component adds string harmonic characteristics
             let noise3 = (2.0 * PI * (self.note_phase * 0.5 + attack_intensity * 0.5) * 8.91).sin();
 
-            // Combine noise components
             let noise = noise1 * noise2 * noise3;
 
-            // Scale noise by attack intensity and velocity
             sample += noise * attack_intensity * self.velocity * 0.2;
 
             // Add initial "thump" of hammer hitting string - brief low-mid frequency component
@@ -357,23 +359,27 @@ impl PianoVoice {
 pub struct PianoSynth {
     voices: Vec<PianoVoice>,
     sample_rate: Option<u32>,
-    rx: crossbeam::channel::Receiver<wmidi::MidiMessage<'static>>,
     reverb: Option<Reverb>,
     limiter: Option<Limiter>,
 }
 
+impl Default for PianoSynth {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PianoSynth {
-    pub fn new(rx: crossbeam::channel::Receiver<wmidi::MidiMessage<'static>>) -> Self {
+    pub fn new() -> Self {
         Self {
             voices: Vec::new(),
             sample_rate: None,
-            rx,
             reverb: None,
             limiter: None,
         }
     }
 
-    fn note_on(&mut self, note: wmidi::Note, velocity: wmidi::U7) {
+    pub fn note_on(&mut self, note: wmidi::Note, velocity: wmidi::U7) {
         let key = PianoKey::new(note);
 
         // First try to find an inactive voice
@@ -445,7 +451,7 @@ impl PianoSynth {
         &mut self.voices[voice_index]
     }
 
-    fn note_off(&mut self, midi_note: wmidi::Note) {
+    pub fn note_off(&mut self, midi_note: wmidi::Note) {
         for voice in self.voices.iter_mut() {
             if let Some(key) = &voice.current_key {
                 if key.midi_note == midi_note {
@@ -474,17 +480,6 @@ impl Synth for PianoSynth {
             self.voices.reserve(NUM_VOICES);
             for _ in 0..NUM_VOICES {
                 self.voices.push(PianoVoice::new(sample_rate as f32));
-            }
-        }
-        while let Ok(message) = self.rx.try_recv() {
-            match message {
-                wmidi::MidiMessage::NoteOff(_channel, note, _velocity) => {
-                    self.note_off(note);
-                }
-                wmidi::MidiMessage::NoteOn(_channel, note, velocity) => {
-                    self.note_on(note, velocity);
-                }
-                _ => {}
             }
         }
 

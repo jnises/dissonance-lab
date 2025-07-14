@@ -1,3 +1,11 @@
 [build]
 filehash = false
 minify = "on_release"
+
+[watch]
+ignore = ["audio-worklet/pkg"]
+
+# Build hooks to compile the audio worklet
+[[hooks]]
+stage = "pre_build"
+command = "./build-audio-worklet.sh"
