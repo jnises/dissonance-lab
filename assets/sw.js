@@ -1,5 +1,5 @@
 const cacheName = 'dissonance-lab-pwa-v10';
-var filesToCache = [
+const filesToCache = [
   './',
   './index.html',
   './dissonance-lab.js',
