@@ -181,13 +181,18 @@ impl eframe::App for DissonanceLabApp {
                             theme::KEYBOARD_LABEL,
                         );
                         if self.piano_gui.pressed_keys().count_ones() <= 1 {
-                            ui.painter().text(
-                                ui.max_rect().right_bottom(),
-                                Align2::RIGHT_BOTTOM,
-                                "shift for multi select",
-                                FontId::proportional(STATUS_FONT_SIZE),
-                                theme::TEXT_TERTIARY,
-                            );
+                            // Hide "shift for multi select" label on narrow screens (mobile/phone)
+                            // Use a threshold based on typical mobile screen widths
+                            const MIN_WIDTH_FOR_LABEL: f32 = 480.0;
+                            if ui.available_width() >= MIN_WIDTH_FOR_LABEL {
+                                ui.painter().text(
+                                    ui.max_rect().right_bottom(),
+                                    Align2::RIGHT_BOTTOM,
+                                    "shift for multi select",
+                                    FontId::proportional(STATUS_FONT_SIZE),
+                                    theme::TEXT_TERTIARY,
+                                );
+                            }
                         } else {
                             ui.painter().text(
                                 ui.max_rect().right_bottom(),
