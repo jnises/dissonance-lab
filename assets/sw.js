@@ -33,7 +33,7 @@ self.addEventListener("activate", function (e) {
       .then(function (cacheNames) {
         return Promise.all(
           cacheNames.map(function (name) {
-            if (cacheWhitelist.indexOf(name) === -1) {
+            if (!cacheWhitelist.includes(name)) {
               return caches.delete(name); // Delete old caches
             }
           }),
