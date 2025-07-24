@@ -25,7 +25,7 @@ self.addEventListener("install", function (e) {
 
 /* Clear old caches when a new service worker is activated */
 self.addEventListener("activate", function (e) {
-  var cacheWhitelist = [cacheName]; // Only keep the current cache version
+  const cacheWhitelist = [cacheName]; // Only keep the current cache version
 
   e.waitUntil(
     caches
