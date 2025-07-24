@@ -13,6 +13,9 @@ use crate::{
     webaudio::{ToWorkletMessage, WebAudio},
 };
 
+/// Width threshold for determining mobile/narrow screens
+const MOBILE_BREAKPOINT_WIDTH: f32 = 480.0;
+
 enum AudioState {
     Uninitialized,
     Muted,
@@ -181,13 +184,16 @@ impl eframe::App for DissonanceLabApp {
                             theme::KEYBOARD_LABEL,
                         );
                         if self.piano_gui.pressed_keys().count_ones() <= 1 {
-                            ui.painter().text(
-                                ui.max_rect().right_bottom(),
-                                Align2::RIGHT_BOTTOM,
-                                "shift for multi select",
-                                FontId::proportional(STATUS_FONT_SIZE),
-                                theme::TEXT_TERTIARY,
-                            );
+                            // Hide "shift for multi select" label on narrow screens (mobile/phone)
+                            if ui.available_width() >= MOBILE_BREAKPOINT_WIDTH {
+                                ui.painter().text(
+                                    ui.max_rect().right_bottom(),
+                                    Align2::RIGHT_BOTTOM,
+                                    "shift for multi select",
+                                    FontId::proportional(STATUS_FONT_SIZE),
+                                    theme::TEXT_TERTIARY,
+                                );
+                            }
                         } else {
                             ui.painter().text(
                                 ui.max_rect().right_bottom(),
