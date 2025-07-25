@@ -31,6 +31,5 @@
 - [x] Only show "click to enable audio" hint when unitialized, not when muted
 - [x] Add all todos in the code as subtasks here.
   - [ ] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
-  - [ ] interval_display.rs: if we show more than one octave we show the actual base as the root
-  - [ ] piano_gui.rs: handle multi touch
+  - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
