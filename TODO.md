@@ -21,5 +21,15 @@
 
 - [x] Add some graphic that hints the user that they should press the "mute" button to enable audio
 - [ ] Go through the codebase and make sure the guidelines from the instructions file are applied.
-- [ ] Add all todos in the code as subtasks here.
+  - [x] Check for and update rust edition to 2024 in all `Cargo.toml` files.
+  - [x] Find and refactor any `mod.rs` files to the `module_name.rs` convention.
+  - [x] Replace `format!("{}", ...)` with `format!("{...}")` for better readability.
+  - [x] Find and replace magic numbers with named constants.
+  - [x] Review ignored errors (`let _ = ...`) and add comments if missing.
+  - [x] Run `cargo check` on all crates to check for warnings, including non-exhaustive matches.
+  - [x] Run 'cargo clippy'
+- [x] Only show "click to enable audio" hint when unitialized, not when muted
+- [x] Add all todos in the code as subtasks here.
+  - [ ] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
+  - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.

@@ -36,16 +36,22 @@ impl PianoGui {
         let mut action = None;
         let mut piano_size = vec2(PIANO_WIDTH, PIANO_HEIGHT);
         if piano_size.x > ui.available_width() {
-            piano_size *= (ui.available_width() / piano_size.x).max(0.5);
+            const MIN_PIANO_SCALE: f32 = 0.5;
+            piano_size *= (ui.available_width() / piano_size.x).max(MIN_PIANO_SCALE);
         }
         let (response, painter) = ui.allocate_painter(piano_size, Sense::empty());
         let rect = response.rect;
-        painter.rect_filled(rect, 1.0, ui.visuals().panel_fill);
+        const PIANO_RECT_CORNER_RADIUS: f32 = 1.0;
+        painter.rect_filled(rect, PIANO_RECT_CORNER_RADIUS, ui.visuals().panel_fill);
         const MARGIN: f32 = 2.0;
         let keys_rect = rect.shrink(MARGIN);
         let shift_pressed = ui.input(|i| i.modifiers.shift);
         const NUM_WHITE_KEYS: usize = 7;
         const NUM_BLACK_KEYS: usize = 5;
+        const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
+        const BLACK_KEY_X_POSITIONS: [f32; NUM_BLACK_KEYS] = [1.0, 3.0, 6.0, 8.0, 10.0];
+        const SEMITONES_IN_OCTAVE: f32 = 12.0;
+
         #[derive(strum_macros::Display)]
         enum Color {
             White,
@@ -57,21 +63,29 @@ impl PianoGui {
                 Color::Black => NUM_BLACK_KEYS,
             };
             let x = match color {
-                Color::White => vec![0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5],
-                Color::Black => vec![1.0, 3.0, 6.0, 8.0, 10.0],
+                Color::White => WHITE_KEY_X_POSITIONS.to_vec(),
+                Color::Black => BLACK_KEY_X_POSITIONS.to_vec(),
             };
             for key in 0..num_keys {
                 let key_id = ui.id().with(format!("{color}{key}"));
                 let key_size = match color {
                     Color::White => vec2(
-                        (x.get(key + 1).unwrap_or(&12.0) - x[key]) / 12.0 * keys_rect.width(),
+                        (x.get(key + 1).unwrap_or(&SEMITONES_IN_OCTAVE) - x[key])
+                            / SEMITONES_IN_OCTAVE
+                            * keys_rect.width(),
                         keys_rect.height(),
                     ),
-                    Color::Black => vec2(keys_rect.width() / 12.0, keys_rect.height() * 0.6),
+                    Color::Black => {
+                        const BLACK_KEY_HEIGHT_RATIO: f32 = 0.6;
+                        vec2(
+                            keys_rect.width() / SEMITONES_IN_OCTAVE,
+                            keys_rect.height() * BLACK_KEY_HEIGHT_RATIO,
+                        )
+                    }
                 };
                 let key_rect = Rect::from_min_size(
                     pos2(
-                        keys_rect.min.x + x[key] / 12.0 * keys_rect.width(),
+                        keys_rect.min.x + x[key] / SEMITONES_IN_OCTAVE * keys_rect.width(),
                         keys_rect.min.y,
                     ),
                     key_size,
@@ -83,9 +97,11 @@ impl PianoGui {
                 let selected = self.selected_keys[semitone];
                 let combined_selected = pressed_keys[semitone];
                 let note = wmidi::Note::C4.step(semitone as i8).unwrap();
+                const KEY_RECT_CORNER_RADIUS: f32 = 0.0;
+                const KEY_OUTLINE_STROKE_WIDTH: f32 = 2.0;
                 painter.rect(
                     key_rect,
-                    0.0,
+                    KEY_RECT_CORNER_RADIUS,
                     if selected {
                         theme::selected_key()
                     } else if combined_selected {
@@ -93,7 +109,7 @@ impl PianoGui {
                     } else {
                         ui.visuals().panel_fill
                     },
-                    Stroke::new(2.0, theme::outlines()),
+                    Stroke::new(KEY_OUTLINE_STROKE_WIDTH, theme::outlines()),
                     StrokeKind::Middle,
                 );
                 let key_response = ui.interact(key_rect, key_id, Sense::click());

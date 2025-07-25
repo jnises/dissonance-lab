@@ -28,6 +28,7 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 - In `egui`, the coordinate system has the x-axis increasing to the right and the y-axis increasing downward.
 
 # Building
+- Check and lint using `cargo check --workspace` and `cargo clippy --workspace`.
 - Build the project using `trunk build`.
 
 # Testing

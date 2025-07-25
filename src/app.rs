@@ -157,7 +157,9 @@ impl eframe::App for DissonanceLabApp {
 
                                 // Draw custom graphic hint: rotated text with arrow pointing to mute button
                                 // Only show on wider screens to avoid clutter on mobile
-                                if ui.available_width() >= MOBILE_BREAKPOINT_WIDTH {
+                                if matches!(*self.audio.lock(), AudioState::Uninitialized)
+                                    && ui.available_width() >= MOBILE_BREAKPOINT_WIDTH
+                                {
                                     // Constants for mute button hint styling
                                     const GAMMA_BLEND_FACTOR: f32 = 0.2;
                                     const FONT_SCALING_FACTOR: f32 = 0.8;
