@@ -21,5 +21,13 @@
 
 - [x] Add some graphic that hints the user that they should press the "mute" button to enable audio
 - [ ] Go through the codebase and make sure the guidelines from the instructions file are applied.
+  - [x] Check for and update rust edition to 2024 in all `Cargo.toml` files.
+  - [x] Find and refactor any `mod.rs` files to the `module_name.rs` convention.
+  - [x] Replace `format!("{}", ...)` with `format!("{...}")` for better readability.
+  - [x] Find and replace magic numbers with named constants.
+  - [ ] Review ignored errors (`let _ = ...`) and add comments if missing.
+  - [ ] Run `cargo check` on all crates to check for warnings, including non-exhaustive matches.
+  - [ ] Run 'cargo clippy'
+- [ ] Only show "click to enable audio" hint when unitialized, not when muted
 - [ ] Add all todos in the code as subtasks here.
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.

@@ -68,14 +68,20 @@ impl Interval {
     /// Returns the equal temperament ratio for this interval
     #[allow(dead_code)]
     pub fn tempered_ratio(&self) -> f32 {
-        2.0_f32.powf(self.semitones() as f32 / 12.0)
+        const RATIO_POWER_BASE: f32 = 2.0;
+        const SEMITONES_IN_OCTAVE: f32 = 12.0;
+        RATIO_POWER_BASE.powf(self.semitones() as f32 / SEMITONES_IN_OCTAVE)
     }
 
     /// Returns the difference in cents between just intonation and equal temperament
     /// Positive values mean just intonation is sharper than equal temperament
     pub fn tempered_just_error_cents(&self) -> f32 {
-        let just_cents = 1200.0 * (self.just_ratio().to_f32().unwrap().ln() / 2.0_f32.ln());
-        let tempered_cents = 100.0 * self.semitones() as f32;
+        const CENTS_IN_OCTAVE: f32 = 1200.0;
+        const RATIO_POWER_BASE: f32 = 2.0;
+        let just_cents =
+            CENTS_IN_OCTAVE * (self.just_ratio().to_f32().unwrap().ln() / RATIO_POWER_BASE.ln());
+        const CENTS_IN_SEMITONE: f32 = 100.0;
+        let tempered_cents = CENTS_IN_SEMITONE * self.semitones() as f32;
         just_cents - tempered_cents
     }
 
@@ -106,31 +112,55 @@ impl Interval {
         let just = self.just_ratio();
         let numer = just.numer().abs() as f32;
         let denom = just.denom().abs() as f32;
-        let complexity = 1.0 - 1.0 / (0.7 * (numer + denom - 1.0)).sqrt();
+        const COMPLEXITY_FACTOR: f32 = 0.7;
+        const COMPLEXITY_DENOMINATOR_OFFSET: f32 = 1.0;
+        let complexity = 1.0
+            - 1.0 / (COMPLEXITY_FACTOR * (numer + denom - COMPLEXITY_DENOMINATOR_OFFSET)).sqrt();
 
         // Factor 2: Just/tempered error in cents
-        let cents_error = self.tempered_just_error_cents().abs() / 20.0; // Normalize
-        let error_factor = cents_error.min(1.0);
+        const CENTS_ERROR_NORMALIZATION_FACTOR: f32 = 20.0;
+        let cents_error =
+            self.tempered_just_error_cents().abs() / CENTS_ERROR_NORMALIZATION_FACTOR; // Normalize
+        const MAX_ERROR_FACTOR: f32 = 1.0;
+        let error_factor = cents_error.min(MAX_ERROR_FACTOR);
 
         // Factor 3: Perceptual/cultural base dissonance
+        const UNISON_DISSONANCE: f32 = 0.00;
+        const OCTAVE_DISSONANCE: f32 = 0.05;
+        const PERFECT_FIFTH_DISSONANCE: f32 = 0.10;
+        const PERFECT_FOURTH_DISSONANCE: f32 = 0.15;
+        const MAJOR_THIRD_DISSONANCE: f32 = 0.25;
+        const MINOR_THIRD_DISSONANCE: f32 = 0.30;
+        const MAJOR_SIXTH_DISSONANCE: f32 = 0.35;
+        const MINOR_SIXTH_DISSONANCE: f32 = 0.40;
+        const MAJOR_SECOND_DISSONANCE: f32 = 0.60;
+        const MINOR_SEVENTH_DISSONANCE: f32 = 0.65;
+        const MAJOR_SEVENTH_DISSONANCE: f32 = 0.75;
+        const MINOR_SECOND_DISSONANCE: f32 = 0.85;
+        const TRITONE_DISSONANCE: f32 = 0.90;
         let base_dissonance = match self {
-            Self::Unison => 0.00,
-            Self::Octave => 0.05,
-            Self::PerfectFifth => 0.10,
-            Self::PerfectFourth => 0.15,
-            Self::MajorThird => 0.25,
-            Self::MinorThird => 0.30,
-            Self::MajorSixth => 0.35,
-            Self::MinorSixth => 0.40,
-            Self::MajorSecond => 0.60,
-            Self::MinorSeventh => 0.65,
-            Self::MajorSeventh => 0.75,
-            Self::MinorSecond => 0.85,
-            Self::Tritone => 0.90,
+            Self::Unison => UNISON_DISSONANCE,
+            Self::Octave => OCTAVE_DISSONANCE,
+            Self::PerfectFifth => PERFECT_FIFTH_DISSONANCE,
+            Self::PerfectFourth => PERFECT_FOURTH_DISSONANCE,
+            Self::MajorThird => MAJOR_THIRD_DISSONANCE,
+            Self::MinorThird => MINOR_THIRD_DISSONANCE,
+            Self::MajorSixth => MAJOR_SIXTH_DISSONANCE,
+            Self::MinorSixth => MINOR_SIXTH_DISSONANCE,
+            Self::MajorSecond => MAJOR_SECOND_DISSONANCE,
+            Self::MinorSeventh => MINOR_SEVENTH_DISSONANCE,
+            Self::MajorSeventh => MAJOR_SEVENTH_DISSONANCE,
+            Self::MinorSecond => MINOR_SECOND_DISSONANCE,
+            Self::Tritone => TRITONE_DISSONANCE,
         };
 
         // Weighted combination of all factors
-        0.5 * base_dissonance + 0.3 * complexity + 0.2 * error_factor
+        const BASE_DISSONANCE_WEIGHT: f32 = 0.5;
+        const COMPLEXITY_WEIGHT: f32 = 0.3;
+        const ERROR_FACTOR_WEIGHT: f32 = 0.2;
+        BASE_DISSONANCE_WEIGHT * base_dissonance
+            + COMPLEXITY_WEIGHT * complexity
+            + ERROR_FACTOR_WEIGHT * error_factor
     }
 }
 
@@ -146,7 +176,8 @@ impl Div for Interval {
         let right_semitones = rhs.semitones() as i8;
         // we are subtracting semitones which in effect is the log of the interval
         #[expect(clippy::suspicious_arithmetic_impl)]
-        let semitone_diff = (left_semitones - right_semitones).rem_euclid(12) as u8;
+        const SEMITONES_IN_OCTAVE: i8 = 12;
+        let semitone_diff = (left_semitones - right_semitones).rem_euclid(SEMITONES_IN_OCTAVE) as u8;
         Self::from_semitone_interval(semitone_diff)
     }
 }
@@ -183,65 +214,91 @@ mod tests {
         // 1200 * log2(just_ratio) - 100 * semitones
 
         // Perfect intervals (should be close to 0 for some)
-        assert_approx_eq(Interval::Unison.tempered_just_error_cents(), 0.0, 0.01);
+        const UNISON_CENTS_ERROR: f32 = 0.0;
+        const TOLERANCE: f32 = 0.01;
+        assert_approx_eq(
+            Interval::Unison.tempered_just_error_cents(),
+            UNISON_CENTS_ERROR,
+            TOLERANCE,
+        );
+        const PERFECT_FIFTH_CENTS_ERROR: f32 = 1.96;
         assert_approx_eq(
             Interval::PerfectFifth.tempered_just_error_cents(),
-            1.96,
-            0.01,
+            PERFECT_FIFTH_CENTS_ERROR,
+            TOLERANCE,
         );
+        const PERFECT_FOURTH_CENTS_ERROR: f32 = -1.96;
         assert_approx_eq(
             Interval::PerfectFourth.tempered_just_error_cents(),
-            -1.96,
-            0.01,
+            PERFECT_FOURTH_CENTS_ERROR,
+            TOLERANCE,
         );
-        assert_approx_eq(Interval::Octave.tempered_just_error_cents(), 0.0, 0.01);
+        const OCTAVE_CENTS_ERROR: f32 = 0.0;
+        assert_approx_eq(
+            Interval::Octave.tempered_just_error_cents(),
+            OCTAVE_CENTS_ERROR,
+            TOLERANCE,
+        );
 
         // Major intervals
+        const MAJOR_SECOND_CENTS_ERROR: f32 = 3.91;
         assert_approx_eq(
             Interval::MajorSecond.tempered_just_error_cents(),
-            3.91,
-            0.01,
+            MAJOR_SECOND_CENTS_ERROR,
+            TOLERANCE,
         );
+        const MAJOR_THIRD_CENTS_ERROR: f32 = -13.69;
         assert_approx_eq(
             Interval::MajorThird.tempered_just_error_cents(),
-            -13.69,
-            0.01,
+            MAJOR_THIRD_CENTS_ERROR,
+            TOLERANCE,
         );
+        const MAJOR_SIXTH_CENTS_ERROR: f32 = -15.64;
         assert_approx_eq(
             Interval::MajorSixth.tempered_just_error_cents(),
-            -15.64,
-            0.01,
+            MAJOR_SIXTH_CENTS_ERROR,
+            TOLERANCE,
         );
+        const MAJOR_SEVENTH_CENTS_ERROR: f32 = -11.73;
         assert_approx_eq(
             Interval::MajorSeventh.tempered_just_error_cents(),
-            -11.73,
-            0.01,
+            MAJOR_SEVENTH_CENTS_ERROR,
+            TOLERANCE,
         );
 
         // Minor intervals
+        const MINOR_SECOND_CENTS_ERROR: f32 = 11.73;
         assert_approx_eq(
             Interval::MinorSecond.tempered_just_error_cents(),
-            11.73,
-            0.01,
+            MINOR_SECOND_CENTS_ERROR,
+            TOLERANCE,
         );
+        const MINOR_THIRD_CENTS_ERROR: f32 = 15.64;
         assert_approx_eq(
             Interval::MinorThird.tempered_just_error_cents(),
-            15.64,
-            0.01,
+            MINOR_THIRD_CENTS_ERROR,
+            TOLERANCE,
         );
+        const MINOR_SIXTH_CENTS_ERROR: f32 = 13.69;
         assert_approx_eq(
             Interval::MinorSixth.tempered_just_error_cents(),
-            13.69,
-            0.01,
+            MINOR_SIXTH_CENTS_ERROR,
+            TOLERANCE,
         );
+        const MINOR_SEVENTH_CENTS_ERROR: f32 = 17.60;
         assert_approx_eq(
             Interval::MinorSeventh.tempered_just_error_cents(),
-            17.60,
-            0.01,
+            MINOR_SEVENTH_CENTS_ERROR,
+            TOLERANCE,
         );
 
         // Tritone
-        assert_approx_eq(Interval::Tritone.tempered_just_error_cents(), -9.77, 0.01);
+        const TRITONE_CENTS_ERROR: f32 = -9.77;
+        assert_approx_eq(
+            Interval::Tritone.tempered_just_error_cents(),
+            TRITONE_CENTS_ERROR,
+            TOLERANCE,
+        );
     }
 
     // Helper function to compare floating point values with tolerance
