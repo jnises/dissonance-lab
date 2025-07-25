@@ -3,6 +3,11 @@ use num_traits::ToPrimitive;
 use std::fmt::{Display, Formatter, Result};
 use std::ops::Div;
 
+// Constants used throughout the module
+const RATIO_POWER_BASE: f32 = 2.0; // The octave ratio - frequency doubles every octave in equal temperament
+const SEMITONES_IN_OCTAVE_F32: f32 = 12.0;
+const SEMITONES_IN_OCTAVE_I8: i8 = 12;
+
 /// Musical intervals that define the distance between two notes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interval {
@@ -68,16 +73,13 @@ impl Interval {
     /// Returns the equal temperament ratio for this interval
     #[allow(dead_code)]
     pub fn tempered_ratio(&self) -> f32 {
-        const RATIO_POWER_BASE: f32 = 2.0;
-        const SEMITONES_IN_OCTAVE: f32 = 12.0;
-        RATIO_POWER_BASE.powf(self.semitones() as f32 / SEMITONES_IN_OCTAVE)
+        RATIO_POWER_BASE.powf(self.semitones() as f32 / SEMITONES_IN_OCTAVE_F32)
     }
 
     /// Returns the difference in cents between just intonation and equal temperament
     /// Positive values mean just intonation is sharper than equal temperament
     pub fn tempered_just_error_cents(&self) -> f32 {
         const CENTS_IN_OCTAVE: f32 = 1200.0;
-        const RATIO_POWER_BASE: f32 = 2.0;
         let just_cents =
             CENTS_IN_OCTAVE * (self.just_ratio().to_f32().unwrap().ln() / RATIO_POWER_BASE.ln());
         const CENTS_IN_SEMITONE: f32 = 100.0;
@@ -174,10 +176,9 @@ impl Div for Interval {
         let left_semitones = self.semitones() as i8;
         let right_semitones = rhs.semitones() as i8;
         // we are subtracting semitones which in effect is the log of the interval
-        const SEMITONES_IN_OCTAVE: i8 = 12;
-        #[allow(clippy::suspicious_arithmetic_impl)]
+        #[expect(clippy::suspicious_arithmetic_impl)]
         let semitone_diff =
-            (left_semitones - right_semitones).rem_euclid(SEMITONES_IN_OCTAVE) as u8;
+            (left_semitones - right_semitones).rem_euclid(SEMITONES_IN_OCTAVE_I8) as u8;
         Self::from_semitone_interval(semitone_diff)
     }
 }

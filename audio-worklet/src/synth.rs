@@ -136,7 +136,6 @@ impl EnvelopeGenerator {
             }
             EnvelopeState::Sustain => {
                 // Piano-like sustain: gradually decays instead of holding steady
-                const MIN_ENVELOPE_LEVEL: f32 = 0.0;
                 self.current_level -= self.sustain_decay_rate;
                 if self.current_level <= MIN_ENVELOPE_LEVEL {
                     self.current_level = MIN_ENVELOPE_LEVEL;

@@ -13,6 +13,8 @@ use egui::{
 pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::Action> {
     let (action, piano_rect) = piano.show(ui);
     const INTERVAL_DISPLAY_HEIGHT: f32 = 200.0;
+    const TEXT_Y_OFFSET: f32 = 4.0;
+    const KEY_RECT_CORNER_RADIUS: f32 = 0.0;
     let interval_rect = Rect::from_min_max(
         pos2(
             piano_rect.left(),
@@ -49,7 +51,6 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                         + SCORE_CENTER_POS_OFFSET);
             const OUTLINE_STROKE_WIDTH: f32 = 2.0;
             if this_selected {
-                const KEY_RECT_CORNER_RADIUS: f32 = 0.0;
                 painter.rect_stroke(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     KEY_RECT_CORNER_RADIUS,
@@ -68,7 +69,6 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 let normalized_dissonance = (interval.dissonance()
                     - Interval::PerfectFifth.dissonance())
                     / (Interval::Tritone.dissonance() - Interval::PerfectFifth.dissonance());
-                const KEY_RECT_CORNER_RADIUS: f32 = 0.0;
                 painter.rect_filled(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     KEY_RECT_CORNER_RADIUS,
@@ -106,7 +106,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                 }
                 const RATIO_FONT_SIZE: f32 = 14.0;
                 let ratio_rect = painter.text(
-                    score_center_pos - vec2(0.0, key_width / 2.0 - 4.0),
+                    score_center_pos - vec2(0.0, key_width / 2.0 - TEXT_Y_OFFSET),
                     Align2::CENTER_TOP,
                     interval.just_ratio().to_string(),
                     FontId::monospace(RATIO_FONT_SIZE * font_scale),
@@ -127,7 +127,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
                     const INTERVAL_NAME_FONT_SIZE: f32 = 7.0;
                     const INTERVAL_NAME_ALPHA: u8 = 150;
                     painter.text(
-                        score_center_pos + vec2(0.0, key_width / 2.0 - 4.0),
+                        score_center_pos + vec2(0.0, key_width / 2.0 - TEXT_Y_OFFSET),
                         Align2::CENTER_BOTTOM,
                         interval.to_string(),
                         FontId::proportional(INTERVAL_NAME_FONT_SIZE * font_scale),
