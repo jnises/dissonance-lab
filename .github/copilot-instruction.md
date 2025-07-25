@@ -21,7 +21,7 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 - Match exhaustively whenever possible.
 - When formatting strings, prefer inline variable interpolation `format!("{variable}")` over positional arguments `format!("{}", variable)` for better readability and maintainability.
 - Strive for a clear and predictable data flow. When designing component interactions, prefer architectures where state is polled from a central source (pull-based) over complex, deeply nested callback chains (push-based), unless the reactive, event-driven nature of the UI demands it.
-- Avoid using magic numbers in the code. Define a `const` instead, and keep it as close to its usage as possible.
+- Avoid using magic numbers in the code. Define a `const` instead, and keep it as close to its usage as possible. If a const is only used in one place it is easier to read the code if you don't have to scroll to see the value of the constant.
 
 # Conventions
 - We use `egui` as our GUI library.
