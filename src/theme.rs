@@ -56,15 +56,9 @@ pub fn setup_custom_theme(ctx: &egui::Context) {
     const PANEL_FILL_A: f32 = -0.01;
     const PANEL_FILL_B: f32 = -0.03;
     const PANEL_FILL_ALPHA: f32 = 1.0;
-    visuals.panel_fill = oklab(
-        PANEL_FILL_L,
-        PANEL_FILL_A,
-        PANEL_FILL_B,
-        PANEL_FILL_ALPHA,
-    );
+    visuals.panel_fill = oklab(PANEL_FILL_L, PANEL_FILL_A, PANEL_FILL_B, PANEL_FILL_ALPHA);
     visuals.button_frame = false;
 
     // Set the custom visuals
     ctx.set_visuals(visuals);
 }
-

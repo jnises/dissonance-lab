@@ -14,7 +14,10 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
     let (action, piano_rect) = piano.show(ui);
     const INTERVAL_DISPLAY_HEIGHT: f32 = 200.0;
     let interval_rect = Rect::from_min_max(
-        pos2(piano_rect.left(), piano_rect.top() - INTERVAL_DISPLAY_HEIGHT),
+        pos2(
+            piano_rect.left(),
+            piano_rect.top() - INTERVAL_DISPLAY_HEIGHT,
+        ),
         pos2(piano_rect.right(), piano_rect.top()),
     );
     ui.allocate_rect(interval_rect, Sense::empty());
@@ -40,8 +43,8 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             let this_selected = semi == selected_semi;
             const SCORE_CENTER_POS_ADJUSTMENT: f32 = 4.0;
             const SCORE_CENTER_POS_OFFSET: f32 = 10.0;
-            let score_center_pos =
-                pos - Vec2::Y
+            let score_center_pos = pos
+                - Vec2::Y
                     * ((row as f32 + 0.5) * (key_width + SCORE_CENTER_POS_ADJUSTMENT)
                         + SCORE_CENTER_POS_OFFSET);
             const OUTLINE_STROKE_WIDTH: f32 = 2.0;

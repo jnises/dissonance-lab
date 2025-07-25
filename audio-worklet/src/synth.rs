@@ -256,8 +256,7 @@ impl PianoVoice {
         // Physics: higher frequency strings have less mass and dissipate energy faster
         if let Some(ref key) = self.current_key {
             // Scale relative to a reference sample rate to maintain consistent behavior across sample rates
-            let base_decay_rate =
-                BASE_DECAY_RATE * (BASE_DECAY_RATE_HZ / self.sample_rate);
+            let base_decay_rate = BASE_DECAY_RATE * (BASE_DECAY_RATE_HZ / self.sample_rate);
 
             // Scale the decay rate based on frequency
             // Higher notes (higher frequency) decay faster
@@ -335,23 +334,26 @@ impl PianoVoice {
 
         // Second harmonic - quite strong in pianos
         const SECOND_HARMONIC_MULTIPLIER: f32 = 2.0;
-        sample += SECOND_HARMONIC_AMPLITUDE * (SECOND_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
+        sample +=
+            SECOND_HARMONIC_AMPLITUDE * (SECOND_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
 
         // Third harmonic
         const THIRD_HARMONIC_MULTIPLIER: f32 = 3.0;
-        sample += THIRD_HARMONIC_AMPLITUDE * (THIRD_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
+        sample +=
+            THIRD_HARMONIC_AMPLITUDE * (THIRD_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
 
         const DYNAMIC_BRIGHTNESS_BASE: f32 = 0.7;
         const DYNAMIC_BRIGHTNESS_VELOCITY_FACTOR: f32 = 0.3;
 
         // Higher harmonics with brightness control and dynamic attack
-        let dynamic_brightness =
-            self.brightness * (DYNAMIC_BRIGHTNESS_BASE + DYNAMIC_BRIGHTNESS_VELOCITY_FACTOR * self.velocity);
+        let dynamic_brightness = self.brightness
+            * (DYNAMIC_BRIGHTNESS_BASE + DYNAMIC_BRIGHTNESS_VELOCITY_FACTOR * self.velocity);
 
         const ATTACK_HARMONIC_BOOST_FACTOR: f32 = 2.0;
 
         // 4th and 5th harmonics are stronger during attack phase
-        let attack_harmonic_boost = MAX_ATTACK_PHASE + (attack_intensity * ATTACK_HARMONIC_BOOST_FACTOR);
+        let attack_harmonic_boost =
+            MAX_ATTACK_PHASE + (attack_intensity * ATTACK_HARMONIC_BOOST_FACTOR);
 
         const FOURTH_HARMONIC_AMPLITUDE: f32 = 0.2;
         const FIFTH_HARMONIC_AMPLITUDE: f32 = 0.14;

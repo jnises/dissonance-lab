@@ -119,8 +119,7 @@ impl Interval {
 
         // Factor 2: Just/tempered error in cents
         const CENTS_ERROR_NORMALIZATION_FACTOR: f32 = 20.0;
-        let cents_error =
-            self.tempered_just_error_cents().abs() / CENTS_ERROR_NORMALIZATION_FACTOR; // Normalize
+        let cents_error = self.tempered_just_error_cents().abs() / CENTS_ERROR_NORMALIZATION_FACTOR; // Normalize
         const MAX_ERROR_FACTOR: f32 = 1.0;
         let error_factor = cents_error.min(MAX_ERROR_FACTOR);
 
@@ -177,7 +176,8 @@ impl Div for Interval {
         // we are subtracting semitones which in effect is the log of the interval
         const SEMITONES_IN_OCTAVE: i8 = 12;
         #[allow(clippy::suspicious_arithmetic_impl)]
-        let semitone_diff = (left_semitones - right_semitones).rem_euclid(SEMITONES_IN_OCTAVE) as u8;
+        let semitone_diff =
+            (left_semitones - right_semitones).rem_euclid(SEMITONES_IN_OCTAVE) as u8;
         Self::from_semitone_interval(semitone_diff)
     }
 }

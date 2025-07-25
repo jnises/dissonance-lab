@@ -42,11 +42,7 @@ impl PianoGui {
         let (response, painter) = ui.allocate_painter(piano_size, Sense::empty());
         let rect = response.rect;
         const PIANO_RECT_CORNER_RADIUS: f32 = 1.0;
-        painter.rect_filled(
-            rect,
-            PIANO_RECT_CORNER_RADIUS,
-            ui.visuals().panel_fill,
-        );
+        painter.rect_filled(rect, PIANO_RECT_CORNER_RADIUS, ui.visuals().panel_fill);
         const MARGIN: f32 = 2.0;
         let keys_rect = rect.shrink(MARGIN);
         let shift_pressed = ui.input(|i| i.modifiers.shift);
