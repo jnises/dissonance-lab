@@ -155,16 +155,31 @@ impl eframe::App for DissonanceLabApp {
                                     self.setup_audio();
                                 }
 
-                                // Draw custom graphic hint: vertical text with arrow pointing to mute button
+                                // Draw custom graphic hint: rotated text with arrow pointing to mute button
                                 // Only show on wider screens to avoid clutter on mobile
                                 if ui.available_width() >= MOBILE_BREAKPOINT_WIDTH {
+                                    // Constants for mute button hint styling
+                                    const GAMMA_BLEND_FACTOR: f32 = 0.2;
+                                    const FONT_SCALING_FACTOR: f32 = 0.8;
+                                    const HALF_DIVISOR: f32 = 2.0;
+                                    const TEXT_POSITION_OFFSET: f32 = 2.0;
+                                    const TEXT_BOTTOM_OFFSET: f32 = 10.0;
+                                    const ARROW_END_OFFSET_X: f32 = -1.0;
+                                    const ARROW_END_OFFSET_Y: f32 = 6.0;
+                                    const CONTROL_OFFSET_X: f32 = -4.0;
+                                    const CONTROL_OFFSET_Y: f32 = 4.0;
+                                    const STROKE_WIDTH: f32 = 1.5;
+                                    const ARROW_TIP_OFFSET: f32 = 2.0;
+                                    const ARROW_HEAD_WIDTH_FACTOR: f32 = 0.5;
                                     let button_rect = mute_button_response.rect;
                                     let painter = ui.painter();
 
                                     // Draw rotated text "click to enable audio"
-                                    let text_color = theme::ATTENTION_TEXT
-                                        .lerp_to_gamma(Color32::from_black_alpha(0), 0.2);
-                                    let text_size = STATUS_FONT_SIZE * 0.8;
+                                    let text_color = theme::ATTENTION_TEXT.lerp_to_gamma(
+                                        Color32::from_black_alpha(0),
+                                        GAMMA_BLEND_FACTOR,
+                                    );
+                                    let text_size = STATUS_FONT_SIZE * FONT_SCALING_FACTOR;
                                     let font_id = FontId::proportional(text_size);
                                     let text = "click to enable audio";
 
@@ -176,7 +191,7 @@ impl eframe::App for DissonanceLabApp {
                                     );
 
                                     let text_x = button_rect.left() - galley.size().y;
-                                    let text_bottom_y = button_rect.top() - 10.0;
+                                    let text_bottom_y = button_rect.top() - TEXT_BOTTOM_OFFSET;
 
                                     // Draw the text rotated 90 degrees ccw
                                     let text_pos = pos2(text_x, text_bottom_y);
@@ -194,16 +209,21 @@ impl eframe::App for DissonanceLabApp {
                                     ));
 
                                     // Draw curved arrow from end of text toward the mute button
-                                    let arrow_start =
-                                        text_pos + vec2(galley.size().y / 2.0 + 2.0, 2.0);
-                                    let arrow_end = button_rect.left_top() + vec2(-1.0, 6.0);
+                                    let arrow_start = text_pos
+                                        + vec2(
+                                            galley.size().y / HALF_DIVISOR + TEXT_POSITION_OFFSET,
+                                            TEXT_POSITION_OFFSET,
+                                        );
+                                    let arrow_end = button_rect.left_top()
+                                        + vec2(ARROW_END_OFFSET_X, ARROW_END_OFFSET_Y);
 
                                     // Create control points for cubic bezier curve
-                                    let control =
-                                        (arrow_start + arrow_end.to_vec2()) / 2.0 + vec2(-4.0, 4.0);
+                                    let control = (arrow_start + arrow_end.to_vec2())
+                                        / HALF_DIVISOR
+                                        + vec2(CONTROL_OFFSET_X, CONTROL_OFFSET_Y);
 
                                     // Draw cubic bezier curve
-                                    let stroke = egui::Stroke::new(1.5, text_color);
+                                    let stroke = egui::Stroke::new(STROKE_WIDTH, text_color);
                                     painter.add(egui::epaint::Shape::CubicBezier(
                                         egui::epaint::CubicBezierShape::from_points_stroke(
                                             [arrow_start, control, control, arrow_end],
@@ -219,12 +239,12 @@ impl eframe::App for DissonanceLabApp {
                                     let arrow_direction = (arrow_end - control).normalized();
                                     let arrow_perp = vec2(-arrow_direction.y, arrow_direction.x);
 
-                                    let arrow_tip = arrow_end + arrow_direction * 2.0;
+                                    let arrow_tip = arrow_end + arrow_direction * ARROW_TIP_OFFSET;
                                     let arrow_base1 = arrow_tip - arrow_direction * ARROW_HEAD_SIZE
-                                        + arrow_perp * ARROW_HEAD_SIZE * 0.5;
+                                        + arrow_perp * ARROW_HEAD_SIZE * ARROW_HEAD_WIDTH_FACTOR;
                                     let arrow_base2 = arrow_tip
                                         - arrow_direction * ARROW_HEAD_SIZE
-                                        - arrow_perp * ARROW_HEAD_SIZE * 0.5;
+                                        - arrow_perp * ARROW_HEAD_SIZE * ARROW_HEAD_WIDTH_FACTOR;
 
                                     painter.add(egui::epaint::Shape::convex_polygon(
                                         vec![arrow_tip, arrow_base1, arrow_base2],
