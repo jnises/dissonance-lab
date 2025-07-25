@@ -175,8 +175,8 @@ impl Div for Interval {
         let left_semitones = self.semitones() as i8;
         let right_semitones = rhs.semitones() as i8;
         // we are subtracting semitones which in effect is the log of the interval
-        #[expect(clippy::suspicious_arithmetic_impl)]
         const SEMITONES_IN_OCTAVE: i8 = 12;
+        #[allow(clippy::suspicious_arithmetic_impl)]
         let semitone_diff = (left_semitones - right_semitones).rem_euclid(SEMITONES_IN_OCTAVE) as u8;
         Self::from_semitone_interval(semitone_diff)
     }

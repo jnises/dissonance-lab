@@ -1,5 +1,22 @@
 // AI generated
 
+const MS_TO_S: f32 = 0.001;
+
+// Delay times in ms for comb filters based on classic Schroeder reverb
+const COMB_FILTER_DELAYS_MS: [f32; 4] = [29.7, 37.1, 41.1, 43.7];
+const COMB_FILTER_FEEDBACK: f32 = 0.84;
+const COMB_FILTER_DAMPING: f32 = 0.2;
+
+// Delay times for allpass filters
+const ALLPASS_FILTER_DELAYS_MS: [f32; 2] = [5.0, 1.7];
+const ALLPASS_FILTER_FEEDBACK: f32 = 0.5;
+
+const DEFAULT_ROOM_SIZE: f32 = 0.5;
+const DEFAULT_DAMPING: f32 = 0.5;
+const DEFAULT_WET_LEVEL: f32 = 0.33;
+const DEFAULT_DRY_LEVEL: f32 = 0.4;
+const DEFAULT_WIDTH: f32 = 1.0;
+
 /// Shroeder reverb
 pub struct Reverb {
     // Reverb parameters
@@ -31,43 +48,38 @@ struct AllpassFilter {
 
 impl Reverb {
     pub fn new(sample_rate: f32) -> Self {
-        // Delay times in ms for comb filters based on classic Schroeder reverb
-        let comb_delays = vec![29.7, 37.1, 41.1, 43.7];
-        // Delay times for allpass filters
-        let allpass_delays = vec![5.0, 1.7];
-
-        let comb_filters = comb_delays
-            .into_iter()
+        let comb_filters = COMB_FILTER_DELAYS_MS
+            .iter()
             .map(|delay| {
-                let buffer_size = (delay * 0.001 * sample_rate) as usize;
+                let buffer_size = (delay * MS_TO_S * sample_rate) as usize;
                 CombFilter {
                     delay_line: vec![0.0; buffer_size],
                     index: 0,
-                    feedback: 0.84,
-                    damping: 0.2,
+                    feedback: COMB_FILTER_FEEDBACK,
+                    damping: COMB_FILTER_DAMPING,
                     dampening_value: 0.0,
                 }
             })
             .collect();
 
-        let allpass_filters = allpass_delays
-            .into_iter()
+        let allpass_filters = ALLPASS_FILTER_DELAYS_MS
+            .iter()
             .map(|delay| {
-                let buffer_size = (delay * 0.001 * sample_rate) as usize;
+                let buffer_size = (delay * MS_TO_S * sample_rate) as usize;
                 AllpassFilter {
                     delay_line: vec![0.0; buffer_size],
                     index: 0,
-                    feedback: 0.5,
+                    feedback: ALLPASS_FILTER_FEEDBACK,
                 }
             })
             .collect();
 
         Reverb {
-            room_size: 0.5,
-            damping: 0.5,
-            wet_level: 0.33,
-            dry_level: 0.4,
-            width: 1.0,
+            room_size: DEFAULT_ROOM_SIZE,
+            damping: DEFAULT_DAMPING,
+            wet_level: DEFAULT_WET_LEVEL,
+            dry_level: DEFAULT_DRY_LEVEL,
+            width: DEFAULT_WIDTH,
             comb_filters,
             allpass_filters,
         }
@@ -101,8 +113,11 @@ impl Reverb {
     }
 
     fn update_parameters(&mut self) {
+        const ROOM_SIZE_FACTOR: f32 = 0.6;
+        const ROOM_SIZE_OFFSET: f32 = 0.4;
+
         for filter in &mut self.comb_filters {
-            filter.feedback = self.room_size * 0.6 + 0.4;
+            filter.feedback = self.room_size * ROOM_SIZE_FACTOR + ROOM_SIZE_OFFSET;
             filter.damping = self.damping;
         }
     }
