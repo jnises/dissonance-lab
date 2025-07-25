@@ -20,7 +20,6 @@
 - [x] Update comment to describe 'rotated text' instead of 'vertical text' for accuracy (src/app.rs)
 
 - [x] Add some graphic that hints the user that they should press the "mute" button to enable audio
-- [ ] Disable the pwa caching when running in debug mode
 - [ ] Go through the codebase and make sure the guidelines from the instructions file are applied.
 - [ ] Add all todos in the code as subtasks here.
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
