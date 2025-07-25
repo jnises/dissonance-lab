@@ -29,7 +29,23 @@
   - [x] Run `cargo check` on all crates to check for warnings, including non-exhaustive matches.
   - [x] Run 'cargo clippy'
 - [x] Only show "click to enable audio" hint when unitialized, not when muted
-- [x] Add all todos in the code as subtasks here.
-  - [ ] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
+- [ ] Fix these todos
+  - [x] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
+    - [x] Create a simplified version that only uses base_dissonance values
+    - [x] Make sure the dissonance values makes sense for a tempered piano
   - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
+    - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
+    - [ ] Determine the desired multi-touch behavior (simultaneous key presses, gestures, etc.)
+
+    - [ ] Implement pointer tracking to handle multiple simultaneous touches
+    - [ ] Test multi-touch functionality on mobile devices and touch screens
+    - [ ] Ensure multi-touch doesn't break existing mouse and single-touch interactions
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
+  - [ ] Modify PianoGui to track the chronological order of mouse key presses
+  - [ ] Define what "actual base" means for MIDI keyboard input (e.g., lowest note, root note, etc.)
+  - [ ] Add input source tracking to distinguish between mouse and MIDI input for each pressed key
+  - [ ] Modify interval_display.rs to use different ordering logic based on input method
+  - [ ] Update the pressed_keys data structure to include ordering/priority information
+  - [ ] Test the new ordering behavior with both mouse and MIDI input
+- [ ] model piano string stiffness inharmonicity
+- [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
