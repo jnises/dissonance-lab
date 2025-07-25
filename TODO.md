@@ -30,9 +30,9 @@
   - [x] Run 'cargo clippy'
 - [x] Only show "click to enable audio" hint when unitialized, not when muted
 - [ ] Fix these todos
-  - [ ] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
-    - [ ] Create a simplified version that only uses base_dissonance values
-    - [ ] Make sure the dissonance values makes sense for a tempered piano
+  - [x] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
+    - [x] Create a simplified version that only uses base_dissonance values
+    - [x] Make sure the dissonance values makes sense for a tempered piano
   - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
     - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [ ] Determine the desired multi-touch behavior (simultaneous key presses, gestures, etc.)
@@ -48,3 +48,4 @@
   - [ ] Update the pressed_keys data structure to include ordering/priority information
   - [ ] Test the new ordering behavior with both mouse and MIDI input
 - [ ] model piano string stiffness inharmonicity
+- [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
