@@ -16,7 +16,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: sudo apt-get update
       - run: sudo apt-get install -y libgtk-3-dev libasound2-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
-      - run: cargo check --all-features
+      - run: cargo check --all-features --workspace
 
   check_wasm:
     name: Check wasm32
@@ -27,7 +27,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - run: cargo check --all-features --lib --target wasm32-unknown-unknown
+      - run: cargo check --all-features --lib --target wasm32-unknown-unknown --workspace
 
   test:
     name: Test Suite
@@ -58,7 +58,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: sudo apt-get update
       - run: sudo apt-get install -y libasound2-dev libgtk-3-dev libssl-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
-      - run: cargo clippy -- -D warnings
+      - run: cargo clippy --workspace -- -D warnings
 
   trunk:
     name: trunk
