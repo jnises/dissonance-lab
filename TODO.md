@@ -35,10 +35,46 @@
     - [x] Make sure the dissonance values makes sense for a tempered piano
   - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
     - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
-    - [ ] The user should be able to press multiple piano keys simultaneously on a touchscreen
+      - [x] Study egui::InputState and egui::MultiTouchInfo documentation
+        - Found: input.multi_touch() returns Option<MultiTouchInfo> for gestures (zoom, rotation)
+        - Found: input.any_touches() returns bool for active touches
+        - Found: input.has_touch_screen() returns bool for touch capability
+        - Found: Event::Touch with device_id, id (TouchId), phase, pos, force for individual touches
+        - Key insight: MultiTouchInfo is for gestures, but Event::Touch is for individual finger tracking
+      - [x] Check if ui.input() provides access to multi-touch data
+        - Yes: ui.input(|i| i.multi_touch()) for gestures
+        - Yes: ui.input(|i| i.events) contains Event::Touch events for individual touches
+      - [x] Investigate if egui::Sense needs to be configured differently for multi-touch
+        - No: Sense only defines interaction types (HOVER, CLICK, DRAG, FOCUSABLE)
+        - Multi-touch is handled through Event system, not Sense configuration
+      - [x] Look at egui examples or source code for multi-touch handling patterns
+        - Key finding: Need to process Event::Touch events in input.events
+        - Strategy: Track TouchId -> Key mapping for individual finger tracking
+        - Current issue: ui.interact() and is_pointer_button_down_on() are single-pointer
+        - Solution: Process touch events directly, bypass single-pointer Response methods
+    - [ ] Analyze current single-touch implementation to understand what needs to change
+      - [ ] Review how is_pointer_button_down_on() works with multiple pointers
+      - [ ] Understand the key_id and temp data storage mechanism
+      - [ ] Document the current state tracking for mouse_pressed per key
+    - [ ] Design multi-touch data structures
+      - [ ] Define how to track multiple pointer IDs per key
+      - [ ] Decide on data structure to map pointer IDs to pressed keys
+      - [ ] Plan how to handle pointer lifecycle (press, hold, release)
     - [ ] Implement pointer tracking to handle multiple simultaneous touches
+      - [ ] Replace single boolean mouse_pressed with multi-pointer tracking
+      - [ ] Update key press detection to handle multiple active pointers
+      - [ ] Implement pointer release detection for multi-touch
+      - [ ] Handle edge cases like pointer leaving key area during touch
     - [ ] Test multi-touch functionality on mobile devices and touch screens
+      - [ ] Test basic two-finger simultaneous key presses
+      - [ ] Test chord playing with multiple fingers
+      - [ ] Verify touch responsiveness and accuracy
+      - [ ] Test edge cases like sliding fingers between keys
     - [ ] Ensure multi-touch doesn't break existing mouse and single-touch interactions
+      - [ ] Verify mouse clicks still work as expected
+      - [ ] Test single-touch on mobile devices
+      - [ ] Ensure keyboard shortcuts (shift+click) still work
+      - [ ] Test mixed input scenarios (mouse + touch simultaneously)
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
   - [ ] Modify PianoGui to track the chronological order of mouse key presses
