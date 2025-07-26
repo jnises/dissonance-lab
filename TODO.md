@@ -1,10 +1,7 @@
-- [x] Only show "click to enable audio" hint when unitialized, not when muted
-- [x] Add agent instructions for where and how to put temporary tools. make sure the temporary tools are added to .gitignore
-- [x] Make sure log::debug logs are sent to the browser console in dev builds
-- [x] Make sure pwa service worker caches are disabled for local development. currently not even using #dev works. I need to "hard reload". And if I just f5 reload afterwards it goes back to the outdated cache.
-- [x] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
-  - [x] Create a simplified version that only uses base_dissonance values
-  - [x] Make sure the dissonance values makes sense for a tempered piano
+- [ ] When developing I need to the frontend logging to be piped back to the backend and displayed in the terminal.
+    - [ ] trunk doesn't seem to have this functionality built in, so instead build a small http server that you can pipe the data back to.
+    - [ ] add functionality on the frontend to pipe the logs back to that server when compiled in debug mode. it is ok if this only works for logs originating from rust if that is easier.
+    - [ ] make some convenient util to start both trunk serve and the log server at the same time. justfile? make? some rust native solution? just a .sh?
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation
