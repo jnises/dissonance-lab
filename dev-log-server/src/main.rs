@@ -44,7 +44,7 @@ async fn receive_logs(Json(payload): Json<LogMessage>) -> Result<ResponseJson<Lo
         .unwrap_or_default();
     
     let formatted_message = format!(
-        "{} [{}{}{}] {}{}",
+        "{} [{}{}{}] {}: {}",
         timestamp.format("%H:%M:%S%.3f"),
         payload.level.to_uppercase(),
         module,
