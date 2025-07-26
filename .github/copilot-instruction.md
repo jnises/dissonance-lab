@@ -42,3 +42,7 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 - Run the project using `trunk serve`.
 - Browser console logs are not piped to the terminal. You will have to ask me to check them.
 - **IMPORTANT**: Browsers block audio until a user interaction (like a click). This means the audio worklet and related Rust code will not execute, and any runtime errors in that code will not appear in the console until after the user has clicked on the page.
+
+# Temporary Tools
+- If you need to create temporary scripts, tools, or files for debugging, analysis, or one-time tasks, place them in `tmp/` directory at the project root.
+- Clean up temporary files when they are no longer needed.

@@ -10,3 +10,5 @@ target_ra
 target_wasm
 
 /audio-worklet/pkg
+
+/tmp/
