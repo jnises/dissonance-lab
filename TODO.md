@@ -1,7 +1,7 @@
 - [x] Only show "click to enable audio" hint when unitialized, not when muted
 - [x] Add agent instructions for where and how to put temporary tools. make sure the temporary tools are added to .gitignore
 - [x] Make sure log::debug logs are sent to the browser console in dev builds
-- [ ] Make sure pwa service worker caches are disabled for local development. currently not even using #dev works. I need to "hard reload". And if I just f5 reload afterwards it goes back to the outdated cache.
+- [x] Make sure pwa service worker caches are disabled for local development. currently not even using #dev works. I need to "hard reload". And if I just f5 reload afterwards it goes back to the outdated cache.
 - [x] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
   - [x] Create a simplified version that only uses base_dissonance values
   - [x] Make sure the dissonance values makes sense for a tempered piano

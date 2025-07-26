@@ -32,3 +32,12 @@ Note that you need to manually unmute by clicking the 🔇 button. This is due t
 
 You can't use `cargo test` directly since that would compile as wasm.
 `test.sh` runs the tests as a native binary.
+
+## Local development
+```
+trunk serve
+```
+Then open http://127.0.0.1:8080/#dev
+The #dev disables the pwa cache so that we get the latest version of the page.
+
+When you want to deploy to production you should make sure to update `cacheName` in `sw.js` to invalidate the cache.
