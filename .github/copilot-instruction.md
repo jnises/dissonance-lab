@@ -39,6 +39,10 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 - **CRITICAL**: Always use `./test.sh` instead of `cargo test`. The script ensures tests run against the native target, not WASM.
 
 # Running
-- Run the project using `trunk serve`.
+- The project is started using `trunk serve`. But the agent shouldn't call that. The user will keep that running continuously.
 - Browser console logs are not piped to the terminal. You will have to ask me to check them.
 - **IMPORTANT**: Browsers block audio until a user interaction (like a click). This means the audio worklet and related Rust code will not execute, and any runtime errors in that code will not appear in the console until after the user has clicked on the page.
+
+# Temporary Tools
+- If you need to create temporary scripts, tools, or files for debugging, analysis, or one-time tasks, place them in `tmp/` directory at the project root.
+- Clean up temporary files when they are no longer needed.

@@ -85,6 +85,7 @@ serde-wasm-bindgen.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 web-sys.workspace = true
+console_log.workspace = true
 shared-types = { path = "shared-types" }
 
 # native:
