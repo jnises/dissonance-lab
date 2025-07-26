@@ -146,8 +146,7 @@
         const isTest = window.location.hash === "#test";
         const isLocalhost = window.location.hostname === 'localhost' || 
                            window.location.hostname === '127.0.0.1' ||
-                           window.location.hostname === '0.0.0.0' ||
-                           window.location.port !== '';
+                           window.location.hostname === '0.0.0.0';
         
         const shouldUseServiceWorker = isTest || (!isDev && !isLocalhost);
         
