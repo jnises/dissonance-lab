@@ -6,10 +6,10 @@
         - [x] Parse incoming JSON log data and format for terminal display
         - [x] Add CORS headers to allow requests from trunk's dev server
         - [x] Add proper error handling and graceful shutdown
-    - [ ] Configure Trunk to proxy log requests to the server
-        - [ ] Update Trunk.toml or use CLI args to proxy `/logs` path to log server
-        - [ ] Test that frontend can successfully send requests to `/logs` endpoint
-        - [ ] Verify that trunk serve and log server can run on different ports simultaneously
+    - [x] Configure Trunk to proxy log requests to the server
+        - [x] Update Trunk.toml or use CLI args to proxy `/logs` path to log server
+        - [x] Test that frontend can successfully send requests to `/logs` endpoint
+        - [x] Verify that trunk serve and log server can run on different ports simultaneously
     - [ ] Add frontend log forwarding functionality (debug mode only)
         - [ ] Create a custom log backend that sends logs via HTTP POST to `/logs`
         - [ ] Add compile-time feature or cfg flag to enable log forwarding only in debug builds

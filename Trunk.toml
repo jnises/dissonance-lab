@@ -5,6 +5,11 @@ minify = "on_release"
 [watch]
 ignore = ["audio-worklet/pkg"]
 
+# Proxy configuration for development log server
+[[proxies]]
+backend = "http://127.0.0.1:3001"
+rewrite = "/logs"
+
 # Build hooks to compile the audio worklet
 [[hooks]]
 stage = "pre_build"
