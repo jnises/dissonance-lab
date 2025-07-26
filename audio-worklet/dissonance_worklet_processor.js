@@ -4,6 +4,48 @@
 
 // TODO: do we need to do this in javascript? could we do it in rust instead?
 
+// Add TextDecoder shim for AudioWorklet context
+// AudioWorklets run in a restricted environment that doesn't have access to TextDecoder,
+// but the console_log crate (and wasm-bindgen string conversion) requires it for logging.
+// This provides a minimal implementation that handles basic UTF-8 decoding for log messages.
+if (typeof TextDecoder === 'undefined') {
+    globalThis.TextDecoder = class {
+        constructor(encoding = 'utf-8') {
+            this.encoding = encoding;
+        }
+        
+        decode(bytes) {
+            // Handle undefined/null input
+            if (!bytes) {
+                return '';
+            }
+            
+            // Convert to Uint8Array if needed
+            if (!(bytes instanceof Uint8Array)) {
+                if (bytes.buffer) {
+                    bytes = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+                } else {
+                    return '';
+                }
+            }
+            
+            // Simple UTF-8 decoder for basic ASCII strings
+            // This handles the common case for log messages
+            let result = '';
+            for (let i = 0; i < bytes.length; i++) {
+                const byte = bytes[i];
+                if (byte < 128) {
+                    result += String.fromCharCode(byte);
+                } else {
+                    // For non-ASCII, just use replacement character
+                    result += '�';
+                }
+            }
+            return result;
+        }
+    };
+}
+
 class DissonanceWorkletProcessor extends AudioWorkletProcessor {
     constructor(options) {
         super();

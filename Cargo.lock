@@ -631,6 +631,7 @@ dependencies = [
  "anyhow",
  "bitvec",
  "colorgrad",
+ "console_log",
  "crossbeam",
  "eframe",
  "egui",

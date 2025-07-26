@@ -6,7 +6,10 @@ fn main() {
     use eframe::wasm_bindgen::JsCast as _;
 
     // Redirect `log` message to `console.log` and friends:
-    eframe::WebLogger::init(log::LevelFilter::Debug).unwrap();
+    #[cfg(debug_assertions)]
+    console_log::init_with_level(log::Level::Debug).expect("error initializing log");
+    #[cfg(not(debug_assertions))]
+    console_log::init_with_level(log::Level::Info).expect("error initializing log");
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
