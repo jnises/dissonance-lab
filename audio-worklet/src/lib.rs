@@ -13,7 +13,7 @@ pub use synth::Synth;
 #[wasm_bindgen(start)]
 pub fn main() {
     console_error_panic_hook::set_once();
-    
+
     // Use console_log just like main crate, now that we have TextDecoder shim
     #[cfg(debug_assertions)]
     console_log::init_with_level(log::Level::Debug).expect("error initializing log");
