@@ -163,7 +163,7 @@
             } else if (isDev) {
                 // Development mode: unregister service workers and clear caches
                 navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    for(let registration of registrations) {
+                    for(const registration of registrations) {
                         registration.unregister().then(function(success) {
                             console.log('Service worker unregistered for development:', success);
                         });
