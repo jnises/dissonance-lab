@@ -12,7 +12,7 @@
         - [x] Verify that trunk serve and log server can run on different ports simultaneously
     - [ ] Add frontend log forwarding functionality (debug mode only)
         - [ ] Create a custom log backend that sends logs via HTTP POST to `/logs`
-        - [ ] Add compile-time feature or cfg flag to enable log forwarding only in debug builds
+        - [ ] Add compile-time feature or cfg flag to enable log forwarding only in debug builds, or would it be better to only include it when served through trunk?
         - [ ] Implement log batching/buffering to avoid excessive HTTP requests
         - [ ] Add fallback behavior when log server is unavailable (silent failure)
         - [ ] Ensure release builds contain no log forwarding code
