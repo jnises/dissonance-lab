@@ -1,7 +1,26 @@
 - [ ] When developing I need to the frontend logging to be piped back to the backend and displayed in the terminal.
-    - [ ] trunk doesn't seem to have this functionality built in, so instead build a small http server that you can pipe the data back to.
-    - [ ] add functionality on the frontend to pipe the logs back to that server when compiled in debug mode. it is ok if this only works for logs originating from rust if that is easier.
-    - [ ] make some convenient util to start both trunk serve and the log server at the same time. justfile? make? some rust native solution? just a .sh?
+    - [x] Create a simple HTTP log server using axum
+        - [x] Add axum and tokio dependencies for the log server
+        - [x] Create a basic axum server that listens on a configurable port (e.g., 3001)
+        - [x] Add a POST endpoint (e.g., `/logs`) to receive log messages from frontend
+        - [x] Parse incoming JSON log data and format for terminal display
+        - [x] Add CORS headers to allow requests from trunk's dev server
+        - [x] Add proper error handling and graceful shutdown
+    - [ ] Configure Trunk to proxy log requests to the server
+        - [ ] Update Trunk.toml or use CLI args to proxy `/logs` path to log server
+        - [ ] Test that frontend can successfully send requests to `/logs` endpoint
+        - [ ] Verify that trunk serve and log server can run on different ports simultaneously
+    - [ ] Add frontend log forwarding functionality (debug mode only)
+        - [ ] Create a custom log backend that sends logs via HTTP POST to `/logs`
+        - [ ] Add compile-time feature or cfg flag to enable log forwarding only in debug builds
+        - [ ] Implement log batching/buffering to avoid excessive HTTP requests
+        - [ ] Add fallback behavior when log server is unavailable (silent failure)
+        - [ ] Ensure release builds contain no log forwarding code
+    - [ ] Create development utility script using xtask
+        - [ ] Set up an `xtask` command to start both the log server and trunk serve
+        - [ ] Start log server in background, then start `trunk serve` with proxy config
+        - [ ] Add proper process cleanup when the task is terminated
+        - [ ] Include helpful output showing both server URLs and status
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation
