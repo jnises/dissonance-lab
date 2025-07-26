@@ -137,11 +137,58 @@
     <!--Register Service Worker. this will cache the wasm / js scripts for offline use (for PWA functionality). -->
     <!-- Force refresh (Ctrl + F5) to load the latest files instead of cached files  -->
     <script>
-        // We disable caching during development so that we always view the latest version.
-        if ('serviceWorker' in navigator && window.location.hash !== "#dev") {
-            window.addEventListener('load', function () {
-                navigator.serviceWorker.register('sw.js');
-            });
+        // Service worker control for different modes:
+        // - #dev: Disable service worker and clear caches (for development)
+        // - #test: Enable service worker even on localhost (for testing PWA features)
+        // - default: Enable service worker only in production (not localhost)
+        
+        const isDev = window.location.hash === "#dev";
+        const isTest = window.location.hash === "#test";
+        const isLocalhost = (
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname === '[::1]'
+        );
+        
+        const shouldUseServiceWorker = isTest || (!isDev && !isLocalhost);
+        
+        if ('serviceWorker' in navigator) {
+            if (shouldUseServiceWorker) {
+                // Register service worker
+                window.addEventListener('load', function () {
+                    navigator.serviceWorker.register('sw.js').then(function(registration) {
+                        console.log('Service worker registered:', registration);
+                    }).catch(function(error) {
+                        console.log('Service worker registration failed:', error);
+                    });
+                });
+            } else if (isDev) {
+                // Development mode: unregister service workers and clear caches
+                (async function() {
+                    try {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        for(const registration of registrations) {
+                            const success = await registration.unregister();
+                            console.log('Service worker unregistered for development:', success);
+                        }
+                        
+                        // Clear any existing caches
+                        if ('caches' in window) {
+                            const names = await caches.keys();
+                            for (const name of names) {
+                                const success = await caches.delete(name);
+                                if (success) console.log('Cache cleared for development:', name);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error in development mode cleanup:', error);
+                    }
+                    
+                    console.log('Development mode: Service worker disabled and caches cleared');
+                })();
+            } else {
+                console.log('Localhost detected: Service worker disabled (use #test to enable)');
+            }
         }
     </script>
 </body>
