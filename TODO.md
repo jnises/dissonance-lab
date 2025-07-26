@@ -1,4 +1,17 @@
 - [ ] When developing I need to the frontend logging to be piped back to the backend and displayed in the terminal.
+
+    ### Current Status & Usage:
+    - ✅ HTTP log server created in `dev-log-server/` crate 
+    - ✅ Trunk proxy configured to forward `/logs` requests to port 3001
+    - 🔲 Frontend log forwarding not yet implemented
+    - 🔲 xtask development utility not yet created
+    
+    ### How to start the development setup:
+    1. Start the log server: `cargo run -p dev-log-server --target aarch64-apple-darwin &`
+    2. Start Trunk with proxy: `trunk serve` (will auto-proxy /logs to port 3001)
+    3. Test logging: `curl -X POST 'http://localhost:8080/logs' -H 'Content-Type: application/json' -d '{"level":"info","message":"test"}'`
+    
+    ### What's left to implement:
     - [x] Create a simple HTTP log server using axum
         - [x] Add axum and tokio dependencies for the log server
         - [x] Create a basic axum server that listens on a configurable port (e.g., 3001)
