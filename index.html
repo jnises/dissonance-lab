@@ -144,9 +144,11 @@
         
         const isDev = window.location.hash === "#dev";
         const isTest = window.location.hash === "#test";
-        const isLocalhost = window.location.hostname === 'localhost' || 
-                           window.location.hostname === '127.0.0.1' ||
-                           window.location.hostname === '0.0.0.0';
+        const isLocalhost = (
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname === '[::1]'
+        );
         
         const shouldUseServiceWorker = isTest || (!isDev && !isLocalhost);
         
@@ -162,26 +164,28 @@
                 });
             } else if (isDev) {
                 // Development mode: unregister service workers and clear caches
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    for(const registration of registrations) {
-                        registration.unregister().then(function(success) {
+                (async function() {
+                    try {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        for(const registration of registrations) {
+                            const success = await registration.unregister();
                             console.log('Service worker unregistered for development:', success);
-                        });
-                    }
-                });
-                
-                // Clear any existing caches
-                if ('caches' in window) {
-                    caches.keys().then(function(names) {
-                        for (const name of names) {
-                            caches.delete(name).then(function(success) {
-                                if (success) console.log('Cache cleared for development:', name);
-                            });
                         }
-                    });
-                }
-                
-                console.log('Development mode: Service worker disabled and caches cleared');
+                        
+                        // Clear any existing caches
+                        if ('caches' in window) {
+                            const names = await caches.keys();
+                            for (const name of names) {
+                                const success = await caches.delete(name);
+                                if (success) console.log('Cache cleared for development:', name);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error in development mode cleanup:', error);
+                    }
+                    
+                    console.log('Development mode: Service worker disabled and caches cleared');
+                })();
             } else {
                 console.log('Localhost detected: Service worker disabled (use #test to enable)');
             }
