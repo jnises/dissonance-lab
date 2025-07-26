@@ -1,80 +1,51 @@
-- [x] Don't show the "shift for multi select" label when showing the gui on a phone, or when the screen is too narrow for it to fit comfortably
-
-## Review Comments from PR #7
-
-- [x] Rename `MIN_WIDTH_FOR_LABEL` to a more descriptive name like `MOBILE_SCREEN_WIDTH_THRESHOLD` or `MOBILE_BREAKPOINT_WIDTH` (src/app.rs, line ~186)
-- [x] Use `Array.prototype.includes()` instead of `indexOf` for better readability in cache whitelist check (assets/sw.js, line ~38)
-- [x] Use `const` instead of `var` for `cacheWhitelist` since it's not reassigned (assets/sw.js, line ~29)
-- [x] Extract magic number 480.0 to a module-level constant with descriptive name for better maintainability (src/app.rs, line ~186)
-
-## Review Comments from PR #8
-
-- [x] Extract magic number 0.2 to a named constant to improve code maintainability and readability (src/app.rs)
-- [x] Extract magic numbers -1.0 and 6.0 to named constants to improve code maintainability and readability (src/app.rs)
-- [x] Extract magic number 2.0 to named constants to improve code maintainability and readability (src/app.rs)
-- [x] Extract magic number 10.0 to a named constant to improve code maintainability and readability (src/app.rs)
-- [x] Extract magic number 0.8 to a named constant to improve code maintainability and readability (src/app.rs)
-- [x] Extract magic number 0.5 to a named constant to improve code maintainability and readability (src/app.rs)
-- [x] Extract magic number 1.5 to a named constant to improve code maintainability and readability (src/app.rs)
-- [x] Extract magic numbers -4.0 and 4.0 to named constants to improve code maintainability and readability (src/app.rs)
-- [x] Update comment to describe 'rotated text' instead of 'vertical text' for accuracy (src/app.rs)
-
-- [x] Add some graphic that hints the user that they should press the "mute" button to enable audio
-- [x] Go through the codebase and make sure the guidelines from the instructions file are applied.
-  - [x] Check for and update rust edition to 2024 in all `Cargo.toml` files.
-  - [x] Find and refactor any `mod.rs` files to the `module_name.rs` convention.
-  - [x] Replace `format!("{}", ...)` with `format!("{...}")` for better readability.
-  - [x] Find and replace magic numbers with named constants.
-  - [x] Review ignored errors (`let _ = ...`) and add comments if missing.
-  - [x] Run `cargo check` on all crates to check for warnings, including non-exhaustive matches.
-  - [x] Run 'cargo clippy'
 - [x] Only show "click to enable audio" hint when unitialized, not when muted
-- [ ] Fix these todos
-  - [x] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
-    - [x] Create a simplified version that only uses base_dissonance values
-    - [x] Make sure the dissonance values makes sense for a tempered piano
-  - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
-    - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
-      - [x] Study egui::InputState and egui::MultiTouchInfo documentation
-        - Found: input.multi_touch() returns Option<MultiTouchInfo> for gestures (zoom, rotation)
-        - Found: input.any_touches() returns bool for active touches
-        - Found: input.has_touch_screen() returns bool for touch capability
-        - Found: Event::Touch with device_id, id (TouchId), phase, pos, force for individual touches
-        - Key insight: MultiTouchInfo is for gestures, but Event::Touch is for individual finger tracking
-      - [x] Check if ui.input() provides access to multi-touch data
-        - Yes: ui.input(|i| i.multi_touch()) for gestures
-        - Yes: ui.input(|i| i.events) contains Event::Touch events for individual touches
-      - [x] Investigate if egui::Sense needs to be configured differently for multi-touch
-        - No: Sense only defines interaction types (HOVER, CLICK, DRAG, FOCUSABLE)
-        - Multi-touch is handled through Event system, not Sense configuration
-      - [x] Look at egui examples or source code for multi-touch handling patterns
-        - Key finding: Need to process Event::Touch events in input.events
-        - Strategy: Track TouchId -> Key mapping for individual finger tracking
-        - Current issue: ui.interact() and is_pointer_button_down_on() are single-pointer
-        - Solution: Process touch events directly, bypass single-pointer Response methods
-    - [ ] Analyze current single-touch implementation to understand what needs to change
-      - [ ] Review how is_pointer_button_down_on() works with multiple pointers
-      - [ ] Understand the key_id and temp data storage mechanism
-      - [ ] Document the current state tracking for mouse_pressed per key
-    - [ ] Design multi-touch data structures
-      - [ ] Define how to track multiple pointer IDs per key
-      - [ ] Decide on data structure to map pointer IDs to pressed keys
-      - [ ] Plan how to handle pointer lifecycle (press, hold, release)
-    - [ ] Implement pointer tracking to handle multiple simultaneous touches
-      - [ ] Replace single boolean mouse_pressed with multi-pointer tracking
-      - [ ] Update key press detection to handle multiple active pointers
-      - [ ] Implement pointer release detection for multi-touch
-      - [ ] Handle edge cases like pointer leaving key area during touch
-    - [ ] Test multi-touch functionality on mobile devices and touch screens
-      - [ ] Test basic two-finger simultaneous key presses
-      - [ ] Test chord playing with multiple fingers
-      - [ ] Verify touch responsiveness and accuracy
-      - [ ] Test edge cases like sliding fingers between keys
-    - [ ] Ensure multi-touch doesn't break existing mouse and single-touch interactions
-      - [ ] Verify mouse clicks still work as expected
-      - [ ] Test single-touch on mobile devices
-      - [ ] Ensure keyboard shortcuts (shift+click) still work
-      - [ ] Test mixed input scenarios (mouse + touch simultaneously)
+- [ ] Add agent instructions for where and how to put temporary tools. make sure the temporary tools are added to .gitignore
+- [ ] Make sure log::debug logs are sent to the browser console in dev builds
+- [x] interval.rs: perhaps this is overcomplicated. better to just use the base_dissonance directly?
+  - [x] Create a simplified version that only uses base_dissonance values
+  - [x] Make sure the dissonance values makes sense for a tempered piano
+- [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
+  - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
+    - [x] Study egui::InputState and egui::MultiTouchInfo documentation
+      - Found: input.multi_touch() returns Option<MultiTouchInfo> for gestures (zoom, rotation)
+      - Found: input.any_touches() returns bool for active touches
+      - Found: input.has_touch_screen() returns bool for touch capability
+      - Found: Event::Touch with device_id, id (TouchId), phase, pos, force for individual touches
+      - Key insight: MultiTouchInfo is for gestures, but Event::Touch is for individual finger tracking
+    - [x] Check if ui.input() provides access to multi-touch data
+      - Yes: ui.input(|i| i.multi_touch()) for gestures
+      - Yes: ui.input(|i| i.events) contains Event::Touch events for individual touches
+    - [x] Investigate if egui::Sense needs to be configured differently for multi-touch
+      - No: Sense only defines interaction types (HOVER, CLICK, DRAG, FOCUSABLE)
+      - Multi-touch is handled through Event system, not Sense configuration
+    - [x] Look at egui examples or source code for multi-touch handling patterns
+      - Key finding: Need to process Event::Touch events in input.events
+      - Strategy: Track TouchId -> Key mapping for individual finger tracking
+      - Current issue: ui.interact() and is_pointer_button_down_on() are single-pointer
+      - Solution: Process touch events directly, bypass single-pointer Response methods
+  - [ ] Analyze current single-touch implementation to understand what needs to change
+    - [ ] Review how is_pointer_button_down_on() works with multiple pointers
+    - [ ] Understand the key_id and temp data storage mechanism
+    - [ ] Document the current state tracking for mouse_pressed per key
+  - [ ] Design multi-touch data structures
+    - [ ] Define how to track multiple pointer IDs per key
+    - [ ] Decide on data structure to map pointer IDs to pressed keys
+    - [ ] Plan how to handle pointer lifecycle (press, hold, release)
+  - [ ] Implement pointer tracking to handle multiple simultaneous touches
+    - [ ] Replace single boolean mouse_pressed with multi-pointer tracking
+    - [ ] Update key press detection to handle multiple active pointers
+    - [ ] Implement pointer release detection for multi-touch
+    - [ ] Handle edge cases like pointer leaving key area during touch
+  - [ ] Test multi-touch functionality on mobile devices and touch screens
+    - [ ] Test basic two-finger simultaneous key presses
+    - [ ] Test chord playing with multiple fingers
+    - [ ] Verify touch responsiveness and accuracy
+    - [ ] Test edge cases like sliding fingers between keys
+  - [ ] Ensure multi-touch doesn't break existing mouse and single-touch interactions
+    - [ ] Verify mouse clicks still work as expected
+    - [ ] Test single-touch on mobile devices
+    - [ ] Ensure keyboard shortcuts (shift+click) still work
+    - [ ] Test mixed input scenarios (mouse + touch simultaneously)
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
   - [ ] Modify PianoGui to track the chronological order of mouse key presses
