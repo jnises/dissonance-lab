@@ -55,7 +55,6 @@ impl DissonanceLabApp {
             "This application only supports WebAssembly target architecture"
         );
 
-        log::info!("test");
         // Setup custom theme instead of default dark theme
         theme::setup_custom_theme(&cc.egui_ctx);
         Default::default()
