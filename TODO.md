@@ -20,7 +20,7 @@
 - [x] Update comment to describe 'rotated text' instead of 'vertical text' for accuracy (src/app.rs)
 
 - [x] Add some graphic that hints the user that they should press the "mute" button to enable audio
-- [ ] Go through the codebase and make sure the guidelines from the instructions file are applied.
+- [x] Go through the codebase and make sure the guidelines from the instructions file are applied.
   - [x] Check for and update rust edition to 2024 in all `Cargo.toml` files.
   - [x] Find and refactor any `mod.rs` files to the `module_name.rs` convention.
   - [x] Replace `format!("{}", ...)` with `format!("{...}")` for better readability.
@@ -35,15 +35,15 @@
     - [x] Make sure the dissonance values makes sense for a tempered piano
   - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
     - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
-    - [ ] Determine the desired multi-touch behavior (simultaneous key presses, gestures, etc.)
-
+    - [ ] The user should be able to press multiple piano keys simultaneously on a touchscreen
     - [ ] Implement pointer tracking to handle multiple simultaneous touches
     - [ ] Test multi-touch functionality on mobile devices and touch screens
     - [ ] Ensure multi-touch doesn't break existing mouse and single-touch interactions
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
+  - [ ] The `KeySet` type needs to keep track of the order of the keys
   - [ ] Modify PianoGui to track the chronological order of mouse key presses
-  - [ ] Define what "actual base" means for MIDI keyboard input (e.g., lowest note, root note, etc.)
-  - [ ] Add input source tracking to distinguish between mouse and MIDI input for each pressed key
+  - [ ] Define what "actual base" means for MIDI keyboard input (e.g., lowest note, root note, etc.) Just assume that it is the lowest note for now.
+  - [ ] Add input source tracking to distinguish between mouse and MIDI input for each pressed key. If the input modes are mixed, just do some best effort solution. No need to spend much code for this case.
   - [ ] Modify interval_display.rs to use different ordering logic based on input method
   - [ ] Update the pressed_keys data structure to include ordering/priority information
   - [ ] Test the new ordering behavior with both mouse and MIDI input
