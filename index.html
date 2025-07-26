@@ -173,7 +173,7 @@
                 // Clear any existing caches
                 if ('caches' in window) {
                     caches.keys().then(function(names) {
-                        for (let name of names) {
+                        for (const name of names) {
                             caches.delete(name).then(function(success) {
                                 if (success) console.log('Cache cleared for development:', name);
                             });
