@@ -1,16 +1,16 @@
 - [ ] When developing I need to the frontend logging to be piped back to the backend and displayed in the terminal.
 
     ### Current Status & Usage:
-    - ✅ HTTP log server created in `dev-log-server/` crate 
+    - ✅ HTTP log server created in `dev-log-server/` crate
     - ✅ Trunk proxy configured to forward `/logs` requests to port 3001
     - 🔲 Frontend log forwarding not yet implemented
     - 🔲 xtask development utility not yet created
-    
+
     ### How to start the development setup:
     1. Start the log server: `cargo run -p dev-log-server --target aarch64-apple-darwin &`
     2. Start Trunk with proxy: `trunk serve` (will auto-proxy /logs to port 3001)
     3. Test logging: `curl -X POST 'http://localhost:8080/logs' -H 'Content-Type: application/json' -d '{"level":"info","message":"test"}'`
-    
+
     ### What's left to implement:
     - [x] Create a simple HTTP log server using axum
         - [x] Add axum and tokio dependencies for the log server
@@ -23,17 +23,24 @@
         - [x] Update Trunk.toml or use CLI args to proxy `/logs` path to log server
         - [x] Test that frontend can successfully send requests to `/logs` endpoint
         - [x] Verify that trunk serve and log server can run on different ports simultaneously
-    - [ ] Add frontend log forwarding functionality (debug mode only)
-        - [ ] Create a custom log backend that sends logs via HTTP POST to `/logs`
-        - [ ] Add compile-time feature or cfg flag to enable log forwarding only in debug builds, or would it be better to only include it when served through trunk?
-        - [ ] Implement log batching/buffering to avoid excessive HTTP requests
-        - [ ] Add fallback behavior when log server is unavailable (silent failure)
-        - [ ] Ensure release builds contain no log forwarding code
     - [ ] Create development utility script using xtask
-        - [ ] Set up an `xtask` command to start both the log server and trunk serve
+        - [ ] Set up an `xtask` command.
+        - [ ] move the `generate-index.sh` call to here instead of the trunk pre hook, this should allow us to generate index.html (which isn't possible using trunk pre hooks since trunk requires index.html to exist before the hooks are run)
+        - [ ] start both the log server and trunk serve
         - [ ] Start log server in background, then start `trunk serve` with proxy config
         - [ ] Add proper process cleanup when the task is terminated
         - [ ] Include helpful output showing both server URLs and status
+        - [ ] Also add way to run `trunk build` through here, making sure to handle the generate-index.sh issue
+        - [ ] Document in README.md and in copilot-instructions.md about how to use this
+    - [ ] Add frontend log forwarding functionality (debug mode only) - via JavaScript console interception
+        - [ ] Create JavaScript code to intercept console methods (log, warn, error, debug, info)
+        - [ ] Add logic to detect development vs production mode (check for localhost or dev server)
+        - [ ] Implement HTTP POST to /logs endpoint from JavaScript
+        - [ ] Add batching/throttling to avoid excessive requests
+        - [ ] Ensure original console methods still work (preserve existing behavior)
+        - [ ] Add error handling for when log server is unavailable
+        - [ ] Only include the log forwarding code in debug/development builds
+
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation

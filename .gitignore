@@ -12,3 +12,6 @@ target_wasm
 /audio-worklet/pkg
 
 /tmp/
+
+# generated from index.template.html
+/index.html

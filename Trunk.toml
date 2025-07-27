@@ -7,10 +7,14 @@ ignore = ["audio-worklet/pkg"]
 
 # Proxy configuration for development log server
 [[proxies]]
-backend = "http://127.0.0.1:3001"
+backend = "http://127.0.0.1:3001/logs"
 rewrite = "/logs"
 
-# Build hooks to compile the audio worklet
+# Build hooks
+[[hooks]]
+stage = "pre_build"
+command = "./generate-index.sh"
+
 [[hooks]]
 stage = "pre_build"
 command = "./build-audio-worklet.sh"
