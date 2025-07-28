@@ -34,13 +34,13 @@ async fn receive_logs(Json(payload): Json<LogMessage>) -> Result<ResponseJson<Lo
     
     // Format the log message for terminal display
     let location = match (payload.file.as_ref(), payload.line) {
-        (Some(file), Some(line)) => format!(" ({}:{})", file, line),
+        (Some(file), Some(line)) => format!(" ({file}:{line})"),
         _ => String::new(),
     };
     
     let module = payload.module_path
         .as_ref()
-        .map(|m| format!(" [{}]", m))
+        .map(|m| format!(" [{m}]"))
         .unwrap_or_default();
     
     let formatted_message = format!(

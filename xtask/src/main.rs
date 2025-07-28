@@ -42,8 +42,8 @@ fn run_dev() -> Result<()> {
     env::set_current_dir(&project_root)
         .context("Failed to change to project root directory")?;
 
-    // Generate index.html first (needed before trunk starts)
-    generate_index_html(true)?;
+    // Generate config.js first (needed before trunk starts)
+    generate_config_js(true)?;
 
     // Start the log server in the background
     println!("📡 Starting development log server...");
@@ -71,12 +71,12 @@ fn run_dev() -> Result<()> {
 
     // Kill trunk server
     if let Err(e) = trunk_server.kill() {
-        eprintln!("Warning: Failed to kill trunk server: {}", e);
+        eprintln!("Warning: Failed to kill trunk server: {e}");
     }
 
     // Kill log server
     if let Err(e) = log_server.kill() {
-        eprintln!("Warning: Failed to kill log server: {}", e);
+        eprintln!("Warning: Failed to kill log server: {e}");
     }
 
     println!("👋 Development environment stopped.");
@@ -85,15 +85,15 @@ fn run_dev() -> Result<()> {
 
 fn run_build(debug: bool) -> Result<()> {
     let mode = if debug { "debug" } else { "release" };
-    println!("🔨 Building dissonance-lab in {} mode...", mode);
+    println!("🔨 Building dissonance-lab in {mode} mode...");
     
     // Ensure we're in the project root
     let project_root = find_project_root()?;
     env::set_current_dir(&project_root)
         .context("Failed to change to project root directory")?;
 
-    // Generate index.html first
-    generate_index_html(debug)?;
+    // Generate config.js first
+    generate_config_js(debug)?;
 
     // Build audio worklet
     build_audio_worklet(debug)?;
@@ -134,24 +134,28 @@ fn find_project_root() -> Result<std::path::PathBuf> {
     }
 }
 
-fn generate_index_html(debug: bool) -> Result<()> {
-    println!("📄 Generating index.html...");
+fn generate_config_js(debug: bool) -> Result<()> {
+    println!("📄 Generating build/config.js...");
     
-    // Set environment variable for the script
-    if !debug {
-        env::set_var("TRUNK_BUILD_RELEASE", "true");
-    } else {
-        env::remove_var("TRUNK_BUILD_RELEASE");
-    }
-
-    let status = Command::new("./generate-config.sh")
-        .status()
-        .context("Failed to run generate-config.sh - make sure it exists and is executable")?;
-
-    if !status.success() {
-        anyhow::bail!("generate-config.sh failed");
-    }
-
+    // Create build directory if it doesn't exist
+    std::fs::create_dir_all("build")
+        .context("Failed to create build directory")?;
+    
+    // Generate the config.js content based on debug mode
+    let dev_flag = if debug { "true" } else { "false" };
+    let mode = if debug { "DEBUG" } else { "RELEASE" };
+    
+    println!("{mode} build detected - generating config.js with dev_flag = {dev_flag}");
+    
+    let config_content = format!(
+        "// Build configuration\nwindow.dev_flag = {dev_flag};\n"
+    );
+    
+    // Write the config file
+    std::fs::write("build/config.js", config_content)
+        .context("Failed to write build/config.js")?;
+    
+    println!("✅ Successfully generated build/config.js");
     Ok(())
 }
 

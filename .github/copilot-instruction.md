@@ -22,6 +22,7 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 - When formatting strings, prefer inline variable interpolation `format!("{variable}")` over positional arguments `format!("{}", variable)` for better readability and maintainability.
 - Strive for a clear and predictable data flow. When designing component interactions, prefer architectures where state is polled from a central source (pull-based) over complex, deeply nested callback chains (push-based), unless the reactive, event-driven nature of the UI demands it.
 - Avoid using magic numbers in the code. Instead, define a `const` for such values, placing it as close as possible to where it is used. If a constant is only referenced in one location, keeping it nearby improves code readability by eliminating the need to scroll to find its value. However, do not define a `const` if the value is already clearly documented elsewhere, such as when it appears in a `match` statement for an enum.
+- Avoid unsafe. If you really think you need unsafe, ask the user first, and write a detailed comment why unsafe was required.
 
 # Conventions
 - We use `egui` as our GUI library.
@@ -29,11 +30,10 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 
 # Building
 - Check and lint using `cargo check --workspace` and `cargo clippy --workspace`.
-- For WASM-specific checks, use the aliases: `cargo check-wasm` and `cargo clippy-wasm`.
 - Build the project using `trunk build`.
 
 # Running
-- The project is started using `trunk serve`. But the agent shouldn't call that. The user will keep that running continuously.
+- For development the project is started using `cargo xtask dev`. But the agent shouldn't call that. The user will keep that running continuously.
 - Browser console logs are not piped to the terminal. You will have to ask me to check them.
 - **IMPORTANT**: Browsers block audio until a user interaction (like a click). This means the audio worklet and related Rust code will not execute, and any runtime errors in that code will not appear in the console until after the user has clicked on the page.
 
