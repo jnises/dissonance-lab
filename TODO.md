@@ -7,9 +7,7 @@
     - ✅ Development utility setup completed
 
     ### How to start the development setup:
-    1. Start the log server: `cargo run -p dev-log-server --target aarch64-apple-darwin &`
-    2. Start Trunk with proxy: `trunk serve` (will auto-proxy /logs to port 3001)
-    3. Test logging: `curl -X POST 'http://localhost:8080/logs' -H 'Content-Type: application/json' -d '{"level":"info","message":"test"}'`
+    Test logging: `curl -X POST 'http://localhost:8080/logs' -H 'Content-Type: application/json' -d '{"level":"info","message":"test"}'`
 
     ### What's left to implement:
     - [x] Create a simple HTTP log server using axum
@@ -38,6 +36,13 @@
         - [x] Ensure original console methods still work (preserve existing behavior)
         - [x] Add error handling for when log server is unavailable
         - [x] Only include the log forwarding code in debug/development builds
+    - [ ] Remove `test.sh` and anything referring to it. we no longer need it.
+    - [ ] Update docs and instructions to refer to the `cargo check-wasm` aliases.
+    - [ ] Create an xtask that starts both dev-log-server and `trunk serve`
+        - make sure the xtask has aliases set up
+    - [ ] Make the dev-log-server write to some log file
+    - [ ] Add command to xtask that dumps the log file and tell the agent how to use that
+    
 
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context

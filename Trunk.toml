@@ -3,7 +3,7 @@ filehash = false
 minify = "on_release"
 
 [watch]
-ignore = ["audio-worklet/pkg"]
+ignore = ["audio-worklet/pkg", "build"]
 
 # Proxy configuration for development log server
 [[proxies]]

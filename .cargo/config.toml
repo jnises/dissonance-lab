@@ -4,12 +4,4 @@
 [alias]
 # WASM development aliases
 check-wasm = "check --target wasm32-unknown-unknown"
-build-wasm = "build --target wasm32-unknown-unknown"
 clippy-wasm = "clippy --target wasm32-unknown-unknown"
-test-wasm = "test --target wasm32-unknown-unknown"
-
-# Native aliases (these are now redundant but kept for symmetry)
-check-native = "check"
-build-native = "build" 
-run-native = "run"
-clippy-native = "clippy"
