@@ -1,88 +1,65 @@
 # Development Commands
 
-This project uses `xtask` for development utilities. The xtask binary must be built for your native platform (not WASM).
-
-## Easiest Option: Auto-Detecting Script
-
-The project includes a `./dev` script that automatically detects your platform:
-
-```bash
-# Start development environment
-./dev dev
-
-# Build for release  
-./dev build
-
-# Build for debug
-./dev build-debug
-
-# Show help
-./dev --help
-```
-
-## Direct Commands
-
-```bash
-# Start development environment (log server + trunk serve)
-cargo run -p xtask --target aarch64-apple-darwin dev    # Apple Silicon Mac
-cargo run -p xtask --target x86_64-apple-darwin dev     # Intel Mac  
-cargo run -p xtask --target x86_64-unknown-linux-gnu dev   # Linux
-
-# Build for release
-cargo run -p xtask --target aarch64-apple-darwin build
-
-# Build for debug  
-cargo run -p xtask --target aarch64-apple-darwin build-debug
-```
-
-## Recommended Aliases
-
-Add these to your shell configuration file (`~/.zshrc`, `~/.bashrc`, etc.):
-
-### For Apple Silicon Macs (M1/M2/M3):
-```bash
-# Dissonance Lab development aliases
-alias ddev='cargo run -p xtask --target aarch64-apple-darwin dev'
-alias dbuild='cargo run -p xtask --target aarch64-apple-darwin build'
-alias dbuild-debug='cargo run -p xtask --target aarch64-apple-darwin build-debug'
-```
-
-### For Intel Macs:
-```bash
-# Dissonance Lab development aliases  
-alias ddev='cargo run -p xtask --target x86_64-apple-darwin dev'
-alias dbuild='cargo run -p xtask --target x86_64-apple-darwin build'
-alias dbuild-debug='cargo run -p xtask --target x86_64-apple-darwin build-debug'
-```
-
-### For Linux:
-```bash
-# Dissonance Lab development aliases
-alias ddev='cargo run -p xtask --target x86_64-unknown-linux-gnu dev'
-alias dbuild='cargo run -p xtask --target x86_64-unknown-linux-gnu build'  
-alias dbuild-debug='cargo run -p xtask --target x86_64-unknown-linux-gnu build-debug'
-```
-
-After adding the aliases, reload your shell or run `source ~/.zshrc` (or your shell config file).
+This project uses standard Rust and Trunk commands for development.
 
 ## Development Environment
 
-The development environment (`./dev dev` or the aliases) starts:
+To start the complete development environment:
+
+1. **Start the log server** (in one terminal):
+   ```bash
+   cargo run -p dev-log-server --target aarch64-apple-darwin
+   ```
+
+2. **Start Trunk development server** (in another terminal):
+   ```bash
+   trunk serve
+   ```
+
+This will start:
 - HTTP log server on port 3001
 - Trunk development server on port 8080
-- Automatic index.html generation
-- Audio worklet building
+- Automatic builds with hot reload
+- Log forwarding from frontend to backend terminal
 
-Press Enter or Ctrl+C to stop the development environment.
+## Build Commands
 
-## What Changed
+```bash
+# Build for development (with debug logging)
+trunk build
 
-The xtask implementation replaces the trunk pre-build hooks with proper process management:
-- `generate-index.sh` is now called before trunk starts (solving the chicken-and-egg problem)
-- Both log server and trunk serve are managed as child processes
-- Proper cleanup on shutdown
-- Consistent build process for both development and release modes
+# Build for release (optimized, no debug logging)
+trunk build --release
+```
 
-## Why the Target Flag is Needed
+## Development Features
 
-The main workspace is configured to build for WASM by default (in `.cargo/config.toml`), but the xtask development utility needs to run natively. The `--target` flag ensures xtask builds for your native platform instead of WASM. The `./dev` script handles this automatically.
+### Frontend Log Forwarding
+- **Development builds**: Console logs are automatically forwarded to the backend log server
+- **Release builds**: Log forwarding code is removed by minification for performance
+- Uses `window.dev_flag` from generated `build/config.js`
+
+### Pre-build Hooks
+The project uses pre-build hooks that run automatically:
+- `build-audio-worklet.sh` - Builds the audio worklet WASM module  
+- `generate-config.sh` - Creates `build/config.js` with `window.dev_flag` based on build mode
+
+### Hot Reload
+Trunk will automatically rebuild and reload when you change:
+- Rust source files
+- HTML template
+- JavaScript files
+- Assets
+
+## URLs
+- **Frontend**: http://localhost:8080
+- **Log Server**: http://localhost:3001
+
+## Testing Log Forwarding
+
+You can test the log forwarding manually:
+```bash
+curl -X POST 'http://localhost:8080/logs' \
+  -H 'Content-Type: application/json' \
+  -d '{"level":"info","message":"test from curl"}'
+```

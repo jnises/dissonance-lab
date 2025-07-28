@@ -1,8 +1,0 @@
-# xtask should always build for the native target, never WASM
-[build]
-target = "aarch64-apple-darwin"  # Default for Apple Silicon Macs
-
-# Override for different platforms
-[target.x86_64-apple-darwin]
-[target.x86_64-unknown-linux-gnu] 
-[target.x86_64-pc-windows-msvc]

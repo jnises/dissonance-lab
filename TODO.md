@@ -1,10 +1,10 @@
-- [ ] When developing I need to the frontend logging to be piped back to the backend and displayed in the terminal.
+- [x] When developing I need to the frontend logging to be piped back to the backend and displayed in the terminal.
 
     ### Current Status & Usage:
     - ✅ HTTP log server created in `dev-log-server/` crate
     - ✅ Trunk proxy configured to forward `/logs` requests to port 3001
-    - 🔲 Frontend log forwarding not yet implemented
-    - ✅ xtask development utility created
+    - ✅ Frontend log forwarding implemented via pre-build hook
+    - ✅ Development utility setup completed
 
     ### How to start the development setup:
     1. Start the log server: `cargo run -p dev-log-server --target aarch64-apple-darwin &`
@@ -23,23 +23,21 @@
         - [x] Update Trunk.toml or use CLI args to proxy `/logs` path to log server
         - [x] Test that frontend can successfully send requests to `/logs` endpoint
         - [x] Verify that trunk serve and log server can run on different ports simultaneously
-    - [x] Create development utility script using xtask
-        - [x] Set up an `xtask` crate.
-        - [x] move the `generate-index.sh` call to here instead of the trunk pre hook, this should allow us to generate index.html (which isn't possible using trunk pre hooks since trunk requires index.html to exist before the hooks are run)
-        - [x] start both the log server and trunk serve
-        - [x] Start log server in background, then start `trunk serve` with proxy config
-        - [x] Add proper process cleanup when the task is terminated
-        - [x] Include helpful output showing both server URLs and status
-        - [x] Also add way to run `trunk build` through here, making sure to handle the generate-index.sh issue
-        - [x] Document in README.md and in copilot-instructions.md about how to use this
-    - [ ] Add frontend log forwarding functionality (debug mode only) - via JavaScript console interception
-        - [ ] Create JavaScript code to intercept console methods (log, warn, error, debug, info)
-        - [ ] Add logic to detect development vs production mode (check for localhost or dev server)
-        - [ ] Implement HTTP POST to /logs endpoint from JavaScript
-        - [ ] Add batching/throttling to avoid excessive requests
-        - [ ] Ensure original console methods still work (preserve existing behavior)
-        - [ ] Add error handling for when log server is unavailable
-        - [ ] Only include the log forwarding code in debug/development builds
+    - [x] Create development utility setup using pre-build hooks
+        - [x] Use trunk pre-build hooks to generate dynamic content
+        - [x] Generate `debugutils.js` with log forwarding for debug builds
+        - [x] Add `<link data-trunk rel="inline" href="debugutils.js"/>` to index.html template
+        - [x] Ensure debug utilities are only active in development builds
+        - [x] Keep existing generate-index.sh and build-audio-worklet.sh hooks
+        - [x] Update documentation for the simplified development process
+    - [x] Add frontend log forwarding functionality (debug mode only) - via JavaScript console interception
+        - [x] Create JavaScript code to intercept console methods (log, warn, error, debug, info)
+        - [x] Add logic to detect development vs production mode (check for localhost or dev server)
+        - [x] Implement HTTP POST to /logs endpoint from JavaScript
+        - [x] Add batching/throttling to avoid excessive requests
+        - [x] Ensure original console methods still work (preserve existing behavior)
+        - [x] Add error handling for when log server is unavailable
+        - [x] Only include the log forwarding code in debug/development builds
 
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context

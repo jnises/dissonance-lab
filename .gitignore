@@ -13,5 +13,5 @@ target_wasm
 
 /tmp/
 
-# generated from index.template.html
-/index.html
+# build directory for generated files
+/build/
