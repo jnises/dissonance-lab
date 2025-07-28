@@ -5,19 +5,22 @@ edition = "2024"
 authors = ["Joel Nises <joel.nises@gmail.com>"]
 description = "Development log server for dissonance-lab frontend logging"
 
+# This is a standalone package, not part of the parent workspace
+[workspace]
+
 [[bin]]
 name = "dev-log-server"
 path = "src/main.rs"
 
 [dependencies]
-axum.workspace = true
-tokio.workspace = true
-tower.workspace = true
-tower-http.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-anyhow.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
-chrono.workspace = true
+axum = "0.8"
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0.97"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = { version = "0.4", features = ["serde"] }
 
