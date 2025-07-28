@@ -9,12 +9,3 @@ ignore = ["audio-worklet/pkg"]
 [[proxies]]
 backend = "http://127.0.0.1:3001/logs"
 rewrite = "/logs"
-
-# Build hooks
-[[hooks]]
-stage = "pre_build"
-command = "./generate-index.sh"
-
-[[hooks]]
-stage = "pre_build"
-command = "./build-audio-worklet.sh"

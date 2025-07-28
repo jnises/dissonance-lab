@@ -4,7 +4,7 @@
     - ✅ HTTP log server created in `dev-log-server/` crate
     - ✅ Trunk proxy configured to forward `/logs` requests to port 3001
     - 🔲 Frontend log forwarding not yet implemented
-    - 🔲 xtask development utility not yet created
+    - ✅ xtask development utility created
 
     ### How to start the development setup:
     1. Start the log server: `cargo run -p dev-log-server --target aarch64-apple-darwin &`
@@ -23,15 +23,15 @@
         - [x] Update Trunk.toml or use CLI args to proxy `/logs` path to log server
         - [x] Test that frontend can successfully send requests to `/logs` endpoint
         - [x] Verify that trunk serve and log server can run on different ports simultaneously
-    - [ ] Create development utility script using xtask
-        - [ ] Set up an `xtask` command.
-        - [ ] move the `generate-index.sh` call to here instead of the trunk pre hook, this should allow us to generate index.html (which isn't possible using trunk pre hooks since trunk requires index.html to exist before the hooks are run)
-        - [ ] start both the log server and trunk serve
-        - [ ] Start log server in background, then start `trunk serve` with proxy config
-        - [ ] Add proper process cleanup when the task is terminated
-        - [ ] Include helpful output showing both server URLs and status
-        - [ ] Also add way to run `trunk build` through here, making sure to handle the generate-index.sh issue
-        - [ ] Document in README.md and in copilot-instructions.md about how to use this
+    - [x] Create development utility script using xtask
+        - [x] Set up an `xtask` crate.
+        - [x] move the `generate-index.sh` call to here instead of the trunk pre hook, this should allow us to generate index.html (which isn't possible using trunk pre hooks since trunk requires index.html to exist before the hooks are run)
+        - [x] start both the log server and trunk serve
+        - [x] Start log server in background, then start `trunk serve` with proxy config
+        - [x] Add proper process cleanup when the task is terminated
+        - [x] Include helpful output showing both server URLs and status
+        - [x] Also add way to run `trunk build` through here, making sure to handle the generate-index.sh issue
+        - [x] Document in README.md and in copilot-instructions.md about how to use this
     - [ ] Add frontend log forwarding functionality (debug mode only) - via JavaScript console interception
         - [ ] Create JavaScript code to intercept console methods (log, warn, error, debug, info)
         - [ ] Add logic to detect development vs production mode (check for localhost or dev server)
@@ -93,3 +93,13 @@
   - [ ] Test the new ordering behavior with both mouse and MIDI input
 - [ ] model piano string stiffness inharmonicity
 - [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
+- [ ] Calculate dissonances using critical bands theory instead.
+    - This would allow us to calculate the dissonance of entire chords
+    - how do we handle the fact that we only show a single octave? just force the calculation to happen on a single central octave?
+    - can critical bands theory be made octave normalized?
+    - does critical bands theory care about the root? do we need to know which note is the root? can the overtones be extended downwards?
+- [ ] The dissonance of the currently held notes should show somewhere prominent
+- [ ] We only need one row of dissonances that shows what dissonance a new note would result in.
+    - for the second note we show the same as we currently do
+    - for more notes we show what chord they would result in
+- [ ] Make `shift` behave like a sustain pedal. We want almost infinite sustain to allow the user to hear chord dissonances.

@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "audio-worklet", "shared-types", "dev-log-server"]
+members = [".", "audio-worklet", "shared-types", "dev-log-server", "xtask"]
 resolver = "2"
 
 [workspace.dependencies]
