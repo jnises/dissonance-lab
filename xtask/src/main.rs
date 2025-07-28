@@ -18,10 +18,6 @@ struct Cli {
 enum Commands {
     /// Start development server (log server + trunk serve)
     Dev,
-    /// Build the project for release
-    Build,
-    /// Build the project for debug
-    BuildDebug,
 }
 
 fn main() -> Result<()> {
@@ -29,8 +25,6 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Dev => run_dev(),
-        Commands::Build => run_build(false),
-        Commands::BuildDebug => run_build(true),
     }
 }
 
@@ -41,9 +35,6 @@ fn run_dev() -> Result<()> {
     let project_root = find_project_root()?;
     env::set_current_dir(&project_root)
         .context("Failed to change to project root directory")?;
-
-    // Generate config.js first (needed before trunk starts)
-    generate_config_js(true)?;
 
     // Start the log server in the background
     println!("📡 Starting development log server...");
@@ -83,40 +74,6 @@ fn run_dev() -> Result<()> {
     Ok(())
 }
 
-fn run_build(debug: bool) -> Result<()> {
-    let mode = if debug { "debug" } else { "release" };
-    println!("🔨 Building dissonance-lab in {mode} mode...");
-    
-    // Ensure we're in the project root
-    let project_root = find_project_root()?;
-    env::set_current_dir(&project_root)
-        .context("Failed to change to project root directory")?;
-
-    // Generate config.js first
-    generate_config_js(debug)?;
-
-    // Build audio worklet
-    build_audio_worklet(debug)?;
-
-    // Run trunk build
-    let mut cmd = Command::new("trunk");
-    cmd.arg("build");
-    
-    if !debug {
-        cmd.arg("--release");
-    }
-
-    let status = cmd.status()
-        .context("Failed to run trunk build - make sure trunk is installed")?;
-
-    if !status.success() {
-        anyhow::bail!("Trunk build failed");
-    }
-
-    println!("✅ Build completed successfully!");
-    Ok(())
-}
-
 fn find_project_root() -> Result<std::path::PathBuf> {
     let current = env::current_dir().context("Failed to get current directory")?;
     
@@ -132,50 +89,6 @@ fn find_project_root() -> Result<std::path::PathBuf> {
             None => anyhow::bail!("Could not find project root (looking for Cargo.toml and Trunk.toml)"),
         }
     }
-}
-
-fn generate_config_js(debug: bool) -> Result<()> {
-    println!("📄 Generating build/config.js...");
-    
-    // Create build directory if it doesn't exist
-    std::fs::create_dir_all("build")
-        .context("Failed to create build directory")?;
-    
-    // Generate the config.js content based on debug mode
-    let dev_flag = if debug { "true" } else { "false" };
-    let mode = if debug { "DEBUG" } else { "RELEASE" };
-    
-    println!("{mode} build detected - generating config.js with dev_flag = {dev_flag}");
-    
-    let config_content = format!(
-        "// Build configuration\nwindow.dev_flag = {dev_flag};\n"
-    );
-    
-    // Write the config file
-    std::fs::write("build/config.js", config_content)
-        .context("Failed to write build/config.js")?;
-    
-    println!("✅ Successfully generated build/config.js");
-    Ok(())
-}
-
-fn build_audio_worklet(debug: bool) -> Result<()> {
-    println!("🎵 Building audio worklet...");
-    
-    let mut cmd = Command::new("./build-audio-worklet.sh");
-    
-    if debug {
-        cmd.arg("debug");
-    }
-
-    let status = cmd.status()
-        .context("Failed to run build-audio-worklet.sh - make sure it exists and is executable")?;
-
-    if !status.success() {
-        anyhow::bail!("build-audio-worklet.sh failed");
-    }
-
-    Ok(())
 }
 
 fn start_log_server() -> Result<Child> {
