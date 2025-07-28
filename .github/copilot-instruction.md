@@ -31,13 +31,6 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 - Check and lint using `cargo check --workspace` and `cargo clippy --workspace`.
 - Build the project using `trunk build`.
 
-# Testing
-- Run tests using `cargo test`.
-  - `cargo test` - Run all tests.
-  - `cargo test test_name` - Run specific tests.
-  - `cargo test --release` - Run tests with cargo release flags.
-- Tests run as native binaries by default.
-
 # Running
 - The project is started using `trunk serve`. But the agent shouldn't call that. The user will keep that running continuously.
 - Browser console logs are not piped to the terminal. You will have to ask me to check them.
