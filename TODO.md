@@ -36,7 +36,7 @@
         - [x] Ensure original console methods still work (preserve existing behavior)
         - [x] Add error handling for when log server is unavailable
         - [x] Only include the log forwarding code in debug/development builds
-    - [ ] Remove `test.sh` and anything referring to it. we no longer need it.
+    - [x] Remove `test.sh` and anything referring to it. we no longer need it.
     - [ ] Update docs and instructions to refer to the `cargo check-wasm` aliases.
     - [ ] Create an xtask that starts both dev-log-server and `trunk serve`
         - make sure the xtask has aliases set up

@@ -27,11 +27,10 @@ Note that you need to manually unmute by clicking the 🔇 button. This is due t
 
 ## Testing
 ```
-./test.sh
+cargo test
 ```
 
-You can't use `cargo test` directly since that would compile as wasm.
-`test.sh` runs the tests as a native binary.
+Tests run as native binaries by default.
 
 ## Local development
 ```

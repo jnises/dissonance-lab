@@ -32,11 +32,11 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 - Build the project using `trunk build`.
 
 # Testing
-- Run tests using the `./test.sh` script.
-  - `./test.sh` - Run all tests.
-  - `./test.sh test_name` - Run specific tests.
-  - `./test.sh --release` - Run tests with cargo release flags.
-- **CRITICAL**: Always use `./test.sh` instead of `cargo test`. The script ensures tests run against the native target, not WASM.
+- Run tests using `cargo test`.
+  - `cargo test` - Run all tests.
+  - `cargo test test_name` - Run specific tests.
+  - `cargo test --release` - Run tests with cargo release flags.
+- Tests run as native binaries by default.
 
 # Running
 - The project is started using `trunk serve`. But the agent shouldn't call that. The user will keep that running continuously.
