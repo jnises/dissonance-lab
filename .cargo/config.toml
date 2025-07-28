@@ -5,3 +5,6 @@
 # WASM development aliases
 check-wasm = "check --target wasm32-unknown-unknown"
 clippy-wasm = "clippy --target wasm32-unknown-unknown"
+
+# Development environment alias
+xtask = ["run", "-p", "xtask", "--"]

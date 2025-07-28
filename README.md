@@ -18,12 +18,41 @@ The pressed keys are considered the root of each interval even when it isn't the
 
 ## Running
 
+### Development Environment
+For the best development experience, use the included development tools that start both the frontend and log server:
+
+```bash
+cargo xtask dev
 ```
-trunk serve --release
-```
+
+This will:
+- Start the development log server on port 3001
+- Start the Trunk development server on port 8080
+- Automatically generate index.html with debug utilities
+- Forward frontend console logs to your terminal
+
 Navigate to http://127.0.0.1:8080/
 
 Note that you need to manually unmute by clicking the 🔇 button. This is due to the browser autoplay blocking feature.
+
+### Manual Development
+If you prefer to run components separately:
+
+```bash
+trunk serve
+```
+Navigate to http://127.0.0.1:8080/#dev
+The #dev disables the pwa cache so that we get the latest version of the page.
+
+### Production Build
+```bash
+cargo xtask build
+```
+
+Or manually:
+```bash
+trunk serve --release
+```
 
 ## Testing
 ```
@@ -32,11 +61,10 @@ cargo test
 
 Tests run as native binaries by default.
 
-## Local development
-```
-trunk serve
-```
-Then open http://127.0.0.1:8080/#dev
-The #dev disables the pwa cache so that we get the latest version of the page.
+## Development Notes
+The project includes:
+- **Frontend log forwarding**: Console logs from the browser are forwarded to the terminal during development
+- **Audio worklet processing**: Real-time audio synthesis using WebAssembly
+- **Cross-platform build support**: Automatic target detection for different platforms
 
 When you want to deploy to production you should make sure to update `cacheName` in `sw.js` to invalidate the cache.

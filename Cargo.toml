@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "audio-worklet", "shared-types"]
+members = [".", "audio-worklet", "shared-types", "xtask"]
 exclude = ["dev-log-server"]
 resolver = "2"
 

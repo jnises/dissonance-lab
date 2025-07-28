@@ -38,8 +38,9 @@
         - [x] Only include the log forwarding code in debug/development builds
     - [x] Remove `test.sh` and anything referring to it. we no longer need it.
     - [x] Update docs and instructions to refer to the `cargo check-wasm` aliases.
-    - [ ] Create an xtask that starts both dev-log-server and `trunk serve`
-        - make sure the xtask has aliases set up
+    - [x] Create an xtask that starts both dev-log-server and `trunk serve`
+        - [x] make sure the xtask has aliases set up
+        - [x] Update readme with instruction for how to use this
     - [ ] Make the dev-log-server write to some log file
     - [ ] Add command to xtask that dumps the log file and tell the agent how to use that
     
