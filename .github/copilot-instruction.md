@@ -29,6 +29,7 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 
 # Building
 - Check and lint using `cargo check --workspace` and `cargo clippy --workspace`.
+- For WASM-specific checks, use the aliases: `cargo check-wasm` and `cargo clippy-wasm`.
 - Build the project using `trunk build`.
 
 # Running
