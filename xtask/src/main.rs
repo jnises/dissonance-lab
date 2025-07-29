@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use colored::*;
 use std::env;
 use std::fs;
 use std::process::{Child, Command, Stdio};
@@ -46,33 +45,53 @@ fn dump_log() -> Result<()> {
 
     const SESSION_START_MARKER: &str = "New session started";
 
-    let logs_to_print = if let Some(start_index) = content.rfind(SESSION_START_MARKER) {
-        // Skip the "New session started" line itself
-        let session_logs = content[start_index..].lines().skip(1).collect::<Vec<_>>().join("\n");
-        format!("--- Latest Log Session ---\n{session_logs}\n--- End of Log Session ---")
+    if let Some(start_index) = content.rfind(SESSION_START_MARKER) {
+        // Skip the "New session started" line itself and process each line
+        for line in content[start_index..].lines().skip(1) {
+            // Clean up the line for agent consumption
+            let cleaned_line = clean_log_line(line);
+            if !cleaned_line.trim().is_empty() {
+                println!("{cleaned_line}");
+            }
+        }
     } else {
-        format!("No 'New session started' marker found. Showing full log.\n--- Full Log ---\n{content}\n--- End of Full Log ---")
-    };
-
-    // Colorize the output
-    for line in logs_to_print.lines() {
-        let colored_line = if line.contains("ERROR") {
-            line.red()
-        } else if line.contains("WARN") {
-            line.yellow()
-        } else if line.contains("INFO") {
-            line.green()
-        } else if line.contains("DEBUG") {
-            line.blue()
-        } else if line.contains("TRACE") {
-            line.purple()
-        } else {
-            line.normal()
-        };
-        println!("{colored_line}");
+        // Process full log if no session marker found
+        for line in content.lines() {
+            let cleaned_line = clean_log_line(line);
+            if !cleaned_line.trim().is_empty() {
+                println!("{cleaned_line}");
+            }
+        }
     }
 
     Ok(())
+}
+
+fn clean_log_line(line: &str) -> String {
+    // Remove redundant "dev_log_server" target and thread info that's not useful for agents
+    // Example: "2025-07-29T10:36:11.930069Z  INFO main ThreadId(01) dev_log_server: New session started"
+    // Should become: "2025-07-29T10:36:11.930069Z INFO: New session started"
+    
+    if let Some(timestamp_end) = line.find('Z') {
+        if timestamp_end + 1 < line.len() {
+            let after_timestamp = &line[timestamp_end + 1..];
+            
+            // Look for pattern: "  LEVEL thread_info target: message"
+            if let Some(colon_pos) = after_timestamp.find(':') {
+                let before_colon = &after_timestamp[..colon_pos];
+                let message = &after_timestamp[colon_pos + 1..];
+                
+                // Extract just the log level from the middle part
+                let parts: Vec<&str> = before_colon.split_whitespace().collect();
+                if let Some(level) = parts.first() {
+                    return format!("{} {}:{}", &line[..timestamp_end + 1], level, message);
+                }
+            }
+        }
+    }
+    
+    // Fallback: return original line if we can't parse it
+    line.to_string()
 }
 
 

@@ -53,10 +53,10 @@
     - [x] dev-log-server should output its logs to tmp/dev-log-server.log and to no other file
     - [x] the xtask dump-logs should read from tmp/dev-log-server.log only
     - [x] rename the dump-logs command to dump-latest-logs to indicate that we only dump the latest session
-    - [ ] Move any instructions you added to DEVELOPMENT.md to copilot-instructions.md, (or README.md if it is meant for the user). And then remove DEVELOPMENT.md
-    - [ ] The dump-latest-logs command is meant for agent consumption.
-        - [ ] Don't add colors
-        - [ ] Remove anything that isn't directly useful for the agent. we want to conserve context as much as possible. for example `dev_log_server` is not interesting information on every line.
+    - [x] Move any instructions you added to DEVELOPMENT.md to copilot-instructions.md, (or README.md if it is meant for the user). And then remove DEVELOPMENT.md
+    - [x] The dump-latest-logs command is meant for agent consumption.
+        - [x] Don't add colors
+        - [x] Remove anything that isn't directly useful for the agent. we want to conserve context as much as possible. for example `dev_log_server` is not interesting information on every line.
     - [ ] make sure the release minification actually strips out the log forwarding code as dead code elimination
 
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?

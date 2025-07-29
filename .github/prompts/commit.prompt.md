@@ -12,6 +12,7 @@ Write the commit message in good git style: a concise summary on the first line,
 Always wrap the entire commit message in quotes.
 
 Escape all special characters (such as backticks, quotes, dollar signs, etc.) so the commit command is valid and does not break.
+But don't mention that you have performed this escaping.
 
 Double-check that no unescaped characters remain in the message.
 
