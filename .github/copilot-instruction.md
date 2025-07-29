@@ -48,9 +48,8 @@ The project it split into multiple crates. All in the same cargo workspace.
 
 # Running
 - For development the project is started using `cargo xtask dev`. But the agent shouldn't call that. The user will keep that running continuously.
-- Browser console logs are not piped to the terminal. You will have to ask me to check them.
-- **IMPORTANT**: Browsers block audio until a user interaction (like a click). This means the audio worklet and related Rust code will not execute, and any runtime errors in that code will not appear in the console until after the user has clicked on the page.
-- - **`cargo xtask dump-latest-logs`**: Dumps the log messages from the most recent development session. The command finds the last `=== DISSONANCE_LAB_SESSION_START ===` marker in `tmp/dev-log-server.log` and prints everything after it. This is useful for debugging issues that occurred during the last development session. This command is specifically designed for agent consumption to analyze frontend logs during development.
+- **IMPORTANT**: Browsers block audio until a user interaction (like a click). This means the audio worklet and related Rust code will not execute, and any runtime errors in that code will not appear in the console until after the user has clicked on the page. Ask me to unmute the audio if you want to check how that code works.
+- Use `cargo xtask dump-latest-logs` to read the frontend logs of the most recent session.
 
 # Temporary Tools
 - If you need to create temporary scripts, tools, or files for debugging, analysis, or one-time tasks, place them in `tmp/` directory at the project root.
