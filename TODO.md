@@ -94,6 +94,11 @@
         - Added package-specific release profile configurations for both xtask and dev-log-server
         - Set opt-level = 1, debug = false, codegen-units = 256 for faster compilation
         - Verified both packages build successfully in release mode with optimized build speed
+    - [x] make the dependencies of xtask and dev_log_server workspace dependencies
+        - Added missing dependencies (clap, which, ctrlc, tracing-appender) to workspace dependencies
+        - Updated xtask/Cargo.toml to use workspace dependencies: anyhow, clap, which, ctrlc
+        - Updated dev-log-server/Cargo.toml to use workspace dependencies: axum, tokio, tower, tower-http, serde, serde_json, anyhow, tracing, tracing-subscriber, tracing-appender
+        - Verified all crates build successfully with the new dependency structure
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation

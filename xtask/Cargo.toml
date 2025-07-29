@@ -14,7 +14,7 @@ name = "xtask"
 path = "src/main.rs"
 
 [dependencies]
-anyhow = "1.0"
-clap = { version = "4.0", features = ["derive"] }
-which = "7.0"
-ctrlc = { version = "3.4", features = ["termination"] }
+anyhow.workspace = true
+clap.workspace = true
+which.workspace = true
+ctrlc.workspace = true
