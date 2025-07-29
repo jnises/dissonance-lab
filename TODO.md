@@ -106,6 +106,8 @@
     - [ ] Test single-touch on mobile devices
     - [ ] Ensure keyboard shortcuts (shift+click) still work
     - [ ] Test mixed input scenarios (mouse + touch simultaneously)
+- [ ] Try increasing the reverb to hear how it sounds
+- [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
   - [ ] Modify PianoGui to track the chronological order of mouse key presses
