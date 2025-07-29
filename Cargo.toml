@@ -106,6 +106,17 @@ opt-level = 2 # fast and small wasm
 [profile.dev.package."*"]
 opt-level = 2
 
+# Development tools should compile in release mode but optimize for build speed
+[profile.release.package.xtask]
+opt-level = 1
+debug = false
+codegen-units = 256
+
+[profile.release.package.dev-log-server]
+opt-level = 1
+debug = false
+codegen-units = 256
+
 
 [patch.crates-io]
 

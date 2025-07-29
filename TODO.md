@@ -90,7 +90,10 @@
         - Modified dev-log-server file layer to include timestamps using default SystemTime format
         - Removed `.without_time()` call and added comment about timestamp inclusion
         - Verified timestamps appear at start of each log line in RFC3339 format (e.g., "2025-07-29T18:57:51.793780Z")
-    - [ ] Make xtask compile to release mode, but configure the crate to compile as fast as possible, do minimal optimization. do the same thing for dev_log_server.
+    - [x] Make xtask compile to release mode, but configure the crate to compile as fast as possible, do minimal optimization. do the same thing for dev_log_server.
+        - Added package-specific release profile configurations for both xtask and dev-log-server
+        - Set opt-level = 1, debug = false, codegen-units = 256 for faster compilation
+        - Verified both packages build successfully in release mode with optimized build speed
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation
