@@ -72,8 +72,8 @@ async fn main() -> anyhow::Result<()> {
         .with_ansi(false) // No colors in file
         .with_target(false) // Remove target from log format
         .with_thread_ids(false) // Remove thread ids from log format
-        .with_thread_names(false) // Remove thread names from log format
-        .without_time(); // Remove timestamp from log format
+        .with_thread_names(false); // Remove thread names from log format
+        // Include timestamp at start of each line (default SystemTime format)
 
     // Configure stdout layer with custom formatting
     let stdout_layer = fmt::layer()

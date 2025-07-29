@@ -86,7 +86,10 @@
         - Added `file` and `line` fields to LogMessage struct with `#[allow(dead_code)]`
         - Updated JavaScript log interceptor to extract file:line format from console_log messages
         - Log server now accepts but ignores these fields as requested
-    - [ ] Make the format of tmp/dev_log_server.og look like a more typical logfile
+    - [x] the format of tmp/dev_log_server.log should include the timestamp at the start of each line
+        - Modified dev-log-server file layer to include timestamps using default SystemTime format
+        - Removed `.without_time()` call and added comment about timestamp inclusion
+        - Verified timestamps appear at start of each log line in RFC3339 format (e.g., "2025-07-29T18:57:51.793780Z")
     - [ ] Make xtask compile to release mode, but configure the crate to compile as fast as possible, do minimal optimization. do the same thing for dev_log_server.
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
