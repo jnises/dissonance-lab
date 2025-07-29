@@ -68,15 +68,20 @@
         - Added `-q` flag to the cargo alias to suppress cargo build/run messages
     - [x] dev_log_server does not seem to output debug logs, it should
         - Changed EnvFilter from "dev_log_server=info" to "dev_log_server=debug" to enable debug level logs
-    - [ ] The current dev_log_server output is something like:
+    - [x] The current dev_log_server output is something like:
       ```
       2025-07-29T18:14:55.874837Z  INFO dev_log_server: %cDEBUG%c src/webaudio.rs:40 %c
       Loading audio worklet from: ./dissonance_worklet_processor.js color: white; padding: 0 3px; background: blue; font-weight: bold; color: inherit background: inherit; color: inherit
       ```
       It should be:
       ```
-      2025-07-29T18:14:55.874837Z  DEBUG dev_log_server: src/webaudio.rs:40: Loading audio worklet from: ./dissonance_worklet_processor.js color: white; padding: 0 3px; background: blue; font-weight: bold; color: inherit background: inherit; color: inherit
+      2025-07-29T18:14:55.874837Z  DEBUG dev_log_server: src/webaudio.rs:40: Loading audio worklet from: ./dissonance_worklet_processor.js
       ```
+      - Fixed by updating the JavaScript log interceptor in generate-build-config.sh to:
+        - Strip CSS styling arguments from console_log crate 
+        - Extract log level from message content (DEBUG, INFO, etc.)
+        - Clean CSS markers (%c) from messages
+        - Map log levels correctly to the backend
     - [ ] Make xtask compile to release mode, but configure the crate to compile as fast as possible, do minimal optimization. do the same thing for dev_log_server.
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context

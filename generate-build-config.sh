@@ -77,20 +77,45 @@ window.dev_flag = true;
             // Call original method first
             originalMethod.apply(console, args);
             
-            // Format message
-            const message = args.map(arg => {
-                if (typeof arg === 'string') return arg;
-                if (arg instanceof Error) return arg.toString();
-                try {
-                    return JSON.stringify(arg);
-                } catch {
-                    return String(arg);
+            // Format message and clean up CSS styling from console_log crate
+            let message;
+            let logLevel = level;
+            
+            if (args.length > 0 && typeof args[0] === 'string' && args[0].includes('%c')) {
+                // This is a styled console message from console_log crate
+                // The first argument is the format string with %c markers
+                // Subsequent arguments are CSS styles that we want to ignore
+                message = args[0];
+                
+                // Remove all %c markers and their associated CSS
+                message = message.replace(/%c/g, '');
+                
+                // Extract log level from the message if present (console_log crate includes it)
+                const levelMatch = message.match(/^(ERROR|WARN|INFO|DEBUG|TRACE)\s+/);
+                if (levelMatch) {
+                    logLevel = levelMatch[1].toLowerCase();
+                    // Remove the level prefix from the message
+                    message = message.substring(levelMatch[0].length);
                 }
-            }).join(' ');
+            } else {
+                // Regular console message - process all arguments
+                message = args.map(arg => {
+                    if (typeof arg === 'string') return arg;
+                    if (arg instanceof Error) return arg.toString();
+                    try {
+                        return JSON.stringify(arg);
+                    } catch {
+                        return String(arg);
+                    }
+                }).join(' ');
+            }
+            
+            // Clean up extra whitespace
+            message = message.replace(/\s+/g, ' ').trim();
             
             // Add to buffer
             logBuffer.push({
-                level: level,
+                level: logLevel,
                 message: message
             });
             
