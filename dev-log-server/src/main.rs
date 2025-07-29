@@ -73,7 +73,7 @@ async fn main() -> anyhow::Result<()> {
         .with_target(false) // Remove target from log format
         .with_thread_ids(false) // Remove thread ids from log format
         .with_thread_names(false); // Remove thread names from log format
-        // Include timestamp at start of each line (default SystemTime format)
+    // Include timestamp at start of each line (default SystemTime format)
 
     // Configure stdout layer with custom formatting
     let stdout_layer = fmt::layer()

@@ -138,9 +138,9 @@ fn run_dev() -> Result<()> {
 
     // Wait for Ctrl+C signal
     let _ = rx.recv(); // Ignore recv errors - any error means we should proceed to shutdown
-    
+
     // Servers will be automatically killed when they go out of scope via Drop trait
-    
+
     Ok(())
 }
 
@@ -193,7 +193,7 @@ fn start_trunk_serve() -> Result<ManagedProcess> {
 
 fn build_log_server() -> Result<()> {
     println!("🔨 Building development log server (release mode)...");
-    
+
     let mut cmd = Command::new("cargo");
     cmd.args(["build", "--release", "-p", "dev-log-server"]);
     cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
@@ -211,12 +211,12 @@ fn build_log_server() -> Result<()> {
 
 fn build_main_project() -> Result<()> {
     println!("🔨 Building main project...");
-    
+
     // Check if trunk is available
     if which::which("trunk").is_err() {
         anyhow::bail!("trunk command not found - please install trunk with: cargo install trunk");
     }
-    
+
     let mut cmd = Command::new("trunk");
     cmd.args(["build"]);
     cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
