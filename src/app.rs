@@ -19,6 +19,7 @@ enum AudioState {
     Uninitialized,
     Muted,
     Playing(WebAudio),
+    Disabled, // Audio is not supported (e.g., mobile devices without AudioWorklet)
 }
 
 enum MidiState {
@@ -64,7 +65,23 @@ impl DissonanceLabApp {
             *self.audio.lock().unwrap(),
             AudioState::Muted | AudioState::Uninitialized
         ));
-        *self.audio.lock().unwrap() = AudioState::Playing(WebAudio::new());
+        let web_audio = WebAudio::new();
+        *self.audio.lock().unwrap() = AudioState::Playing(web_audio);
+    }
+
+    /// Check if the current audio state indicates failure and update to Disabled if so
+    fn check_audio_status(&mut self) {
+        let should_disable = {
+            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                web_audio.is_disabled()
+            } else {
+                false
+            }
+        };
+        
+        if should_disable {
+            *self.audio.lock().unwrap() = AudioState::Disabled;
+        }
     }
 
     fn ensure_midi(&mut self, ctx: &egui::Context) {
@@ -122,6 +139,7 @@ impl DissonanceLabApp {
 impl eframe::App for DissonanceLabApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ensure_midi(ctx);
+        self.check_audio_status();
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 const STATUS_HEIGHT: f32 = 40.0;
@@ -131,10 +149,15 @@ impl eframe::App for DissonanceLabApp {
                         const MUTE_FONT_SIZE: f32 = 16.0;
                         const STATUS_FONT_SIZE: f32 = 14.0;
                         ui.horizontal(|ui| {
-                            let playing = match *self.audio.lock().unwrap() {
-                                AudioState::Playing(_) => true,
-                                AudioState::Uninitialized | AudioState::Muted => false,
+                            let (playing, disabled, uninitialized) = {
+                                let audio_state = &*self.audio.lock().unwrap();
+                                (
+                                    matches!(audio_state, AudioState::Playing(_)),
+                                    matches!(audio_state, AudioState::Disabled),
+                                    matches!(audio_state, AudioState::Uninitialized),
+                                )
                             };
+                            
                             if playing {
                                 if ui
                                     .button(RichText::new("🔈").size(MUTE_FONT_SIZE))
@@ -142,6 +165,15 @@ impl eframe::App for DissonanceLabApp {
                                 {
                                     *self.audio.lock().unwrap() = AudioState::Muted;
                                 }
+                            } else if disabled {
+                                // Show disabled audio icon with explanatory text
+                                let disabled_button = ui.button(
+                                    RichText::new("🔇")
+                                        .size(MUTE_FONT_SIZE)
+                                        .color(ui.visuals().weak_text_color())
+                                        .strikethrough()
+                                );
+                                disabled_button.on_hover_text("Audio not supported on this device/browser");
                             } else {
                                 #[allow(clippy::collapsible_else_if)]
                                 let mute_button_response = ui.button(
@@ -156,7 +188,7 @@ impl eframe::App for DissonanceLabApp {
 
                                 // Draw custom graphic hint: rotated text with arrow pointing to mute button
                                 // Only show on wider screens to avoid clutter on mobile
-                                if matches!(*self.audio.lock().unwrap(), AudioState::Uninitialized)
+                                if uninitialized
                                     && ui.available_width() >= MOBILE_BREAKPOINT_WIDTH
                                 {
                                     // Constants for mute button hint styling

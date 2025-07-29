@@ -163,6 +163,15 @@ impl WebAudio {
             }
         }
     }
+
+    /// Check if audio is disabled (AudioWorklet failed to initialize)
+    pub fn is_disabled(&self) -> bool {
+        if let Some(node) = self.node.try_get() {
+            node.is_err()
+        } else {
+            false // Still loading
+        }
+    }
 }
 
 #[derive(Debug)]
