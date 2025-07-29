@@ -40,10 +40,8 @@ fn dump_log() -> Result<()> {
         anyhow::bail!("Log file not found: {}", log_file_path.display());
     }
 
-    let content = fs::read_to_string(&log_file_path).with_context(|| format!(
-        "Failed to read log file at: {}",
-        log_file_path.display()
-    ))?;
+    let content = fs::read_to_string(&log_file_path)
+        .with_context(|| format!("Failed to read log file at: {}", log_file_path.display()))?;
 
     const SESSION_START_MARKER: &str = "=== DISSONANCE_LAB_SESSION_START ===";
 
