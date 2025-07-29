@@ -42,8 +42,11 @@
         - [x] make sure the xtask has aliases set up
         - [x] Update readme with instruction for how to use this
     - [ ] Make the dev-log-server write to some log file
+        - [ ] make sure that file is gitignored
+        - [ ] Add some code to the forwarding code in js that indicates that a new frontend session has started
+    - [ ] Make sure the log forwarding code in js is started as soon as possible when the page loads
     - [ ] Add command to xtask that dumps the log file and tell the agent how to use that
-    
+    - [ ] clean up the log output format    
 
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context

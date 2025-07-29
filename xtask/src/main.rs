@@ -54,6 +54,7 @@ fn run_dev() -> Result<()> {
     println!("   🛑 Press Enter or Ctrl+C to stop all servers");
     println!();
 
+    // TODO: check for actual signal instead
     // Simple approach: wait for user input (Enter key or Ctrl+C will both work)
     let mut input = String::new();
     io::stdin().read_line(&mut input).ok();
@@ -92,8 +93,6 @@ fn find_project_root() -> Result<std::path::PathBuf> {
 }
 
 fn start_log_server() -> Result<Child> {
-    // The dev-log-server package has its own .cargo/config.toml that ensures
-    // it builds for the correct native target, so we don't need to specify it here
     let mut cmd = Command::new("cargo");
     cmd.args(["run", "-p", "dev-log-server"]);
     
