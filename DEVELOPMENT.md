@@ -27,7 +27,7 @@ Starts the all-in-one development server.
 - **Frontend**: `http://localhost:8080`
 - **Log Server**: `http://localhost:3001`
 
-### `cargo xtask dump-log`
+### `cargo xtask dump-latest-logs`
 
 Dumps the log messages from the most recent development session.
 

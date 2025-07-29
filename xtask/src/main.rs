@@ -21,7 +21,7 @@ enum Commands {
     /// Start development server (log server + trunk serve)
     Dev,
     /// Dump the latest session from the development log file
-    DumpLog,
+    DumpLatestLogs,
 }
 
 fn main() -> Result<()> {
@@ -29,7 +29,7 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Dev => run_dev(),
-        Commands::DumpLog => dump_log(),
+        Commands::DumpLatestLogs => dump_log(),
     }
 }
 

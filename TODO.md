@@ -52,7 +52,7 @@
     - [x] clean up the log output format
     - [x] dev-log-server should output its logs to tmp/dev-log-server.log and to no other file
     - [x] the xtask dump-logs should read from tmp/dev-log-server.log only
-    - [ ] rename the dump-logs command to dump-latest-logs to indicate that we only dump the latest session
+    - [x] rename the dump-logs command to dump-latest-logs to indicate that we only dump the latest session
     - [ ] Move any instructions you added to DEVELOPMENT.md to copilot-instructions.md, (or README.md if it is meant for the user). And then remove DEVELOPMENT.md
     - [ ] The dump-latest-logs command is meant for agent consumption.
         - [ ] Don't add colors
