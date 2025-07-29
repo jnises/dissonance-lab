@@ -80,6 +80,8 @@ window.dev_flag = true;
             // Format message and clean up CSS styling from console_log crate
             let message;
             let logLevel = level;
+            let file = null;
+            let line = null;
             
             if (args.length > 0 && typeof args[0] === 'string' && args[0].includes('%c')) {
                 // This is a styled console message from console_log crate
@@ -96,6 +98,15 @@ window.dev_flag = true;
                     logLevel = levelMatch[1].toLowerCase();
                     // Remove the level prefix from the message
                     message = message.substring(levelMatch[0].length);
+                }
+                
+                // Extract file and line information if present
+                // Format typically: "src/file.rs:123: actual message"
+                const fileLineMatch = message.match(/^([^:]+):(\d+):\s*(.*)/);
+                if (fileLineMatch) {
+                    file = fileLineMatch[1];
+                    line = parseInt(fileLineMatch[2], 10);
+                    message = fileLineMatch[3];
                 }
             } else {
                 // Regular console message - process all arguments
@@ -116,7 +127,9 @@ window.dev_flag = true;
             // Add to buffer
             logBuffer.push({
                 level: logLevel,
-                message: message
+                message: message,
+                file: file,
+                line: line
             });
             
             // Flush immediately if buffer is large, or schedule flush

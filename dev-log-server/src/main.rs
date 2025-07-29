@@ -16,6 +16,11 @@ use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberI
 struct LogMessage {
     level: String,
     message: String,
+    // ignore these for now. but we might want these in the logs in the future
+    #[allow(dead_code)]
+    file: Option<String>,
+    #[allow(dead_code)]
+    line: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]

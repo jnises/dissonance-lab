@@ -82,7 +82,10 @@
         - Extract log level from message content (DEBUG, INFO, etc.)
         - Clean CSS markers (%c) from messages
         - Map log levels correctly to the backend
-    - [ ] Make the frontend send file and line as separate fields of logformat. ignore these fields in dev_log_server for now. just allow(dead_code)
+    - [x] Make the frontend send file and line as separate fields of logformat. ignore these fields in dev_log_server for now. just allow(dead_code)
+        - Added `file` and `line` fields to LogMessage struct with `#[allow(dead_code)]`
+        - Updated JavaScript log interceptor to extract file:line format from console_log messages
+        - Log server now accepts but ignores these fields as requested
     - [ ] Make the format of tmp/dev_log_server.og look like a more typical logfile
     - [ ] Make xtask compile to release mode, but configure the crate to compile as fast as possible, do minimal optimization. do the same thing for dev_log_server.
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
