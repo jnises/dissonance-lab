@@ -1,4 +1,9 @@
 {
     "rust-analyzer.check.command": "clippy",
-    "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
+    // Use WASM target for the main crates (respects .cargo/config.toml overrides)
+    "rust-analyzer.cargo.target": "wasm32-unknown-unknown",
+    // Let individual packages override their target via their own .cargo/config.toml
+    "rust-analyzer.check.overrideCommand": [
+        "cargo", "clippy", "--workspace", "--message-format=json"
+    ]
 }

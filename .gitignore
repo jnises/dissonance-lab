@@ -12,3 +12,6 @@ target_wasm
 /audio-worklet/pkg
 
 /tmp/
+
+# build directory for generated files
+/build/

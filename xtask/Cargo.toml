@@ -1,0 +1,16 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2024"
+authors = ["Joel Nises <joel.nises@gmail.com>"]
+description = "Development utility tasks for dissonance-lab"
+
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+which.workspace = true
+ctrlc.workspace = true

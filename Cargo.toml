@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "audio-worklet", "shared-types"]
+members = [".", "audio-worklet", "shared-types", "xtask", "dev-log-server"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -30,6 +30,17 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1.7"
 console_log = { version = "1.0", features = ["color"] }
+axum = "0.8"
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+clap = { version = "4.0", features = ["derive"] }
+which = "8.0"
+ctrlc = { version = "3.4", features = ["termination"] }
 web-sys = { version = "0.3.70", features = [
     "AudioContext",
     "AudioWorklet",
@@ -52,7 +63,7 @@ web-sys = { version = "0.3.70", features = [
 
 [package]
 name = "dissonance-lab"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Joel Nises <joel.nises@gmail.com>"]
 edition = "2024"
 include = ["LICENSE", "**/*.rs", "Cargo.toml"]
@@ -98,6 +109,17 @@ opt-level = 2 # fast and small wasm
 # Optimize all dependencies even in debug builds:
 [profile.dev.package."*"]
 opt-level = 2
+
+# Development tools should compile in release mode but optimize for build speed
+[profile.release.package.xtask]
+opt-level = 1
+debug = false
+codegen-units = 256
+
+[profile.release.package.dev-log-server]
+opt-level = 1
+debug = false
+codegen-units = 256
 
 
 [patch.crates-io]

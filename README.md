@@ -17,27 +17,65 @@ The pressed keys are considered the root of each interval even when it isn't the
 * wasm-pack `cargo install wasm-pack`
 
 ## Running
-
 ```
 trunk serve --release
 ```
-Navigate to http://127.0.0.1:8080/
+Navigate to http://127.0.0.1:8080/#dev
 
 Note that you need to manually unmute by clicking the 🔇 button. This is due to the browser autoplay blocking feature.
 
+### Development Environment
+
+#### Quick Start
+For the best development experience, use the included development tools that start both the frontend and log server:
+
+```bash
+cargo xtask dev
+```
+
+This single command will:
+- Start the backend HTTP log server on port 3001
+- Start the Trunk development server on port 8080
+- Enable automatic builds with hot-reloading
+- Forward frontend console logs to your terminal
+
+Navigate to http://127.0.0.1:8080/#dev
+
+When you're done, press `Ctrl+C` in the terminal to shut everything down gracefully.
+
+#### Manual Setup (Alternative)
+If you prefer to run the components manually:
+
+1. **Start the log server** (in one terminal):
+   ```bash
+   cargo run -p dev-log-server
+   ```
+
+2. **Start Trunk** (in another terminal):
+   ```bash
+   trunk serve
+   ```
+
+#### Build Commands
+For standalone builds, use Trunk directly:
+
+```bash
+# Build for development (with debug logging)
+trunk build
+
+# Build for release (optimized, no debug logging)
+trunk build --release
+```
+
 ## Testing
 ```
-./test.sh
+cargo test
 ```
+Tests run as native binaries by default.
 
-You can't use `cargo test` directly since that would compile as wasm.
-`test.sh` runs the tests as a native binary.
-
-## Local development
-```
-trunk serve
-```
-Then open http://127.0.0.1:8080/#dev
-The #dev disables the pwa cache so that we get the latest version of the page.
+## Development Notes
+The project includes:
+- **Frontend log forwarding**: Console logs from the browser are forwarded to the terminal during development
+- **Audio worklet processing**: Real-time audio synthesis using WebAssembly
 
 When you want to deploy to production you should make sure to update `cacheName` in `sw.js` to invalidate the cache.
