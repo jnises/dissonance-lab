@@ -1,10 +1,12 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use colored::*;
 use std::env;
+use std::fs;
 use std::process::{Child, Command, Stdio};
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-use std::io;
 
 #[derive(Parser)]
 #[command(name = "xtask")]
@@ -18,6 +20,8 @@ struct Cli {
 enum Commands {
     /// Start development server (log server + trunk serve)
     Dev,
+    /// Dump the latest session from the development log file
+    DumpLog,
 }
 
 fn main() -> Result<()> {
@@ -25,8 +29,82 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Dev => run_dev(),
+        Commands::DumpLog => dump_log(),
     }
 }
+
+fn dump_log() -> Result<()> {
+    let project_root = find_project_root()?;
+    let tmp_dir = project_root.join("tmp");
+    
+    // Find the most recent log file (check both current and dated versions)
+    let base_log_path = tmp_dir.join("dev-log-server.log");
+    let mut log_files = vec![];
+    
+    // Add the base log file if it exists
+    if base_log_path.exists() {
+        log_files.push(base_log_path.clone());
+    }
+    
+    // Look for dated log files
+    if let Ok(entries) = fs::read_dir(&tmp_dir) {
+        for entry in entries.flatten() {
+            let file_name = entry.file_name();
+            if let Some(name_str) = file_name.to_str() {
+                if name_str.starts_with("dev-log-server.log.") {
+                    log_files.push(entry.path());
+                }
+            }
+        }
+    }
+    
+    if log_files.is_empty() {
+        anyhow::bail!("No log files found in: {}", tmp_dir.display());
+    }
+    
+    // Sort by modification time, most recent first
+    log_files.sort_by_key(|path| {
+        fs::metadata(path)
+            .and_then(|m| m.modified())
+            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+    });
+    log_files.reverse();
+    
+    let log_file_path = &log_files[0];
+    let content = fs::read_to_string(log_file_path)
+        .context(format!("Failed to read log file at: {}", log_file_path.display()))?;
+
+    const SESSION_START_MARKER: &str = "New session started";
+
+    let logs_to_print = if let Some(start_index) = content.rfind(SESSION_START_MARKER) {
+        // Skip the "New session started" line itself
+        let session_logs = content[start_index..].lines().skip(1).collect::<Vec<_>>().join("\n");
+        format!("--- Latest Log Session ---\n{session_logs}\n--- End of Log Session ---")
+    } else {
+        format!("No 'New session started' marker found. Showing full log.\n--- Full Log ---\n{content}\n--- End of Full Log ---")
+    };
+
+    // Colorize the output
+    for line in logs_to_print.lines() {
+        let colored_line = if line.contains("ERROR") {
+            line.red()
+        } else if line.contains("WARN") {
+            line.yellow()
+        } else if line.contains("INFO") {
+            line.green()
+        } else if line.contains("DEBUG") {
+            line.blue()
+        } else if line.contains("TRACE") {
+            line.purple()
+        } else {
+            line.normal()
+        };
+        println!("{colored_line}");
+    }
+
+    Ok(())
+}
+
 
 fn run_dev() -> Result<()> {
     println!("🚀 Starting dissonance-lab development environment...");
@@ -51,13 +129,19 @@ fn run_dev() -> Result<()> {
     println!("✅ Development environment is ready!");
     println!("   📊 Frontend: http://localhost:8080");
     println!("   📡 Log server: http://localhost:3001");
-    println!("   🛑 Press Enter or Ctrl+C to stop all servers");
+    println!("   🛑 Press Ctrl+C to stop all servers");
     println!();
 
-    // TODO: check for actual signal instead
-    // Simple approach: wait for user input (Enter key or Ctrl+C will both work)
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).ok();
+    // Set up Ctrl+C handling with channel
+    let (tx, rx) = mpsc::channel();
+    
+    ctrlc::set_handler(move || {
+        println!("\n🛑 Received Ctrl+C, shutting down...");
+        let _ = tx.send(()); // Ignore send errors - if receiver is dropped, we're already shutting down
+    }).expect("Error setting Ctrl-C handler");
+
+    // Wait for Ctrl+C signal
+    let _ = rx.recv(); // Ignore recv errors - any error means we should proceed to shutdown
 
     println!("🛑 Shutting down development environment...");
 

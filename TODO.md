@@ -41,12 +41,23 @@
     - [x] Create an xtask that starts both dev-log-server and `trunk serve`
         - [x] make sure the xtask has aliases set up
         - [x] Update readme with instruction for how to use this
-    - [ ] Make the dev-log-server write to some log file
-        - [ ] make sure that file is gitignored
-        - [ ] Add some code to the forwarding code in js that indicates that a new frontend session has started
-    - [ ] Make sure the log forwarding code in js is started as soon as possible when the page loads
-    - [ ] Add command to xtask that dumps the log file and tell the agent how to use that
-    - [ ] clean up the log output format    
+    - [x] Make the dev-log-server write to some log file
+        - [x] make sure that file is gitignored
+        - [x] Add some code to the forwarding code in js that indicates that a new frontend session has started
+    - [x] Make sure the log forwarding code in js is started as soon as possible when the page loads
+    - [x] Add command to xtask that dumps the log file and tell the agent how to use that
+        - [x] Add a new command to the `xtask` crate to dump the log file
+        - [x] Make the new command only dump the latest session from the log file
+        - [x] Update the `DEVELOPMENT.md` file with instructions on how to use the new command
+    - [x] clean up the log output format
+    - [ ] dev-log-server should output its logs to tmp/dev-log-server.log and to no other file
+    - [ ] the xtask dump-logs should read from tmp/dev-log-server.log only
+    - [ ] rename the dump-logs command to dump-latest-logs to indicate that we only dump the latest session
+    - [ ] Move any instructions you added to DEVELOPMENT.md to copilot-instructions.md, (or README.md if it is meant for the user). And then remove DEVELOPMENT.md
+    - [ ] The dump-latest-logs command is meant for agent consumption.
+        - [ ] Don't add colors
+        - [ ] Remove anything that isn't directly useful for the agent. we want to conserve context as much as possible
+    - [ ] make sure the release minification actually strips out the log forwarding code as dead code elimination
 
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context

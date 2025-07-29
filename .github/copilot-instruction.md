@@ -23,6 +23,7 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 - Strive for a clear and predictable data flow. When designing component interactions, prefer architectures where state is polled from a central source (pull-based) over complex, deeply nested callback chains (push-based), unless the reactive, event-driven nature of the UI demands it.
 - Avoid using magic numbers in the code. Instead, define a `const` for such values, placing it as close as possible to where it is used. If a constant is only referenced in one location, keeping it nearby improves code readability by eliminating the need to scroll to find its value. However, do not define a `const` if the value is already clearly documented elsewhere, such as when it appears in a `match` statement for an enum.
 - Avoid unsafe. If you really think you need unsafe, ask the user first, and write a detailed comment why unsafe was required.
+- Avoid wildcard imports (`use x::*;`) unless explicitly recommended for a specific case, such as importing a crate's prelude. Prefer listing only the items you need to improve code clarity and maintainability.
 
 # Conventions
 - We use `egui` as our GUI library.
@@ -30,7 +31,20 @@ The project it split into multiple crates. All in the same cargo workspace. Make
 
 # Building
 - Check and lint using `cargo check --workspace` and `cargo clippy --workspace`.
+- **MANDATORY**: Always run these commands after making any changes. New errors or warnings introduced by your changes must be fixed.
 - Build the project using `trunk build`.
+
+# Quality Assurance
+- **MANDATORY**: Before completing any task, run `cargo check --workspace` and `cargo clippy --workspace`
+- If these commands fail or show NEW warnings/errors compared to before your changes, you MUST fix them
+- Pre-existing warnings unrelated to your changes should be left alone
+- Document any intentional ignoring of errors with detailed comments explaining why
+
+# Agent Compliance
+- **MANDATORY**: Always read and apply the full copilot-instruction.md file for every task
+- **MANDATORY**: Follow the code style guidelines without exception
+- **MANDATORY**: Use the specified tools and commands as documented
+- If you cannot follow an instruction, explain why and ask for clarification before proceeding
 
 # Running
 - For development the project is started using `cargo xtask dev`. But the agent shouldn't call that. The user will keep that running continuously.
