@@ -1,16 +1,16 @@
 use axum::{
+    Router,
     extract::Json,
     http::{Method, StatusCode},
     response::Json as ResponseJson,
     routing::post,
-    Router,
 };
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
-use tracing::{error, info, warn, debug, trace};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, fmt, EnvFilter};
+use tracing::{debug, error, info, trace, warn};
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Debug, Deserialize)]
 struct LogMessage {
@@ -23,7 +23,9 @@ struct LogResponse {
     status: String,
 }
 
-async fn receive_logs(Json(payload): Json<LogMessage>) -> Result<ResponseJson<LogResponse>, StatusCode> {
+async fn receive_logs(
+    Json(payload): Json<LogMessage>,
+) -> Result<ResponseJson<LogResponse>, StatusCode> {
     // Log using tracing with simplified format (no target, module_path, or location)
     match payload.level.to_lowercase().as_str() {
         "error" => error!("{}", payload.message),
@@ -47,10 +49,10 @@ async fn main() -> anyhow::Result<()> {
         .ancestors()
         .find(|path| path.join("Cargo.toml").exists())
         .ok_or_else(|| anyhow::anyhow!("Could not find project root"))?;
-    
+
     let tmp_dir = project_root.join("tmp");
     std::fs::create_dir_all(&tmp_dir)?;
-    
+
     // Create a simple file appender that truncates on each start
     let log_file = std::fs::OpenOptions::new()
         .create(true)
@@ -79,8 +81,9 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(file_layer)
         .with(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "dev_log_server=info,tower_http=info,dissonance_lab=debug".into())
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "dev_log_server=info,tower_http=info,dissonance_lab=debug".into()
+            }),
         )
         .with(stdout_layer)
         .init();
@@ -100,9 +103,9 @@ async fn main() -> anyhow::Result<()> {
     let port = std::env::var("DEV_LOG_SERVER_PORT")
         .unwrap_or_else(|_| "3001".to_string())
         .parse::<u16>()?;
-    
+
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    
+
     info!(target: "dev_log_server", "Log server starting on http://{}", addr);
     info!(target: "dev_log_server", "Ready to receive logs from /logs");
 
