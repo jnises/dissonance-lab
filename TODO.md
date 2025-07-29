@@ -82,6 +82,8 @@
         - Extract log level from message content (DEBUG, INFO, etc.)
         - Clean CSS markers (%c) from messages
         - Map log levels correctly to the backend
+    - [ ] Make the frontend send file and line as separate fields of logformat. ignore these fields in dev_log_server for now. just allow(dead_code)
+    - [ ] Make the format of tmp/dev_log_server.og look like a more typical logfile
     - [ ] Make xtask compile to release mode, but configure the crate to compile as fast as possible, do minimal optimization. do the same thing for dev_log_server.
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
