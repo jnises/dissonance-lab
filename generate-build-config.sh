@@ -1,24 +1,28 @@
 #!/bin/bash
 
-# Script to generate config.js with development flags and optional log forwarding
+# Script to generate build-config.js with development flags and log forwarding functionality
+#
+# ⚠️  WARNING: If you modify this script, you need to restart 'trunk serve' to pick up the changes!
+#     The generated file is cached and changes won't be reflected until restart.
+#
 set -euo pipefail
 
 # Create build directory if it doesn't exist
 mkdir -p build
 
-echo "Generating build/config.js..."
+echo "Generating build/build-config.js..."
 
 # Check if we're in release mode - trunk sets TRUNK_PROFILE instead of TRUNK_BUILD_RELEASE
 if [ "${TRUNK_PROFILE:-debug}" = "release" ]; then
-    echo "RELEASE build detected - generating config.js WITHOUT log forwarding"
-    cat > build/config.js << 'EOF'
+    echo "RELEASE build detected - generating build-config.js WITHOUT log forwarding"
+    cat > build/build-config.js << 'EOF'
 // Build configuration
 window.dev_flag = false;
 // No log forwarding code in release builds
 EOF
 else
-    echo "DEBUG build detected - generating config.js WITH log forwarding"
-    cat > build/config.js << 'EOF'
+    echo "DEBUG build detected - generating build-config.js WITH log forwarding"
+    cat > build/build-config.js << 'EOF'
 // Build configuration
 window.dev_flag = true;
 
@@ -117,4 +121,4 @@ window.dev_flag = true;
 EOF
 fi
 
-echo "Successfully generated build/config.js"
+echo "Successfully generated build/build-config.js"
