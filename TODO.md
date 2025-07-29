@@ -64,6 +64,17 @@
         - Simplified log format in dev-log-server to only include log level and message
         - Removed unused chrono dependency and cleaned up LogMessage struct
         - Updated xtask clean_log_line function to work with the new simplified format
+    - [ ] Make the xtask alias not output any of the cargo stuff, only the output from the actual command
+    - [ ] dev_log_server does not seem to output debug logs, it should
+    - [ ] The current dev_log_server output is something like:
+      ```
+      2025-07-29T18:14:55.874837Z  INFO dev_log_server: %cDEBUG%c src/webaudio.rs:40 %c
+      Loading audio worklet from: ./dissonance_worklet_processor.js color: white; padding: 0 3px; background: blue; font-weight: bold; color: inherit background: inherit; color: inherit
+      ```
+      It should be:
+      ```
+      2025-07-29T18:14:55.874837Z  DEBUG dev_log_server: src/webaudio.rs:40: Loading audio worklet from: ./dissonance_worklet_processor.js color: white; padding: 0 3px; background: blue; font-weight: bold; color: inherit background: inherit; color: inherit
+      ```
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation
