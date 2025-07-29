@@ -98,10 +98,15 @@ async fn main() -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Could not find project root"))?;
     
     let tmp_dir = project_root.join("tmp");
+    std::fs::create_dir_all(&tmp_dir)?;
     
-    // Create a rolling file appender
-    let file_appender = tracing_appender::rolling::daily(tmp_dir, "dev-log-server.log");
-    let (non_blocking_appender, _guard) = tracing_appender::non_blocking(file_appender);
+    // Create a simple file appender that truncates on each start
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(tmp_dir.join("dev-log-server.log"))?;
+    let (non_blocking_appender, _guard) = tracing_appender::non_blocking(log_file);
 
     // Configure file layer
     let file_layer = fmt::layer()

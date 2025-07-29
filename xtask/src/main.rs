@@ -35,43 +35,13 @@ fn main() -> Result<()> {
 
 fn dump_log() -> Result<()> {
     let project_root = find_project_root()?;
-    let tmp_dir = project_root.join("tmp");
+    let log_file_path = project_root.join("tmp").join("dev-log-server.log");
     
-    // Find the most recent log file (check both current and dated versions)
-    let base_log_path = tmp_dir.join("dev-log-server.log");
-    let mut log_files = vec![];
-    
-    // Add the base log file if it exists
-    if base_log_path.exists() {
-        log_files.push(base_log_path.clone());
+    if !log_file_path.exists() {
+        anyhow::bail!("Log file not found: {}", log_file_path.display());
     }
     
-    // Look for dated log files
-    if let Ok(entries) = fs::read_dir(&tmp_dir) {
-        for entry in entries.flatten() {
-            let file_name = entry.file_name();
-            if let Some(name_str) = file_name.to_str() {
-                if name_str.starts_with("dev-log-server.log.") {
-                    log_files.push(entry.path());
-                }
-            }
-        }
-    }
-    
-    if log_files.is_empty() {
-        anyhow::bail!("No log files found in: {}", tmp_dir.display());
-    }
-    
-    // Sort by modification time, most recent first
-    log_files.sort_by_key(|path| {
-        fs::metadata(path)
-            .and_then(|m| m.modified())
-            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
-    });
-    log_files.reverse();
-    
-    let log_file_path = &log_files[0];
-    let content = fs::read_to_string(log_file_path)
+    let content = fs::read_to_string(&log_file_path)
         .context(format!("Failed to read log file at: {}", log_file_path.display()))?;
 
     const SESSION_START_MARKER: &str = "New session started";
