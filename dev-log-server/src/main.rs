@@ -25,14 +25,14 @@ struct LogResponse {
 
 async fn receive_logs(
     Json(payload): Json<LogMessage>,
+) -> Result<ResponseJson<LogResponse>, StatusCode> {
+    // Log using tracing with simplified format (no target, module_path, or location)
     match payload.level.to_lowercase().as_str() {
         "error" => error!("{}", payload.message),
         "warn" | "warning" => warn!("{}", payload.message),
         "info" => info!("{}", payload.message),
         "debug" => debug!("{}", payload.message),
         "trace" => trace!("{}", payload.message),
-        unknown_level => info!("[{unknown_level}] {}", payload.message),
-    }
         _ => info!("{}", payload.message),
     }
 
