@@ -346,21 +346,23 @@ impl eframe::App for DissonanceLabApp {
                         _ => {}
                     }
                 }
-                match interval_display::show(&mut self.piano_gui, ui) {
-                    None => {}
-                    Some(piano_gui::Action::Pressed(note)) => {
-                        if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
-                            web_audio.send_message(ToWorkletMessage::NoteOn {
-                                note: u8::from(note),
-                                velocity: 64,
-                            });
+                let actions = interval_display::show(&mut self.piano_gui, ui);
+                for action in actions {
+                    match action {
+                        piano_gui::Action::Pressed(note) => {
+                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                web_audio.send_message(ToWorkletMessage::NoteOn {
+                                    note: u8::from(note),
+                                    velocity: 64,
+                                });
+                            }
                         }
-                    }
-                    Some(piano_gui::Action::Released(note)) => {
-                        if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
-                            web_audio.send_message(ToWorkletMessage::NoteOff {
-                                note: u8::from(note),
-                            });
+                        piano_gui::Action::Released(note) => {
+                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                web_audio.send_message(ToWorkletMessage::NoteOff {
+                                    note: u8::from(note),
+                                });
+                            }
                         }
                     }
                 }

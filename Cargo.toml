@@ -7,7 +7,6 @@ egui = "0.32"
 eframe = { version = "0.32", default-features = false, features = [
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
-    "wayland",       # To support Linux (and CI)
 ] }
 log = "0.4"
 num-rational = "0.4"
@@ -22,7 +21,6 @@ strum_macros = "0.27.1"
 midir = "0.10.1"
 thiserror = "2.0.12"
 web-time = "1.1.0"
-parking_lot = "0.12.3"
 js-sys = "0.3.77"
 serde = { version = "1.0.219", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"
@@ -89,7 +87,6 @@ strum_macros.workspace = true
 midir.workspace = true
 thiserror.workspace = true
 web-time.workspace = true
-parking_lot.workspace = true
 js-sys.workspace = true
 serde.workspace = true
 serde-wasm-bindgen.workspace = true
@@ -102,6 +99,10 @@ shared-types = { path = "shared-types" }
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.11"
+
+# WASM: Override problematic dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook.workspace = true
 
 [profile.release]
 opt-level = 2 # fast and small wasm
@@ -125,8 +126,8 @@ codegen-units = 256
 [patch.crates-io]
 
 # If you want to use the bleeding edge version of egui and eframe:
-# egui = { git = "https://github.com/emilk/egui", branch = "master" }
-# eframe = { git = "https://github.com/emilk/egui", branch = "master" }
+# egui = { git = "https://github.com/emilk/egui", branch = "main" }
+# eframe = { git = "https://github.com/emilk/egui", branch = "main" }
 
 # If you fork https://github.com/emilk/egui you can test with:
 # egui = { path = "../egui/crates/egui" }

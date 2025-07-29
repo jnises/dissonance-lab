@@ -5,6 +5,9 @@
 fn main() {
     use eframe::wasm_bindgen::JsCast as _;
 
+    // Make sure panics are logged to console for easier debugging
+    console_error_panic_hook::set_once();
+
     // Redirect `log` message to `console.log` and friends:
     #[cfg(debug_assertions)]
     console_log::init_with_level(log::Level::Debug).expect("error initializing log");

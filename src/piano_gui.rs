@@ -1,5 +1,5 @@
 use bitvec::{BitArr, order::Msb0};
-use egui::{Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2, Id, Event, TouchPhase};
+use egui::{Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2, Event, TouchPhase};
 use wmidi::Note;
 use std::collections::{HashMap, HashSet};
 
@@ -20,6 +20,17 @@ type ExternalKeySet = BitArr!(for 128, in u32, Msb0);
 pub struct PianoGui {
     selected_keys: KeySet,
     external_keys: ExternalKeySet,
+    // Touch state managed locally instead of using egui's ui.data() to avoid a specific
+    // WASM panic that occurred with egui 0.32.0. While egui and parking_lot both support
+    // WASM, ui.data() triggered a code path that caused threading-related panics.
+    // This local state approach is more efficient anyway and avoids the issue entirely.
+    pointer_to_key: HashMap<PointerId, usize>, // PointerId -> semitone
+    key_pointers: HashMap<usize, HashSet<PointerId>>, // semitone -> set of pointers
+}
+
+pub enum Action {
+    Pressed(wmidi::Note),
+    Released(wmidi::Note),
 }
 
 impl PianoGui {
@@ -27,6 +38,8 @@ impl PianoGui {
         Self {
             selected_keys: Default::default(),
             external_keys: Default::default(),
+            pointer_to_key: HashMap::new(),
+            key_pointers: HashMap::new(),
         }
     }
 
@@ -38,9 +51,9 @@ impl PianoGui {
         self.external_keys.set(u8::from(note) as usize, false);
     }
 
-    pub fn show(&mut self, ui: &mut Ui) -> (Option<Action>, Rect) {
+    pub fn show(&mut self, ui: &mut Ui) -> (Vec<Action>, Rect) {
         let pressed_keys = self.pressed_keys();
-        let mut action = None;
+        let mut actions = Vec::new();
         let mut piano_size = vec2(PIANO_WIDTH, PIANO_HEIGHT);
         if piano_size.x > ui.available_width() {
             const MIN_PIANO_SCALE: f32 = 0.5;
@@ -53,6 +66,10 @@ impl PianoGui {
         const MARGIN: f32 = 2.0;
         let keys_rect = rect.shrink(MARGIN);
         let shift_pressed = ui.input(|i| i.modifiers.shift);
+
+        // Create a map of key_id -> (key_index, key_rect, semitone)
+        let mut key_info = HashMap::new();
+        
         const NUM_WHITE_KEYS: usize = 7;
         const NUM_BLACK_KEYS: usize = 5;
         const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
@@ -64,6 +81,8 @@ impl PianoGui {
             White,
             Black,
         }
+        
+        // First pass: build key info map
         for color in [Color::White, Color::Black] {
             let num_keys = match color {
                 Color::White => NUM_WHITE_KEYS,
@@ -101,115 +120,159 @@ impl PianoGui {
                     Color::White => white_key_to_semitone(key),
                     Color::Black => black_key_to_semitone(key),
                 };
-                let selected = self.selected_keys[semitone];
-                let combined_selected = pressed_keys[semitone];
-                let note = wmidi::Note::C4.step(semitone as i8).unwrap();
-                const KEY_RECT_CORNER_RADIUS: f32 = 0.0;
-                const KEY_OUTLINE_STROKE_WIDTH: f32 = 2.0;
-                painter.rect(
-                    key_rect,
-                    KEY_RECT_CORNER_RADIUS,
-                    if selected {
-                        theme::selected_key()
-                    } else if combined_selected {
-                        theme::external_selected_key()
-                    } else {
-                        ui.visuals().panel_fill
-                    },
-                    Stroke::new(KEY_OUTLINE_STROKE_WIDTH, theme::outlines()),
-                    StrokeKind::Middle,
-                );
-                let key_response = ui.interact(key_rect, key_id, Sense::click());
-                
-                // Get multi-pointer tracking data
-                let mut active_pointers = ui.data(|r| {
-                    r.get_temp::<HashSet<PointerId>>(key_id).unwrap_or_default()
-                });
-                let mut pointer_to_key = ui.data(|r| {
-                    r.get_temp::<HashMap<PointerId, Id>>(ui.id().with("pointer_to_key")).unwrap_or_default()
-                });
-                
-                let was_pressed = !active_pointers.is_empty();
-                
-                // Handle mouse input
-                if key_response.is_pointer_button_down_on() {
-                    if !active_pointers.contains(&PointerId::Mouse) {
-                        // Mouse press started
-                        active_pointers.insert(PointerId::Mouse);
-                        pointer_to_key.insert(PointerId::Mouse, key_id);
-                    }
-                } else {
-                    if active_pointers.contains(&PointerId::Mouse) {
-                        // Mouse press ended
-                        active_pointers.remove(&PointerId::Mouse);
-                        pointer_to_key.remove(&PointerId::Mouse);
-                    }
-                }
-                
-                // Process touch events
-                ui.input(|i| {
-                    for event in &i.events {
-                        if let Event::Touch { id, phase, pos, .. } = event {
-                            let pointer_id = PointerId::Touch(id.0);
-                            match phase {
-                                TouchPhase::Start | TouchPhase::Move => {
-                                    if key_rect.contains(*pos) {
-                                        if !active_pointers.contains(&pointer_id) {
-                                            // New touch on this key
-                                            if let Some(old_key) = pointer_to_key.get(&pointer_id) {
-                                                // Touch moved from another key, remove from old key
-                                                if let Some(mut old_pointers) = ui.data(|r| r.get_temp::<HashSet<PointerId>>(*old_key)) {
-                                                    old_pointers.remove(&pointer_id);
-                                                    ui.data_mut(|r| r.insert_temp(*old_key, old_pointers));
-                                                }
-                                            }
-                                            active_pointers.insert(pointer_id);
-                                            pointer_to_key.insert(pointer_id, key_id);
-                                        }
-                                    } else {
-                                        // Touch moved away from this key
-                                        if active_pointers.contains(&pointer_id) {
-                                            active_pointers.remove(&pointer_id);
-                                            pointer_to_key.remove(&pointer_id);
+                key_info.insert(key_id, (key, key_rect, semitone));
+            }
+        }
+        
+        // Process all touch events using local state instead of egui's ui.data() system.
+        // This avoids a specific WASM panic that occurred in egui 0.32.0 when ui.data()
+        // triggered certain parking_lot code paths. While both egui and parking_lot support
+        // WASM, this approach is more efficient and sidesteps the issue completely.
+        ui.input(|i| {
+            for event in &i.events {
+                if let Event::Touch { id, phase, pos, .. } = event {
+                    let pointer_id = PointerId::Touch(id.0);
+                    
+                    match phase {
+                        TouchPhase::Start | TouchPhase::Move => {
+                            // Find which key this touch is over (check black keys first for proper layering)
+                            let mut target_semitone = None;
+                            for color in [Color::Black, Color::White] {
+                                let num_keys = match color {
+                                    Color::White => NUM_WHITE_KEYS,
+                                    Color::Black => NUM_BLACK_KEYS,
+                                };
+                                for key in 0..num_keys {
+                                    let key_id = ui.id().with(format!("{color}{key}"));
+                                    if let Some((_, key_rect, semitone)) = key_info.get(&key_id) {
+                                        if key_rect.contains(*pos) {
+                                            target_semitone = Some(*semitone);
+                                            break;
                                         }
                                     }
                                 }
-                                TouchPhase::End | TouchPhase::Cancel => {
-                                    // Touch ended
-                                    if active_pointers.contains(&pointer_id) {
-                                        active_pointers.remove(&pointer_id);
-                                        pointer_to_key.remove(&pointer_id);
+                                if target_semitone.is_some() {
+                                    break;
+                                }
+                            }
+                            
+                            if let Some(new_semitone) = target_semitone {
+                                // Check if touch moved to a different key
+                                if let Some(old_semitone) = self.pointer_to_key.get(&pointer_id) {
+                                    if *old_semitone != new_semitone {
+                                        // Remove from old key
+                                        if let Some(pointers) = self.key_pointers.get_mut(old_semitone) {
+                                            pointers.remove(&pointer_id);
+                                        }
+                                        // Add to new key
+                                        self.pointer_to_key.insert(pointer_id, new_semitone);
+                                        self.key_pointers.entry(new_semitone).or_default().insert(pointer_id);
+                                    }
+                                } else {
+                                    // New touch
+                                    self.pointer_to_key.insert(pointer_id, new_semitone);
+                                    self.key_pointers.entry(new_semitone).or_default().insert(pointer_id);
+                                }
+                            } else {
+                                // Touch moved outside all keys
+                                if let Some(old_semitone) = self.pointer_to_key.remove(&pointer_id) {
+                                    if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+                                        pointers.remove(&pointer_id);
                                     }
                                 }
                             }
                         }
+                        TouchPhase::End | TouchPhase::Cancel => {
+                            // Touch ended - remove from tracking
+                            if let Some(old_semitone) = self.pointer_to_key.remove(&pointer_id) {
+                                if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+                                    pointers.remove(&pointer_id);
+                                }
+                            }
+                        }
                     }
-                });
+                }
+            }
+        });
+
+        // Second pass: render keys and handle mouse interactions.
+        // This architecture processes all touch events globally first, then renders each key,
+        // which is more efficient than the previous approach where each key processed all events.
+        // The local state management also eliminates redundant event processing and ensures
+        // proper multitouch handling without WASM compatibility issues.
+        for color in [Color::White, Color::Black] {
+            let num_keys = match color {
+                Color::White => NUM_WHITE_KEYS,
+                Color::Black => NUM_BLACK_KEYS,
+            };
+            for key in 0..num_keys {
+                let key_id = ui.id().with(format!("{color}{key}"));
+                let (_, key_rect, semitone) = key_info[&key_id];
                 
-                let is_pressed = !active_pointers.is_empty();
+                // Get active pointers for this key from our local state
+                let touch_pointers = self.key_pointers.get(&semitone).cloned().unwrap_or_default();
+                let mut all_pointers = touch_pointers;
+
+                // Handle mouse interactions
+                let key_response = ui.allocate_rect(key_rect, Sense::click_and_drag());
+                let mouse_pressed = key_response.is_pointer_button_down_on();
+                let mouse_pointer_id = PointerId::Mouse;
                 
-                // Generate actions based on state changes
+                // Track mouse pointer state
+                if mouse_pressed {
+                    all_pointers.insert(mouse_pointer_id);
+                }
+                
+                let is_pressed = !all_pointers.is_empty();
+
+                let was_pressed = self.selected_keys[semitone] || 
+                    self.external_keys.iter_ones().any(|k| k % 12 == semitone);
+                
                 if is_pressed && !was_pressed {
-                    debug_assert!(action.is_none());
-                    action = Some(Action::Pressed(note));
+                    let note = wmidi::Note::C4.step(semitone as i8).unwrap();
+                    actions.push(Action::Pressed(note));
                     if !shift_pressed {
                         self.selected_keys.fill(false);
                     }
                     let key_selected = self.selected_keys[semitone];
                     self.selected_keys.set(semitone, !key_selected);
                 } else if !is_pressed && was_pressed {
-                    debug_assert!(action.is_none());
-                    action = Some(Action::Released(note));
+                    let note = wmidi::Note::C4.step(semitone as i8).unwrap();
+                    actions.push(Action::Released(note));
                 }
+
+                let selected = self.selected_keys[semitone];
+                let combined_selected = pressed_keys[semitone];
                 
-                // Store updated tracking data
-                ui.data_mut(|r| {
-                    r.insert_temp(key_id, active_pointers);
-                    r.insert_temp(ui.id().with("pointer_to_key"), pointer_to_key);
-                });
+                let key_fill = if selected {
+                    theme::selected_key()
+                } else if combined_selected {
+                    theme::external_selected_key()
+                } else {
+                    ui.visuals().panel_fill
+                };
+                let key_stroke = Stroke::new(2.0, theme::outlines());
+                painter.rect(
+                    key_rect,
+                    0.0,
+                    key_fill,
+                    key_stroke,
+                    StrokeKind::Middle,
+                );
+                if is_pressed {
+                    const HIGHLIGHT_INSET: f32 = 2.0;
+                    let highlight_rect = key_rect.shrink(HIGHLIGHT_INSET);
+                    painter.rect_stroke(
+                        highlight_rect, 
+                        0.0, 
+                        Stroke::new(2.0, theme::selected_key()),
+                        StrokeKind::Middle
+                    );
+                }
             }
         }
-        (action, keys_rect)
+        
+        (actions, keys_rect)
     }
 
     pub fn pressed_keys(&self) -> KeySet {
@@ -272,11 +335,6 @@ impl PianoGui {
             Some(notes.join("/"))
         }
     }
-}
-
-pub enum Action {
-    Pressed(wmidi::Note),
-    Released(wmidi::Note),
 }
 
 fn white_key_to_semitone(key: usize) -> usize {
