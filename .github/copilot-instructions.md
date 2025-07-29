@@ -37,7 +37,7 @@ The project it split into multiple crates. All in the same cargo workspace.
 - Document any intentional ignoring of errors with detailed comments explaining why
 
 # Agent Compliance
-- **MANDATORY**: Always read and apply the full copilot-instruction.md file for every task
+- **MANDATORY**: Always read and apply the full instructions file for every task (copilot-instructions.md, CLAUDE.md, GEMINI.md ... depending on who you are).
 - **MANDATORY**: Follow the code style guidelines without exception
 - **MANDATORY**: Use the specified tools and commands as documented
 - If you cannot follow an instruction, explain why and ask for clarification before proceeding
