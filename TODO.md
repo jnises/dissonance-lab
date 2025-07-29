@@ -60,7 +60,10 @@
     - [x] make sure the release minification actually strips out the log forwarding code as dead code elimination
     - [x] Change the "New session started" marker to something more unique.
         - Changed to `=== DISSONANCE_LAB_SESSION_START ===` to avoid conflicts with regular log messages
-
+    - [x] Remove the timestamp, module_path and target from the log format
+        - Simplified log format in dev-log-server to only include log level and message
+        - Removed unused chrono dependency and cleaned up LogMessage struct
+        - Updated xtask clean_log_line function to work with the new simplified format
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation

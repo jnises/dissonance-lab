@@ -7,7 +7,7 @@ It also allows you to play and hear the notes using a built in piano-like synthe
 - Don't fix preexisting warnings if they are unrelated to your current changes.
 
 # Code structure
-The project it split into multiple crates. All in the same cargo workspace. Make sure you check all for things like `cargo check`.
+The project it split into multiple crates. All in the same cargo workspace.
 - The main `dissonance-lab` crate in the root.
 - `audio-worklet` containing code that will compile to a separate wasm binary and loaded as a WebAudio AudioWorklet.
 - `shared-types` containing types shared between the other crates.

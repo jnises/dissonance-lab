@@ -91,9 +91,7 @@ window.dev_flag = true;
             // Add to buffer
             logBuffer.push({
                 level: level,
-                message: message,
-                target: 'frontend',
-                timestamp: new Date().toISOString()
+                message: message
             });
             
             // Flush immediately if buffer is large, or schedule flush

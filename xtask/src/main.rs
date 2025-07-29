@@ -68,29 +68,8 @@ fn dump_log() -> Result<()> {
 }
 
 fn clean_log_line(line: &str) -> String {
-    // Remove redundant "dev_log_server" target and thread info that's not useful for agents
-    // Example: "2025-07-29T10:36:11.930069Z  INFO main ThreadId(01) dev_log_server: === DISSONANCE_LAB_SESSION_START ==="
-    // Should become: "2025-07-29T10:36:11.930069Z INFO: === DISSONANCE_LAB_SESSION_START ==="
-    
-    if let Some(timestamp_end) = line.find('Z') {
-        if timestamp_end + 1 < line.len() {
-            let after_timestamp = &line[timestamp_end + 1..];
-            
-            // Look for pattern: "  LEVEL thread_info target: message"
-            if let Some(colon_pos) = after_timestamp.find(':') {
-                let before_colon = &after_timestamp[..colon_pos];
-                let message = &after_timestamp[colon_pos + 1..];
-                
-                // Extract just the log level from the middle part
-                let parts: Vec<&str> = before_colon.split_whitespace().collect();
-                if let Some(level) = parts.first() {
-                    return format!("{} {}:{}", &line[..timestamp_end + 1], level, message);
-                }
-            }
-        }
-    }
-    
-    // Fallback: return original line if we can't parse it
+    // With simplified log format (no timestamp, target, or module_path), 
+    // we can just return the line as-is since it should now be clean
     line.to_string()
 }
 

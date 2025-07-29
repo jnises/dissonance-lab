@@ -5,7 +5,6 @@ use axum::{
     routing::post,
     Router,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
@@ -17,11 +16,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, fmt, Env
 struct LogMessage {
     level: String,
     message: String,
-    target: Option<String>,
-    timestamp: Option<DateTime<Utc>>,
-    module_path: Option<String>,
-    file: Option<String>,
-    line: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -30,57 +24,14 @@ struct LogResponse {
 }
 
 async fn receive_logs(Json(payload): Json<LogMessage>) -> Result<ResponseJson<LogResponse>, StatusCode> {
-    let target = payload.target.as_deref().unwrap_or("frontend");
-
-    let location = match (payload.file.as_ref(), payload.line) {
-        (Some(file), Some(line)) => format!("{file}:{line}"),
-        _ => "".to_string(),
-    };
-
-    // Log using tracing, passing structured data
+    // Log using tracing with simplified format (no target, module_path, or location)
     match payload.level.to_lowercase().as_str() {
-        "error" => error!(
-            target: "dev_log_server",
-            log_target = target,
-            module_path = payload.module_path.as_deref().unwrap_or(""),
-            location = location.as_str(),
-            "{}", payload.message
-        ),
-        "warn" | "warning" => warn!(
-            target: "dev_log_server",
-            log_target = target,
-            module_path = payload.module_path.as_deref().unwrap_or(""),
-            location = location.as_str(),
-            "{}", payload.message
-        ),
-        "info" => info!(
-            target: "dev_log_server",
-            log_target = target,
-            module_path = payload.module_path.as_deref().unwrap_or(""),
-            location = location.as_str(),
-            "{}", payload.message
-        ),
-        "debug" => debug!(
-            target: "dev_log_server",
-            log_target = target,
-            module_path = payload.module_path.as_deref().unwrap_or(""),
-            location = location.as_str(),
-            "{}", payload.message
-        ),
-        "trace" => trace!(
-            target: "dev_log_server",
-            log_target = target,
-            module_path = payload.module_path.as_deref().unwrap_or(""),
-            location = location.as_str(),
-            "{}", payload.message
-        ),
-        _ => info!(
-            target: "dev_log_server",
-            log_target = target,
-            module_path = payload.module_path.as_deref().unwrap_or(""),
-            location = location.as_str(),
-            "{}", payload.message
-        ),
+        "error" => error!("{}", payload.message),
+        "warn" | "warning" => warn!("{}", payload.message),
+        "info" => info!("{}", payload.message),
+        "debug" => debug!("{}", payload.message),
+        "trace" => trace!("{}", payload.message),
+        _ => info!("{}", payload.message),
     }
 
     Ok(ResponseJson(LogResponse {
@@ -112,9 +63,10 @@ async fn main() -> anyhow::Result<()> {
     let file_layer = fmt::layer()
         .with_writer(non_blocking_appender)
         .with_ansi(false) // No colors in file
-        .with_target(true)
-        .with_thread_ids(true)
-        .with_thread_names(true);
+        .with_target(false) // Remove target from log format
+        .with_thread_ids(false) // Remove thread ids from log format
+        .with_thread_names(false) // Remove thread names from log format
+        .without_time(); // Remove timestamp from log format
 
     // Configure stdout layer with custom formatting
     let stdout_layer = fmt::layer()
