@@ -40,8 +40,8 @@ fn dump_log() -> Result<()> {
         anyhow::bail!("Log file not found: {}", log_file_path.display());
     }
 
-    let content = fs::read_to_string(&log_file_path)
-        .with_context(|| format!("Failed to read log file at: {}", log_file_path.display()))?;
+    let content = fs::read_to_string(&log_file_path).context(format!(
+        "Failed to read log file at: {}",
         log_file_path.display()
     ))?;
 
