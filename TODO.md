@@ -17,19 +17,53 @@
       - Strategy: Track TouchId -> Key mapping for individual finger tracking
       - Current issue: ui.interact() and is_pointer_button_down_on() are single-pointer
       - Solution: Process touch events directly, bypass single-pointer Response methods
-  - [ ] Analyze current single-touch implementation to understand what needs to change
-    - [ ] Review how is_pointer_button_down_on() works with multiple pointers
-    - [ ] Understand the key_id and temp data storage mechanism
-    - [ ] Document the current state tracking for mouse_pressed per key
-  - [ ] Design multi-touch data structures
-    - [ ] Define how to track multiple pointer IDs per key
-    - [ ] Decide on data structure to map pointer IDs to pressed keys
-    - [ ] Plan how to handle pointer lifecycle (press, hold, release)
+  - [x] Analyze current single-touch implementation to understand what needs to change
+    - [x] Review how is_pointer_button_down_on() works with multiple pointers
+      - is_pointer_button_down_on() only detects single primary pointer, not individual touch IDs
+      - Returns true if any pointer is down on the widget, but doesn't distinguish between multiple pointers
+      - This is the core limitation preventing multi-touch functionality
+    - [x] Understand the key_id and temp data storage mechanism
+      - Each key gets unique key_id using ui.id().with(format!("{color}{key}"))
+      - temp data stores boolean mouse_pressed state per key_id
+      - Current system works well for single pointer but needs extension for multiple TouchId tracking
+    - [x] Document the current state tracking for mouse_pressed per key
+      - Lines 116-131: Press detection when is_pointer_button_down_on() && !mouse_pressed
+      - Release detection when !is_pointer_button_down_on() && mouse_pressed
+      - State stored/retrieved via ui.data().get_temp::<bool>(key_id)
+      - Single boolean per key limits to one active pointer per key
+  - [x] Design multi-touch data structures
+    - [x] Define how to track multiple pointer IDs per key
+      - Replace single boolean with HashSet<TouchId> per key to track all active pointers
+      - Key is considered pressed if HashSet is non-empty
+      - Allows multiple fingers to press same key simultaneously
+    - [x] Decide on data structure to map pointer IDs to pressed keys
+      - Primary: HashMap<KeyId, HashSet<TouchId>> - tracks which pointers are on each key
+      - Secondary: HashMap<TouchId, KeyId> - reverse lookup to find which key a pointer is on
+      - Use egui::TouchId for touch identification (wraps u64)
+      - Mouse input can use special TouchId::from_u64(0) for compatibility
+    - [x] Plan how to handle pointer lifecycle (press, hold, release)
+      - Press: TouchId enters key area, add to key's HashSet, send Action::Pressed if key becomes newly active
+      - Hold: TouchId remains in key area, no action needed
+      - Release: TouchId leaves key area or touch ends, remove from HashSet, send Action::Released if key becomes inactive
+      - Drag between keys: Remove from old key's set, add to new key's set, handle press/release actions accordingly
   - [ ] Implement pointer tracking to handle multiple simultaneous touches
-    - [ ] Replace single boolean mouse_pressed with multi-pointer tracking
-    - [ ] Update key press detection to handle multiple active pointers
-    - [ ] Implement pointer release detection for multi-touch
-    - [ ] Handle edge cases like pointer leaving key area during touch
+    - [x] Replace single boolean mouse_pressed with multi-pointer tracking
+      - Implemented PointerId enum to distinguish Mouse vs Touch(u64) pointers
+      - Replaced single boolean with HashSet<PointerId> per key for tracking active pointers
+      - Added HashMap<PointerId, Id> for reverse lookup (pointer -> key mapping)
+      - Mouse uses PointerId::Mouse, touches use PointerId::Touch(id.0) from TouchId
+    - [x] Update key press detection to handle multiple active pointers
+      - Key press detected when HashSet transitions from empty to non-empty
+      - Key release detected when HashSet transitions from non-empty to empty
+      - Handles both mouse (via is_pointer_button_down_on) and touch events (via Event::Touch)
+    - [x] Implement pointer release detection for multi-touch
+      - Touch events processed for Start/Move/End/Cancel phases
+      - Proper cleanup when touches end or are cancelled
+      - Mouse release handled via !is_pointer_button_down_on transition
+    - [x] Handle edge cases like pointer leaving key area during touch
+      - Touch move events check if pointer is still within key_rect
+      - Automatic removal from old key when touch moves to new key
+      - Proper cleanup of pointer mappings when touches leave key areas
   - [ ] Test multi-touch functionality on mobile devices and touch screens
     - [ ] Test basic two-finger simultaneous key presses
     - [ ] Test chord playing with multiple fingers

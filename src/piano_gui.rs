@@ -1,8 +1,15 @@
 use bitvec::{BitArr, order::Msb0};
-use egui::{Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
+use egui::{Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2, Id, Event, TouchPhase};
 use wmidi::Note;
+use std::collections::{HashMap, HashSet};
 
 use crate::theme;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum PointerId {
+    Mouse,
+    Touch(u64),
+}
 
 pub const PIANO_WIDTH: f32 = 600.0;
 pub const PIANO_HEIGHT: f32 = 200.0;
@@ -113,10 +120,76 @@ impl PianoGui {
                     StrokeKind::Middle,
                 );
                 let key_response = ui.interact(key_rect, key_id, Sense::click());
-                let mouse_pressed = ui.data(|r| r.get_temp::<bool>(key_id).unwrap_or(false));
-                // TODO: handle multi touch
-                if key_response.is_pointer_button_down_on() && !mouse_pressed {
-                    ui.data_mut(|r| r.insert_temp(key_id, true));
+                
+                // Get multi-pointer tracking data
+                let mut active_pointers = ui.data(|r| {
+                    r.get_temp::<HashSet<PointerId>>(key_id).unwrap_or_default()
+                });
+                let mut pointer_to_key = ui.data(|r| {
+                    r.get_temp::<HashMap<PointerId, Id>>(ui.id().with("pointer_to_key")).unwrap_or_default()
+                });
+                
+                let was_pressed = !active_pointers.is_empty();
+                
+                // Handle mouse input
+                if key_response.is_pointer_button_down_on() {
+                    if !active_pointers.contains(&PointerId::Mouse) {
+                        // Mouse press started
+                        active_pointers.insert(PointerId::Mouse);
+                        pointer_to_key.insert(PointerId::Mouse, key_id);
+                    }
+                } else {
+                    if active_pointers.contains(&PointerId::Mouse) {
+                        // Mouse press ended
+                        active_pointers.remove(&PointerId::Mouse);
+                        pointer_to_key.remove(&PointerId::Mouse);
+                    }
+                }
+                
+                // Process touch events
+                ui.input(|i| {
+                    for event in &i.events {
+                        if let Event::Touch { id, phase, pos, .. } = event {
+                            let pointer_id = PointerId::Touch(id.0);
+                            match phase {
+                                TouchPhase::Start | TouchPhase::Move => {
+                                    if key_rect.contains(*pos) {
+                                        if !active_pointers.contains(&pointer_id) {
+                                            // New touch on this key
+                                            if let Some(old_key) = pointer_to_key.get(&pointer_id) {
+                                                // Touch moved from another key, remove from old key
+                                                if let Some(mut old_pointers) = ui.data(|r| r.get_temp::<HashSet<PointerId>>(*old_key)) {
+                                                    old_pointers.remove(&pointer_id);
+                                                    ui.data_mut(|r| r.insert_temp(*old_key, old_pointers));
+                                                }
+                                            }
+                                            active_pointers.insert(pointer_id);
+                                            pointer_to_key.insert(pointer_id, key_id);
+                                        }
+                                    } else {
+                                        // Touch moved away from this key
+                                        if active_pointers.contains(&pointer_id) {
+                                            active_pointers.remove(&pointer_id);
+                                            pointer_to_key.remove(&pointer_id);
+                                        }
+                                    }
+                                }
+                                TouchPhase::End | TouchPhase::Cancel => {
+                                    // Touch ended
+                                    if active_pointers.contains(&pointer_id) {
+                                        active_pointers.remove(&pointer_id);
+                                        pointer_to_key.remove(&pointer_id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                let is_pressed = !active_pointers.is_empty();
+                
+                // Generate actions based on state changes
+                if is_pressed && !was_pressed {
                     debug_assert!(action.is_none());
                     action = Some(Action::Pressed(note));
                     if !shift_pressed {
@@ -124,11 +197,16 @@ impl PianoGui {
                     }
                     let key_selected = self.selected_keys[semitone];
                     self.selected_keys.set(semitone, !key_selected);
-                } else if !key_response.is_pointer_button_down_on() && mouse_pressed {
-                    ui.data_mut(|r| r.insert_temp(key_id, false));
+                } else if !is_pressed && was_pressed {
                     debug_assert!(action.is_none());
                     action = Some(Action::Released(note));
                 }
+                
+                // Store updated tracking data
+                ui.data_mut(|r| {
+                    r.insert_temp(key_id, active_pointers);
+                    r.insert_temp(ui.id().with("pointer_to_key"), pointer_to_key);
+                });
             }
         }
         (action, keys_rect)
