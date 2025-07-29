@@ -29,13 +29,8 @@ The project it split into multiple crates. All in the same cargo workspace.
 - We use `egui` as our GUI library.
 - In `egui`, the coordinate system has the x-axis increasing to the right and the y-axis increasing downward.
 
-# Building
-- Check and lint using `cargo check --workspace` and `cargo clippy --workspace`.
-- **MANDATORY**: Always run these commands after making any changes. New errors or warnings introduced by your changes must be fixed.
-- Build the project using `trunk build`.
-
 # Quality Assurance
-- **MANDATORY**: Before completing any task, run `cargo check --workspace` and `cargo clippy --workspace`
+- **MANDATORY**: Before completing any task, run `cargo check --workspace`, `cargo clippy --workspace`, `trunk build`, and `cargo test`.
 - If these commands fail or show NEW warnings/errors compared to before your changes, you MUST fix them
 - Pre-existing warnings unrelated to your changes should be left alone
 - Document any intentional ignoring of errors with detailed comments explaining why
