@@ -74,13 +74,17 @@ fn clean_log_line(line: &str) -> String {
 }
 
 fn run_dev() -> Result<()> {
-    // TODO: add separate calls to build the log server and the main project, before printing anything
+    // Ensure we're in the project root first
+    let project_root = find_project_root()?;
+    env::set_current_dir(&project_root).context("Failed to change to project root directory")?;
+
+    // Build the log server and main project before starting anything
+    build_log_server()?;
+    build_main_project()?;
 
     println!("🚀 Starting dissonance-lab development environment...");
 
-    // Ensure we're in the project root
-    let project_root = find_project_root()?;
-    env::set_current_dir(&project_root).context("Failed to change to project root directory")?;
+    // Project root is already set above
 
     // Start the log server in the background
     println!("📡 Starting development log server...");
@@ -93,9 +97,12 @@ fn run_dev() -> Result<()> {
     println!("🌐 Starting trunk development server...");
     let mut trunk_server = start_trunk_serve()?;
 
+    // Wait a bit for the initial trunk output
+    thread::sleep(Duration::from_secs(4));
+
     println!();
     println!("✅ Development environment is ready!");
-    println!("   📊 Frontend: http://localhost:8080");
+    println!("   📊 Frontend: http://localhost:8080/#dev");
     println!("   📡 Log server: http://localhost:3001");
     println!("   🛑 Press Ctrl+C to stop all servers");
     println!();
@@ -149,7 +156,7 @@ fn find_project_root() -> Result<std::path::PathBuf> {
 
 fn start_log_server() -> Result<Child> {
     let mut cmd = Command::new("cargo");
-    cmd.args(["run", "-p", "dev-log-server"]);
+    cmd.args(["run", "--release", "-p", "dev-log-server"]);
 
     cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
 
@@ -173,4 +180,45 @@ fn start_trunk_serve() -> Result<Child> {
     let child = cmd.spawn().context("Failed to start trunk serve")?;
 
     Ok(child)
+}
+
+fn build_log_server() -> Result<()> {
+    println!("🔨 Building development log server (release mode)...");
+    
+    let mut cmd = Command::new("cargo");
+    cmd.args(["build", "--release", "-p", "dev-log-server"]);
+    cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+
+    let status = cmd
+        .status()
+        .context("Failed to run cargo build for dev-log-server")?;
+
+    if !status.success() {
+        anyhow::bail!("Failed to build dev-log-server");
+    }
+
+    Ok(())
+}
+
+fn build_main_project() -> Result<()> {
+    println!("🔨 Building main project...");
+    
+    // Check if trunk is available
+    if which::which("trunk").is_err() {
+        anyhow::bail!("trunk command not found - please install trunk with: cargo install trunk");
+    }
+    
+    let mut cmd = Command::new("trunk");
+    cmd.args(["build"]);
+    cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+
+    let status = cmd
+        .status()
+        .context("Failed to run trunk build for main project")?;
+
+    if !status.success() {
+        anyhow::bail!("Failed to build main project with trunk");
+    }
+
+    Ok(())
 }
