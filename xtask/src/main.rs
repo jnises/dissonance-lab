@@ -74,6 +74,8 @@ fn clean_log_line(line: &str) -> String {
 }
 
 fn run_dev() -> Result<()> {
+    // TODO: add separate calls to build the log server and the main project, before printing anything
+
     println!("🚀 Starting dissonance-lab development environment...");
 
     // Ensure we're in the project root
