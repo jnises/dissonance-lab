@@ -1,8 +1,7 @@
 use crossbeam::channel;
 use egui::{Align, Align2, Color32, FontId, Layout, RichText, pos2, vec2};
 use log::error;
-use parking_lot::Mutex;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use web_time::{Duration, Instant};
 
 use crate::{
@@ -62,10 +61,10 @@ impl DissonanceLabApp {
 
     fn setup_audio(&mut self) {
         assert!(matches!(
-            *self.audio.lock(),
+            *self.audio.lock().unwrap(),
             AudioState::Muted | AudioState::Uninitialized
         ));
-        *self.audio.lock() = AudioState::Playing(WebAudio::new());
+        *self.audio.lock().unwrap() = AudioState::Playing(WebAudio::new());
     }
 
     fn ensure_midi(&mut self, ctx: &egui::Context) {
@@ -79,7 +78,7 @@ impl DissonanceLabApp {
                 let ctx = ctx.clone();
                 let audio = self.audio.clone();
                 match MidiReader::new(move |message| {
-                    if let AudioState::Playing(web_audio) = &*audio.lock() {
+                    if let AudioState::Playing(web_audio) = &*audio.lock().unwrap() {
                         match message {
                             wmidi::MidiMessage::NoteOff(_, note, _) => {
                                 web_audio.send_message(ToWorkletMessage::NoteOff {
@@ -132,7 +131,7 @@ impl eframe::App for DissonanceLabApp {
                         const MUTE_FONT_SIZE: f32 = 16.0;
                         const STATUS_FONT_SIZE: f32 = 14.0;
                         ui.horizontal(|ui| {
-                            let playing = match *self.audio.lock() {
+                            let playing = match *self.audio.lock().unwrap() {
                                 AudioState::Playing(_) => true,
                                 AudioState::Uninitialized | AudioState::Muted => false,
                             };
@@ -141,7 +140,7 @@ impl eframe::App for DissonanceLabApp {
                                     .button(RichText::new("🔈").size(MUTE_FONT_SIZE))
                                     .clicked()
                                 {
-                                    *self.audio.lock() = AudioState::Muted;
+                                    *self.audio.lock().unwrap() = AudioState::Muted;
                                 }
                             } else {
                                 #[allow(clippy::collapsible_else_if)]
@@ -157,7 +156,7 @@ impl eframe::App for DissonanceLabApp {
 
                                 // Draw custom graphic hint: rotated text with arrow pointing to mute button
                                 // Only show on wider screens to avoid clutter on mobile
-                                if matches!(*self.audio.lock(), AudioState::Uninitialized)
+                                if matches!(*self.audio.lock().unwrap(), AudioState::Uninitialized)
                                     && ui.available_width() >= MOBILE_BREAKPOINT_WIDTH
                                 {
                                     // Constants for mute button hint styling
@@ -318,7 +317,7 @@ impl eframe::App for DissonanceLabApp {
                 match interval_display::show(&mut self.piano_gui, ui) {
                     None => {}
                     Some(piano_gui::Action::Pressed(note)) => {
-                        if let AudioState::Playing(web_audio) = &*self.audio.lock() {
+                        if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
                             web_audio.send_message(ToWorkletMessage::NoteOn {
                                 note: u8::from(note),
                                 velocity: 64,
@@ -326,7 +325,7 @@ impl eframe::App for DissonanceLabApp {
                         }
                     }
                     Some(piano_gui::Action::Released(note)) => {
-                        if let AudioState::Playing(web_audio) = &*self.audio.lock() {
+                        if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
                             web_audio.send_message(ToWorkletMessage::NoteOff {
                                 note: u8::from(note),
                             });

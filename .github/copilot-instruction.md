@@ -44,8 +44,16 @@ The project it split into multiple crates. All in the same cargo workspace.
 
 # Running
 - For development the project is started using `cargo xtask dev`. But the agent shouldn't call that. The user will keep that running continuously.
-- **IMPORTANT**: Browsers block audio until a user interaction (like a click). This means the audio worklet and related Rust code will not execute, and any runtime errors in that code will not appear in the console until after the user has clicked on the page. Ask me to unmute the audio if you want to check how that code works.
+- For mobile testing, use `cargo xtask dev --bind 0.0.0.0` to serve on all network interfaces, then access via your local IP address (e.g., `http://192.168.1.100:8080`)
+- **CRITICAL**: Before using `cargo xtask dump-latest-logs` to check audio-related functionality or any runtime behavior, you MUST first ask the user to "unmute" or "click to enable audio". Browsers block audio until a user interaction (like a click). This means the audio worklet and related Rust code will not execute, and any runtime errors in that code will not appear in the console until after the user has clicked on the page.
+- **MANDATORY WORKFLOW**: When working with audio-related code or checking for runtime errors:
+  1. FIRST: Ask user to unmute/click the page to enable audio
+  2. THEN: Use `cargo xtask dump-latest-logs` to read the frontend logs
+  3. Do NOT skip step 1 - the logs will be stale/incomplete without user interaction
 - Use `cargo xtask dump-latest-logs` to read the frontend logs of the most recent session.
+- **Mobile Testing Notes**: 
+  - AudioWorklet support is limited on mobile devices - the app will gracefully disable audio and show informative messages
+  - Touch events and multitouch should work on mobile devices for the piano interface
 
 # Temporary Tools
 - If you need to create temporary scripts, tools, or files for debugging, analysis, or one-time tasks, place them in `tmp/` directory at the project root.
