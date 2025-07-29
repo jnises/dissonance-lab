@@ -68,29 +68,20 @@ fn dump_log() -> Result<()> {
     if let Some(start_index) = content.rfind(SESSION_START_MARKER) {
         // Skip the "=== DISSONANCE_LAB_SESSION_START ===" line itself and process each line
         for line in content[start_index..].lines().skip(1) {
-            // Clean up the line for agent consumption
-            let cleaned_line = clean_log_line(line);
-            if !cleaned_line.trim().is_empty() {
-                println!("{cleaned_line}");
+            if !line.trim().is_empty() {
+                println!("{line}");
             }
         }
     } else {
         // Process full log if no session marker found
         for line in content.lines() {
-            let cleaned_line = clean_log_line(line);
-            if !cleaned_line.trim().is_empty() {
-                println!("{cleaned_line}");
+            if !line.trim().is_empty() {
+                println!("{line}");
             }
         }
     }
 
     Ok(())
-}
-
-fn clean_log_line(line: &str) -> String {
-    // With simplified log format (no timestamp, target, or module_path),
-    // we can just return the line as-is since it should now be clean
-    line.to_string()
 }
 
 fn run_dev() -> Result<()> {
