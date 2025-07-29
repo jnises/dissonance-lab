@@ -43,10 +43,10 @@ fn dump_log() -> Result<()> {
     let content = fs::read_to_string(&log_file_path)
         .context(format!("Failed to read log file at: {}", log_file_path.display()))?;
 
-    const SESSION_START_MARKER: &str = "New session started";
+    const SESSION_START_MARKER: &str = "=== DISSONANCE_LAB_SESSION_START ===";
 
     if let Some(start_index) = content.rfind(SESSION_START_MARKER) {
-        // Skip the "New session started" line itself and process each line
+        // Skip the "=== DISSONANCE_LAB_SESSION_START ===" line itself and process each line
         for line in content[start_index..].lines().skip(1) {
             // Clean up the line for agent consumption
             let cleaned_line = clean_log_line(line);
@@ -69,8 +69,8 @@ fn dump_log() -> Result<()> {
 
 fn clean_log_line(line: &str) -> String {
     // Remove redundant "dev_log_server" target and thread info that's not useful for agents
-    // Example: "2025-07-29T10:36:11.930069Z  INFO main ThreadId(01) dev_log_server: New session started"
-    // Should become: "2025-07-29T10:36:11.930069Z INFO: New session started"
+    // Example: "2025-07-29T10:36:11.930069Z  INFO main ThreadId(01) dev_log_server: === DISSONANCE_LAB_SESSION_START ==="
+    // Should become: "2025-07-29T10:36:11.930069Z INFO: === DISSONANCE_LAB_SESSION_START ==="
     
     if let Some(timestamp_end) = line.find('Z') {
         if timestamp_end + 1 < line.len() {

@@ -58,7 +58,8 @@
         - [x] Don't add colors
         - [x] Remove anything that isn't directly useful for the agent. we want to conserve context as much as possible. for example `dev_log_server` is not interesting information on every line.
     - [x] make sure the release minification actually strips out the log forwarding code as dead code elimination
-    - [ ] Change the "New session started" marker to something more unique.
+    - [x] Change the "New session started" marker to something more unique.
+        - Changed to `=== DISSONANCE_LAB_SESSION_START ===` to avoid conflicts with regular log messages
 
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context

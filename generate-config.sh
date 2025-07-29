@@ -1,10 +1,7 @@
 #!/bin/bash
 
-# Script to generate build-config.js with development flags and log forwarding functionality
-#
-# ⚠️  WARNING: If you modify this script, you need to restart 'trunk serve' to pick up the changes!
-#     The generated file is cached and changes won't be reflected until restart.
-#
+# Script to generate build-config.js with development flags and optional log forwarding
+# WARNING: If you modify this script, you need to restart 'trunk serve' to pick up the changes
 set -euo pipefail
 
 # Create build directory if it doesn't exist
