@@ -38,7 +38,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Start development server (log server + trunk serve)
-    Dev,
+    Dev {
+        /// Address to bind servers to
+        #[arg(long, default_value = "127.0.0.1")]
+        bind: String,
+    },
     /// Dump the latest session from the development log file
     DumpLatestLogs,
 }
@@ -47,7 +51,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Dev => run_dev(),
+        Commands::Dev { bind } => run_dev(bind),
         Commands::DumpLatestLogs => dump_log(),
     }
 }
@@ -84,7 +88,7 @@ fn dump_log() -> Result<()> {
     Ok(())
 }
 
-fn run_dev() -> Result<()> {
+fn run_dev(bind_address: String) -> Result<()> {
     // Ensure we're in the project root first
     let project_root = find_project_root()?;
     env::set_current_dir(&project_root).context("Failed to change to project root directory")?;
@@ -97,8 +101,7 @@ fn run_dev() -> Result<()> {
 
     // Project root is already set above
 
-    // Start the log server in the background
-    println!("📡 Starting development log server...");
+    // Start the log server in the background (silently)
     let _log_server = start_log_server()?;
 
     // Wait a moment for the log server to start
@@ -106,15 +109,14 @@ fn run_dev() -> Result<()> {
 
     // Start trunk serve
     println!("🌐 Starting trunk development server...");
-    let _trunk_server = start_trunk_serve()?;
+    let _trunk_server = start_trunk_serve(&bind_address)?;
 
     // Wait a bit for the initial trunk output
     thread::sleep(Duration::from_secs(4));
 
     println!();
     println!("✅ Development environment is ready!");
-    println!("   📊 Frontend: http://localhost:8080/#dev");
-    println!("   📡 Log server: http://localhost:3001");
+    println!("   📊 Frontend: http://{bind_address}:8080/#dev");
     println!("   🛑 Press Ctrl+C to stop all servers");
     println!();
 
@@ -167,7 +169,7 @@ fn start_log_server() -> Result<ManagedProcess> {
     Ok(ManagedProcess::new("log server".to_string(), child))
 }
 
-fn start_trunk_serve() -> Result<ManagedProcess> {
+fn start_trunk_serve(bind_address: &str) -> Result<ManagedProcess> {
     // Check if trunk is available
     if which::which("trunk").is_err() {
         anyhow::bail!("trunk command not found - please install trunk with: cargo install trunk");
@@ -175,6 +177,8 @@ fn start_trunk_serve() -> Result<ManagedProcess> {
 
     let mut cmd = Command::new("trunk");
     cmd.arg("serve");
+    cmd.arg("--address");
+    cmd.arg(bind_address);
     cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
 
     let child = cmd.spawn().context("Failed to start trunk serve")?;

@@ -111,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
-    info!(target: "dev_log_server", "Log server starting on http://{}", addr);
+    info!(target: "dev_log_server", "Log server starting on http://{addr}");
     info!(target: "dev_log_server", "Ready to receive logs from /logs");
 
     // Start the server
