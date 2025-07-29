@@ -7,6 +7,26 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+/// A wrapper around Child that automatically kills the process when dropped
+struct ManagedProcess {
+    name: String,
+    child: Child,
+}
+
+impl ManagedProcess {
+    fn new(name: String, child: Child) -> Self {
+        Self { name, child }
+    }
+}
+
+impl Drop for ManagedProcess {
+    fn drop(&mut self) {
+        if let Err(e) = self.child.kill() {
+            eprintln!("Warning: Failed to kill {}: {e}", self.name);
+        }
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "xtask")]
 #[command(about = "Development utility tasks for dissonance-lab")]
@@ -88,14 +108,14 @@ fn run_dev() -> Result<()> {
 
     // Start the log server in the background
     println!("📡 Starting development log server...");
-    let mut log_server = start_log_server()?;
+    let _log_server = start_log_server()?;
 
     // Wait a moment for the log server to start
     thread::sleep(Duration::from_millis(500));
 
     // Start trunk serve
     println!("🌐 Starting trunk development server...");
-    let mut trunk_server = start_trunk_serve()?;
+    let _trunk_server = start_trunk_serve()?;
 
     // Wait a bit for the initial trunk output
     thread::sleep(Duration::from_secs(4));
@@ -118,20 +138,9 @@ fn run_dev() -> Result<()> {
 
     // Wait for Ctrl+C signal
     let _ = rx.recv(); // Ignore recv errors - any error means we should proceed to shutdown
-
-    println!("🛑 Shutting down development environment...");
-
-    // Kill trunk server
-    if let Err(e) = trunk_server.kill() {
-        eprintln!("Warning: Failed to kill trunk server: {e}");
-    }
-
-    // Kill log server
-    if let Err(e) = log_server.kill() {
-        eprintln!("Warning: Failed to kill log server: {e}");
-    }
-
-    println!("👋 Development environment stopped.");
+    
+    // Servers will be automatically killed when they go out of scope via Drop trait
+    
     Ok(())
 }
 
@@ -154,7 +163,7 @@ fn find_project_root() -> Result<std::path::PathBuf> {
     }
 }
 
-fn start_log_server() -> Result<Child> {
+fn start_log_server() -> Result<ManagedProcess> {
     let mut cmd = Command::new("cargo");
     cmd.args(["run", "--release", "-p", "dev-log-server"]);
 
@@ -164,10 +173,10 @@ fn start_log_server() -> Result<Child> {
         .spawn()
         .context("Failed to start dev-log-server - make sure cargo is available")?;
 
-    Ok(child)
+    Ok(ManagedProcess::new("log server".to_string(), child))
 }
 
-fn start_trunk_serve() -> Result<Child> {
+fn start_trunk_serve() -> Result<ManagedProcess> {
     // Check if trunk is available
     if which::which("trunk").is_err() {
         anyhow::bail!("trunk command not found - please install trunk with: cargo install trunk");
@@ -179,7 +188,7 @@ fn start_trunk_serve() -> Result<Child> {
 
     let child = cmd.spawn().context("Failed to start trunk serve")?;
 
-    Ok(child)
+    Ok(ManagedProcess::new("trunk server".to_string(), child))
 }
 
 fn build_log_server() -> Result<()> {
