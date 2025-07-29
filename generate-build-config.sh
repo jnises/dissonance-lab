@@ -99,15 +99,6 @@ window.dev_flag = true;
                     // Remove the level prefix from the message
                     message = message.substring(levelMatch[0].length);
                 }
-                
-                // Extract file and line information if present
-                // Format typically: "src/file.rs:123: actual message"
-                const fileLineMatch = message.match(/^([^:]+):(\d+):\s*(.*)/);
-                if (fileLineMatch) {
-                    file = fileLineMatch[1];
-                    line = parseInt(fileLineMatch[2], 10);
-                    message = fileLineMatch[3];
-                }
             } else {
                 // Regular console message - process all arguments
                 message = args.map(arg => {
@@ -119,6 +110,15 @@ window.dev_flag = true;
                         return String(arg);
                     }
                 }).join(' ');
+            }
+            
+            // Extract file and line information from the final message (regardless of source)
+            // Format can be: "src/file.rs:123: message" or "/full/path/to/file.rs:123 message"
+            const fileLineMatch = message.match(/^([^:\s]+):(\d+):?\s*(.*)/);
+            if (fileLineMatch) {
+                file = fileLineMatch[1];
+                line = parseInt(fileLineMatch[2], 10);
+                message = fileLineMatch[3];
             }
             
             // Clean up extra whitespace
