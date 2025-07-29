@@ -24,6 +24,7 @@ The project it split into multiple crates. All in the same cargo workspace.
 - Avoid using magic numbers in the code. Instead, define a `const` for such values, placing it as close as possible to where it is used. If a constant is only referenced in one location, keeping it nearby improves code readability by eliminating the need to scroll to find its value. However, do not define a `const` if the value is already clearly documented elsewhere, such as when it appears in a `match` statement for an enum.
 - Avoid unsafe. If you really think you need unsafe, ask the user first, and write a detailed comment why unsafe was required.
 - Avoid wildcard imports (`use x::*;`) unless explicitly recommended for a specific case, such as importing a crate's prelude. Prefer listing only the items you need to improve code clarity and maintainability.
+- Place comments on the line above the code they reference, rather than as trailing comments on the same line.
 
 # Conventions
 - We use `egui` as our GUI library.
