@@ -33,7 +33,7 @@ async fn receive_logs(
         "info" => info!("{}", payload.message),
         "debug" => debug!("{}", payload.message),
         "trace" => trace!("{}", payload.message),
-        _ => info!("{}", payload.message),
+        unknown_level => info!("[{unknown_level}] {}", payload.message),
     }
 
     Ok(ResponseJson(LogResponse {
