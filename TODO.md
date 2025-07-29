@@ -66,7 +66,8 @@
         - Updated xtask clean_log_line function to work with the new simplified format
     - [x] Make the xtask alias not output any of the cargo stuff, only the output from the actual command
         - Added `-q` flag to the cargo alias to suppress cargo build/run messages
-    - [ ] dev_log_server does not seem to output debug logs, it should
+    - [x] dev_log_server does not seem to output debug logs, it should
+        - Changed EnvFilter from "dev_log_server=info" to "dev_log_server=debug" to enable debug level logs
     - [ ] The current dev_log_server output is something like:
       ```
       2025-07-29T18:14:55.874837Z  INFO dev_log_server: %cDEBUG%c src/webaudio.rs:40 %c

@@ -82,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
         .with(file_layer)
         .with(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                "dev_log_server=info,tower_http=info,dissonance_lab=debug".into()
+                "dev_log_server=debug,tower_http=info,dissonance_lab=debug".into()
             }),
         )
         .with(stdout_layer)
