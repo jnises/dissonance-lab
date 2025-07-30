@@ -22,7 +22,7 @@ pub struct PianoGui {
     external_keys: ExternalKeySet,
 
     key_held_by_pointer: HashMap<PointerId, wmidi::Note>,
-    pointers_holding_key: HashMap<wmidi::Note, HashSet<PointerId>>, // note -> set of pointers
+    pointers_holding_key: HashMap<wmidi::Note, HashSet<PointerId>>,
     previous_pointer_keys: KeySet, // Keys that were pressed by pointers in the previous frame
 
     /// The octave that this piano GUI displays (default: 4, meaning C4-B4)
