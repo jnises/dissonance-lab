@@ -72,23 +72,12 @@
     - Implemented `Semitone` struct that wraps a u8 value with range validation (0-11). Added methods for type conversions (`new`, `from_usize`, `value`, `as_usize`, `as_index`) with appropriate debug assertions. Updated all function signatures and usages throughout piano_gui.rs to use `Semitone` instead of `usize` for semitone values. This provides better type safety and self-documenting code while maintaining compatibility with existing BitArray indexing via the `as_index()` method.
   - [x] Make sure you add `debug_assert` where it makes sense in piano_gui.rs
     - Added debug_assert statements in key functions to validate assumptions: semitone_to_white_key_index and semitone_to_black_key_index now assert that the input is the correct key type; key_rect_for_semitone validates positive rect dimensions and array bounds; pointer handling methods validate state consistency between the two tracking HashMaps; external_note_on/off validate MIDI note ranges; find_key_at_position validates positive rect dimensions. These assertions help catch logic errors during development while being optimized out in release builds.
-  - [ ] make `is_black_key`, `semitone_to_white_key_index`, `semitone_to_black_key_index`, `semitone_name`, ` semitone_to_note_in_octave`, and `note_to_semitone` methods on the Semitone type.
+  - [x] make `is_black_key`, `semitone_to_white_key_index`, `semitone_to_black_key_index`, `semitone_name`, ` semitone_to_note_in_octave`, and `note_to_semitone` methods on the Semitone type.
+    - Converted all standalone functions to methods on the Semitone type: is_black_key() → is_black_key(), semitone_to_white_key_index() → white_key_index(), semitone_to_black_key_index() → black_key_index(), semitone_name() → name(), semitone_to_note_in_octave() → to_note_in_octave(), and note_to_semitone() → from_note(). Updated all call sites throughout piano_gui.rs to use the new method syntax. Removed all standalone functions and the unused value() method. This improves the API design by grouping related functionality with the type it operates on.
   - [ ] in piano_gui.rs create methods that updates both key_held_by_pointer and pointers_holding_key. so that we assure they are kept in sync.
   - [ ] in piano_gui.rs, create the Actions when updating key_held_by_pointer rather than in the rendering part of show. can `previous_pointer_keys` be removed?
   - [ ] look for old things in piano_gui.rs that can be simplified or removed
-  - [ ] Test multi-touch functionality on mobile devices and touch screens
-    - [ ] Test basic two-finger simultaneous key presses
-    - [ ] Test chord playing with multiple fingers
-    - [ ] Verify touch responsiveness and accuracy
-    - [ ] Test edge cases like sliding fingers between keys
-  - [ ] Ensure multi-touch doesn't break existing mouse and single-touch interactions
-    - [ ] Verify mouse clicks still work as expected
-    - [ ] Test single-touch on mobile devices
-    - [ ] Ensure keyboard shortcuts (shift+click) still work
-    - [ ] Test mixed input scenarios (mouse + touch simultaneously)
-- [ ] Make the console output from the audio worklet also forward back to the dev server. perhaps we need to have the audio worklet log using a message instead of straight to console
-- [ ] Try increasing the reverb to hear how it sounds
-- [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
+  - [ ] Make sure interval_display.rs handles multitouch correctly
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
   - [ ] Modify PianoGui to track the chronological order of mouse key presses
@@ -97,6 +86,9 @@
   - [ ] Modify interval_display.rs to use different ordering logic based on input method
   - [ ] Update the pressed_keys data structure to include ordering/priority information
   - [ ] Test the new ordering behavior with both mouse and MIDI input
+- [ ] Make the console output from the audio worklet also forward back to the dev server. perhaps we need to have the audio worklet log using a message instead of straight to console
+- [ ] Try increasing the reverb to hear how it sounds
+- [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
 - [ ] model piano string stiffness inharmonicity
 - [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
 - [ ] Calculate dissonances using critical bands theory instead.

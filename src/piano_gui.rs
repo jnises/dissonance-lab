@@ -23,11 +23,6 @@ impl Semitone {
         Self(value as u8)
     }
 
-    /// Get the underlying u8 value (0-11)
-    pub const fn value(self) -> u8 {
-        self.0
-    }
-
     /// Get the value as usize for compatibility with existing code
     pub const fn as_usize(self) -> usize {
         self.0 as usize
@@ -36,6 +31,80 @@ impl Semitone {
     /// Convert to an array index (same as as_usize but more explicit about intent)
     pub const fn as_index(self) -> usize {
         self.0 as usize
+    }
+
+    /// Check if this semitone represents a black key on a piano
+    pub const fn is_black_key(self) -> bool {
+        matches!(self.0, 1 | 3 | 6 | 8 | 10)
+    }
+
+    /// Get the white key index (0-6) for this semitone
+    /// Panics if this is not a white key semitone
+    pub fn white_key_index(self) -> usize {
+        debug_assert!(!self.is_black_key(), "Semitone must be a white key");
+        match self.0 {
+            0 => 0,  // C
+            2 => 1,  // D
+            4 => 2,  // E
+            5 => 3,  // F
+            7 => 4,  // G
+            9 => 5,  // A
+            11 => 6, // B
+            _ => panic!("Invalid white key semitone: {}", self.0),
+        }
+    }
+
+    /// Get the black key index (0-4) for this semitone
+    /// Panics if this is not a black key semitone
+    pub fn black_key_index(self) -> usize {
+        debug_assert!(self.is_black_key(), "Semitone must be a black key");
+        match self.0 {
+            1 => 0,  // C#
+            3 => 1,  // D#
+            6 => 2,  // F#
+            8 => 3,  // G#
+            10 => 4, // A#
+            _ => panic!("Invalid black key semitone: {}", self.0),
+        }
+    }
+
+    /// Get the note name for this semitone
+    pub const fn name(self) -> &'static str {
+        match self.0 {
+            0 => "C",
+            1 => "C#",
+            2 => "D",
+            3 => "D#",
+            4 => "E",
+            5 => "F",
+            6 => "F#",
+            7 => "G",
+            8 => "G#",
+            9 => "A",
+            10 => "A#",
+            11 => "B",
+            _ => panic!("Invalid semitone"),
+        }
+    }
+
+    /// Convert this semitone to a Note in the specified octave
+    pub fn to_note_in_octave(self, octave: u8) -> Note {
+        debug_assert!(
+            octave <= 9,
+            "Octave must be in range 0-9 for valid MIDI notes"
+        );
+
+        // Calculate the MIDI note number: (octave + 1) * 12 + semitone
+        // The +1 is because MIDI octave numbering starts at -1, so C4 = 60
+        let midi_note = (octave as usize + 1) * 12 + self.as_usize();
+        debug_assert!(midi_note <= 127, "MIDI note number must be <= 127");
+
+        Note::try_from(midi_note as u8).unwrap()
+    }
+
+    /// Convert a Note to its semitone representation (0-11) within its octave
+    pub fn from_note(note: Note) -> Self {
+        Self::new(u8::from(note) % 12)
     }
 }
 
@@ -161,7 +230,7 @@ impl PianoGui {
         // Render white keys first (so black keys appear on top)
         for semitone in [0, 2, 4, 5, 7, 9, 11] {
             let semitone = Semitone::new(semitone);
-            let note = semitone_to_note_in_octave(semitone, self.octave);
+            let note = semitone.to_note_in_octave(self.octave);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
             // Get active pointers for this key from our local state
@@ -216,7 +285,7 @@ impl PianoGui {
         // Render black keys on top
         for semitone in [1, 3, 6, 8, 10] {
             let semitone = Semitone::new(semitone);
-            let note = semitone_to_note_in_octave(semitone, self.octave);
+            let note = semitone.to_note_in_octave(self.octave);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
             // Get active pointers for this key from our local state
@@ -272,7 +341,7 @@ impl PianoGui {
         self.previous_pointer_keys.fill(false);
         for &note in self.pointers_holding_key.keys() {
             if !self.pointers_holding_key[&note].is_empty() {
-                let semitone = note_to_semitone(note);
+                let semitone = Semitone::from_note(note);
                 self.previous_pointer_keys.set(semitone.as_index(), true);
             }
         }
@@ -301,7 +370,7 @@ impl PianoGui {
         // Try all rotations of the chord (all possible roots)
         for rotation in 0..selected_semitones.len() {
             let root_semitone = selected_semitones[rotation];
-            let root = semitone_name(Semitone::from_usize(root_semitone));
+            let root = Semitone::from_usize(root_semitone).name();
 
             let mut intervals: Vec<usize> = Vec::new();
             for &semitone in selected_semitones.iter() {
@@ -331,11 +400,15 @@ impl PianoGui {
         }
 
         if selected_semitones.len() == 1 {
-            Some(semitone_name(Semitone::from_usize(selected_semitones[0])).to_string())
+            Some(
+                Semitone::from_usize(selected_semitones[0])
+                    .name()
+                    .to_string(),
+            )
         } else {
             let notes: Vec<String> = selected_semitones
                 .iter()
-                .map(|&semitone| semitone_name(Semitone::from_usize(semitone)).to_string())
+                .map(|&semitone| Semitone::from_usize(semitone).name().to_string())
                 .collect();
             Some(notes.join("/"))
         }
@@ -353,7 +426,7 @@ impl PianoGui {
             let semitone = Semitone::new(semitone);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
-                return Some(semitone_to_note_in_octave(semitone, self.octave));
+                return Some(semitone.to_note_in_octave(self.octave));
             }
         }
 
@@ -362,7 +435,7 @@ impl PianoGui {
             let semitone = Semitone::new(semitone);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
-                return Some(semitone_to_note_in_octave(semitone, self.octave));
+                return Some(semitone.to_note_in_octave(self.octave));
             }
         }
 
@@ -450,8 +523,8 @@ fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
     const SEMITONES_IN_OCTAVE: f32 = 12.0;
     const BLACK_KEY_HEIGHT_RATIO: f32 = 0.6;
 
-    if is_black_key(semitone) {
-        let black_key_index = semitone_to_black_key_index(semitone);
+    if semitone.is_black_key() {
+        let black_key_index = semitone.black_key_index();
         debug_assert!(
             black_key_index < NUM_BLACK_KEYS,
             "Black key index out of bounds"
@@ -469,7 +542,7 @@ fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
             key_size,
         )
     } else {
-        let white_key_index = semitone_to_white_key_index(semitone);
+        let white_key_index = semitone.white_key_index();
         debug_assert!(
             white_key_index < NUM_WHITE_KEYS,
             "White key index out of bounds"
@@ -490,72 +563,4 @@ fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
             key_size,
         )
     }
-}
-
-fn is_black_key(semitone: Semitone) -> bool {
-    matches!(semitone.value(), 1 | 3 | 6 | 8 | 10)
-}
-
-fn semitone_to_white_key_index(semitone: Semitone) -> usize {
-    debug_assert!(!is_black_key(semitone), "Semitone must be a white key");
-    match semitone.value() {
-        0 => 0,  // C
-        2 => 1,  // D
-        4 => 2,  // E
-        5 => 3,  // F
-        7 => 4,  // G
-        9 => 5,  // A
-        11 => 6, // B
-        _ => panic!("Invalid white key semitone: {}", semitone.value()),
-    }
-}
-
-fn semitone_to_black_key_index(semitone: Semitone) -> usize {
-    debug_assert!(is_black_key(semitone), "Semitone must be a black key");
-    match semitone.value() {
-        1 => 0,  // C#
-        3 => 1,  // D#
-        6 => 2,  // F#
-        8 => 3,  // G#
-        10 => 4, // A#
-        _ => panic!("Invalid black key semitone: {}", semitone.value()),
-    }
-}
-
-fn semitone_name(semitone: Semitone) -> &'static str {
-    match semitone.value() {
-        0 => "C",
-        1 => "C#",
-        2 => "D",
-        3 => "D#",
-        4 => "E",
-        5 => "F",
-        6 => "F#",
-        7 => "G",
-        8 => "G#",
-        9 => "A",
-        10 => "A#",
-        11 => "B",
-        _ => panic!("Invalid semitone"),
-    }
-}
-
-/// Convert a semitone (0-11) to a Note in the specified octave
-fn semitone_to_note_in_octave(semitone: Semitone, octave: u8) -> Note {
-    debug_assert!(
-        octave <= 9,
-        "Octave must be in range 0-9 for valid MIDI notes"
-    );
-
-    // Calculate the MIDI note number: (octave + 1) * 12 + semitone
-    // The +1 is because MIDI octave numbering starts at -1, so C4 = 60
-    let midi_note = (octave as usize + 1) * 12 + semitone.as_usize();
-    debug_assert!(midi_note <= 127, "MIDI note number must be <= 127");
-
-    Note::try_from(midi_note as u8).unwrap()
-}
-
-/// Convert a Note to its semitone representation (0-11) within its octave
-fn note_to_semitone(note: Note) -> Semitone {
-    Semitone::new(u8::from(note) % 12)
 }
