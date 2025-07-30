@@ -1,4 +1,5 @@
-- [ ] Add a checkmark after the "midi" text in the gui when midi is correctly set up
+- [x] Add a checkmark after the "midi" text in the gui when midi is correctly set up
+  - Added checkmark (✓) after "MIDI" text when MIDI is connected. The checkmark appears only when `MidiState::Connected` is active, maintaining the existing color coding (normal text color for connected, weak/strikethrough for not connected).
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation

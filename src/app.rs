@@ -284,11 +284,13 @@ impl eframe::App for DissonanceLabApp {
 
                             ui.label("|");
                             let is_connected = matches!(&self.midi, MidiState::Connected(_));
-                            let midi_text = RichText::new("MIDI").size(STATUS_FONT_SIZE);
                             let midi_text = if is_connected {
-                                midi_text.color(ui.visuals().text_color())
+                                RichText::new("MIDI ☑")
+                                    .size(STATUS_FONT_SIZE)
+                                    .color(ui.visuals().text_color())
                             } else {
-                                midi_text
+                                RichText::new("MIDI")
+                                    .size(STATUS_FONT_SIZE)
                                     .color(ui.visuals().weak_text_color())
                                     .strikethrough()
                             };
