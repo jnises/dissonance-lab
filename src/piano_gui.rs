@@ -5,6 +5,40 @@ use wmidi::Note;
 
 use crate::theme;
 
+/// A semitone value within an octave (0-11)
+/// Represents the 12 chromatic pitches: C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Semitone(u8);
+
+impl Semitone {
+    /// Create a new Semitone from a u8 value (0-11)
+    pub const fn new(value: u8) -> Self {
+        debug_assert!(value < 12, "Semitone value must be in range 0-11");
+        Self(value)
+    }
+
+    /// Create a new Semitone from a usize value (0-11)
+    pub const fn from_usize(value: usize) -> Self {
+        debug_assert!(value < 12, "Semitone value must be in range 0-11");
+        Self(value as u8)
+    }
+
+    /// Get the underlying u8 value (0-11)
+    pub const fn value(self) -> u8 {
+        self.0
+    }
+
+    /// Get the value as usize for compatibility with existing code
+    pub const fn as_usize(self) -> usize {
+        self.0 as usize
+    }
+
+    /// Convert to an array index (same as as_usize but more explicit about intent)
+    pub const fn as_index(self) -> usize {
+        self.0 as usize
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum PointerId {
     Mouse,
@@ -120,6 +154,7 @@ impl PianoGui {
 
         // Render white keys first (so black keys appear on top)
         for semitone in [0, 2, 4, 5, 7, 9, 11] {
+            let semitone = Semitone::new(semitone);
             let note = semitone_to_note_in_octave(semitone, self.octave);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
@@ -135,21 +170,21 @@ impl PianoGui {
 
             let is_pressed = !all_pointers.is_empty();
 
-            let was_pressed = self.previous_pointer_keys[semitone];
+            let was_pressed = self.previous_pointer_keys[semitone.as_index()];
 
             if is_pressed && !was_pressed {
                 actions.push(Action::Pressed(note));
                 if !shift_pressed {
                     self.selected_keys.fill(false);
                 }
-                let key_selected = self.selected_keys[semitone];
-                self.selected_keys.set(semitone, !key_selected);
+                let key_selected = self.selected_keys[semitone.as_index()];
+                self.selected_keys.set(semitone.as_index(), !key_selected);
             } else if !is_pressed && was_pressed {
                 actions.push(Action::Released(note));
             }
 
-            let selected = self.selected_keys[semitone];
-            let combined_selected = pressed_keys[semitone];
+            let selected = self.selected_keys[semitone.as_index()];
+            let combined_selected = pressed_keys[semitone.as_index()];
 
             let key_fill = if selected {
                 theme::selected_key()
@@ -174,6 +209,7 @@ impl PianoGui {
 
         // Render black keys on top
         for semitone in [1, 3, 6, 8, 10] {
+            let semitone = Semitone::new(semitone);
             let note = semitone_to_note_in_octave(semitone, self.octave);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
@@ -189,21 +225,21 @@ impl PianoGui {
 
             let is_pressed = !all_pointers.is_empty();
 
-            let was_pressed = self.previous_pointer_keys[semitone];
+            let was_pressed = self.previous_pointer_keys[semitone.as_index()];
 
             if is_pressed && !was_pressed {
                 actions.push(Action::Pressed(note));
                 if !shift_pressed {
                     self.selected_keys.fill(false);
                 }
-                let key_selected = self.selected_keys[semitone];
-                self.selected_keys.set(semitone, !key_selected);
+                let key_selected = self.selected_keys[semitone.as_index()];
+                self.selected_keys.set(semitone.as_index(), !key_selected);
             } else if !is_pressed && was_pressed {
                 actions.push(Action::Released(note));
             }
 
-            let selected = self.selected_keys[semitone];
-            let combined_selected = pressed_keys[semitone];
+            let selected = self.selected_keys[semitone.as_index()];
+            let combined_selected = pressed_keys[semitone.as_index()];
 
             let key_fill = if selected {
                 theme::selected_key()
@@ -231,7 +267,7 @@ impl PianoGui {
         for &note in self.pointers_holding_key.keys() {
             if !self.pointers_holding_key[&note].is_empty() {
                 let semitone = note_to_semitone(note);
-                self.previous_pointer_keys.set(semitone, true);
+                self.previous_pointer_keys.set(semitone.as_index(), true);
             }
         }
 
@@ -259,7 +295,7 @@ impl PianoGui {
         // Try all rotations of the chord (all possible roots)
         for rotation in 0..selected_semitones.len() {
             let root_semitone = selected_semitones[rotation];
-            let root = semitone_name(root_semitone);
+            let root = semitone_name(Semitone::from_usize(root_semitone));
 
             let mut intervals: Vec<usize> = Vec::new();
             for &semitone in selected_semitones.iter() {
@@ -289,11 +325,11 @@ impl PianoGui {
         }
 
         if selected_semitones.len() == 1 {
-            Some(semitone_name(selected_semitones[0]).to_string())
+            Some(semitone_name(Semitone::from_usize(selected_semitones[0])).to_string())
         } else {
             let notes: Vec<String> = selected_semitones
                 .iter()
-                .map(|&semitone| semitone_name(semitone).to_string())
+                .map(|&semitone| semitone_name(Semitone::from_usize(semitone)).to_string())
                 .collect();
             Some(notes.join("/"))
         }
@@ -303,6 +339,7 @@ impl PianoGui {
     fn find_key_at_position(&self, pos: egui::Pos2, keys_rect: Rect) -> Option<wmidi::Note> {
         // Check black keys first (they're on top)
         for semitone in [1, 3, 6, 8, 10] {
+            let semitone = Semitone::new(semitone);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
                 return Some(semitone_to_note_in_octave(semitone, self.octave));
@@ -311,6 +348,7 @@ impl PianoGui {
 
         // If not on a black key, check white keys
         for semitone in [0, 2, 4, 5, 7, 9, 11] {
+            let semitone = Semitone::new(semitone);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
                 return Some(semitone_to_note_in_octave(semitone, self.octave));
@@ -369,7 +407,7 @@ impl PianoGui {
 /// Returns the rectangle for a piano key.
 /// * `semitone` - The semitone index (0-11) representing the key within the octave. Determines which piano key's rectangle to compute.
 /// * `rect` - The bounding rectangle of the entire piano area. All key positions and sizes are calculated relative to this rectangle.
-fn key_rect_for_semitone(semitone: usize, rect: Rect) -> Rect {
+fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
     const NUM_WHITE_KEYS: usize = 7;
     const NUM_BLACK_KEYS: usize = 5;
     const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
@@ -411,12 +449,12 @@ fn key_rect_for_semitone(semitone: usize, rect: Rect) -> Rect {
     }
 }
 
-fn is_black_key(semitone: usize) -> bool {
-    matches!(semitone, 1 | 3 | 6 | 8 | 10)
+fn is_black_key(semitone: Semitone) -> bool {
+    matches!(semitone.value(), 1 | 3 | 6 | 8 | 10)
 }
 
-fn semitone_to_white_key_index(semitone: usize) -> usize {
-    match semitone {
+fn semitone_to_white_key_index(semitone: Semitone) -> usize {
+    match semitone.value() {
         0 => 0,  // C
         2 => 1,  // D
         4 => 2,  // E
@@ -424,23 +462,23 @@ fn semitone_to_white_key_index(semitone: usize) -> usize {
         7 => 4,  // G
         9 => 5,  // A
         11 => 6, // B
-        _ => panic!("Invalid white key semitone: {semitone}"),
+        _ => panic!("Invalid white key semitone: {}", semitone.value()),
     }
 }
 
-fn semitone_to_black_key_index(semitone: usize) -> usize {
-    match semitone {
+fn semitone_to_black_key_index(semitone: Semitone) -> usize {
+    match semitone.value() {
         1 => 0,  // C#
         3 => 1,  // D#
         6 => 2,  // F#
         8 => 3,  // G#
         10 => 4, // A#
-        _ => panic!("Invalid black key semitone: {semitone}"),
+        _ => panic!("Invalid black key semitone: {}", semitone.value()),
     }
 }
 
-fn semitone_name(semitone: usize) -> &'static str {
-    match semitone {
+fn semitone_name(semitone: Semitone) -> &'static str {
+    match semitone.value() {
         0 => "C",
         1 => "C#",
         2 => "D",
@@ -458,8 +496,7 @@ fn semitone_name(semitone: usize) -> &'static str {
 }
 
 /// Convert a semitone (0-11) to a Note in the specified octave
-fn semitone_to_note_in_octave(semitone: usize, octave: u8) -> Note {
-    debug_assert!(semitone < 12, "Semitone must be in range 0-11");
+fn semitone_to_note_in_octave(semitone: Semitone, octave: u8) -> Note {
     debug_assert!(
         octave <= 9,
         "Octave must be in range 0-9 for valid MIDI notes"
@@ -467,13 +504,13 @@ fn semitone_to_note_in_octave(semitone: usize, octave: u8) -> Note {
 
     // Calculate the MIDI note number: (octave + 1) * 12 + semitone
     // The +1 is because MIDI octave numbering starts at -1, so C4 = 60
-    let midi_note = (octave as usize + 1) * 12 + semitone;
+    let midi_note = (octave as usize + 1) * 12 + semitone.as_usize();
     debug_assert!(midi_note <= 127, "MIDI note number must be <= 127");
 
     Note::try_from(midi_note as u8).unwrap()
 }
 
 /// Convert a Note to its semitone representation (0-11) within its octave
-fn note_to_semitone(note: Note) -> usize {
-    (u8::from(note) % 12) as usize
+fn note_to_semitone(note: Note) -> Semitone {
+    Semitone::new(u8::from(note) % 12)
 }

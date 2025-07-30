@@ -67,7 +67,8 @@
       - Proper cleanup of pointer mappings when touches leave key areas
   - [x] use wmidi::Note rather than usize to represent semitones in piano_gui.rs
     - Replaced HashMap<usize, HashSet<PointerId>> with HashMap<wmidi::Note, HashSet<PointerId>> for tracking which pointers are holding each key. This is more efficient since wmidi::Note is internally a u8, compared to usize which is pointer-sized. Added configurable octave support so the piano GUI can display any octave (0-9) rather than being hardcoded to a single octave. Added helper function semitone_to_note_in_octave() for clean conversion. The note_to_semitone() function retains the % 12 operation only for UI purposes where semitone indices (0-11) are still needed for the BitArray operations.
-  - [ ] Create a type that represents a semitone in piano_gui.rs. That is, a value between 0 and 11. And use that instead of usize.
+  - [x] Create a type that represents a semitone in piano_gui.rs. That is, a value between 0 and 11. And use that instead of usize.
+    - Implemented `Semitone` struct that wraps a u8 value with range validation (0-11). Added methods for type conversions (`new`, `from_usize`, `value`, `as_usize`, `as_index`) with appropriate debug assertions. Updated all function signatures and usages throughout piano_gui.rs to use `Semitone` instead of `usize` for semitone values. This provides better type safety and self-documenting code while maintaining compatibility with existing BitArray indexing via the `as_index()` method.
   - [ ] Make sure you add `debug_assert` where it makes sense in piano_gui.rs
   - [ ] in piano_gui.rs create methods that updates both key_held_by_pointer and pointers_holding_key. so that we assure they are kept in sync.
   - [ ] in piano_gui.rs, create the Actions when updating key_held_by_pointer rather than in the rendering part of show. can `previous_pointer_keys` be removed?
