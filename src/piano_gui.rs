@@ -68,7 +68,7 @@ impl PianoGui {
         let keys_rect = rect.shrink(MARGIN);
         let shift_pressed = ui.input(|i| i.modifiers.shift);
 
-        // Create a map of key_id -> (key_index, key_rect, semitone)
+        // Create a map of key_id -> (key_rect, semitone)
         let mut key_info = HashMap::new();
 
         const NUM_WHITE_KEYS: usize = 7;
@@ -76,6 +76,7 @@ impl PianoGui {
         const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
         const BLACK_KEY_X_POSITIONS: [f32; NUM_BLACK_KEYS] = [1.0, 3.0, 6.0, 8.0, 10.0];
         const SEMITONES_IN_OCTAVE: f32 = 12.0;
+        const BLACK_KEY_HEIGHT_RATIO: f32 = 0.6;
 
         #[derive(strum_macros::Display)]
         enum Color {
@@ -85,43 +86,44 @@ impl PianoGui {
 
         // First pass: build key info map
         for color in [Color::White, Color::Black] {
-            let num_keys = match color {
-                Color::White => NUM_WHITE_KEYS,
-                Color::Black => NUM_BLACK_KEYS,
+            let (num_keys, x_positions, semitone_fn) = match color {
+                Color::White => (
+                    NUM_WHITE_KEYS,
+                    &WHITE_KEY_X_POSITIONS[..],
+                    white_key_to_semitone as fn(usize) -> usize,
+                ),
+                Color::Black => (
+                    NUM_BLACK_KEYS,
+                    &BLACK_KEY_X_POSITIONS[..],
+                    black_key_to_semitone as fn(usize) -> usize,
+                ),
             };
-            let x = match color {
-                Color::White => WHITE_KEY_X_POSITIONS.to_vec(),
-                Color::Black => BLACK_KEY_X_POSITIONS.to_vec(),
-            };
+
             for key in 0..num_keys {
                 let key_id = ui.id().with(format!("{color}{key}"));
                 let key_size = match color {
                     Color::White => vec2(
-                        (x.get(key + 1).unwrap_or(&SEMITONES_IN_OCTAVE) - x[key])
+                        (x_positions.get(key + 1).unwrap_or(&SEMITONES_IN_OCTAVE)
+                            - x_positions[key])
                             / SEMITONES_IN_OCTAVE
                             * keys_rect.width(),
                         keys_rect.height(),
                     ),
-                    Color::Black => {
-                        const BLACK_KEY_HEIGHT_RATIO: f32 = 0.6;
-                        vec2(
-                            keys_rect.width() / SEMITONES_IN_OCTAVE,
-                            keys_rect.height() * BLACK_KEY_HEIGHT_RATIO,
-                        )
-                    }
+                    Color::Black => vec2(
+                        keys_rect.width() / SEMITONES_IN_OCTAVE,
+                        keys_rect.height() * BLACK_KEY_HEIGHT_RATIO,
+                    ),
                 };
                 let key_rect = Rect::from_min_size(
                     pos2(
-                        keys_rect.min.x + x[key] / SEMITONES_IN_OCTAVE * keys_rect.width(),
+                        keys_rect.min.x
+                            + x_positions[key] / SEMITONES_IN_OCTAVE * keys_rect.width(),
                         keys_rect.min.y,
                     ),
                     key_size,
                 );
-                let semitone = match color {
-                    Color::White => white_key_to_semitone(key),
-                    Color::Black => black_key_to_semitone(key),
-                };
-                key_info.insert(key_id, (key, key_rect, semitone));
+                let semitone = semitone_fn(key);
+                key_info.insert(key_id, (key_rect, semitone));
             }
         }
 
@@ -145,7 +147,7 @@ impl PianoGui {
                                 };
                                 for key in 0..num_keys {
                                     let key_id = ui.id().with(format!("{color}{key}"));
-                                    if let Some((_, key_rect, semitone)) = key_info.get(&key_id) {
+                                    if let Some((key_rect, semitone)) = key_info.get(&key_id) {
                                         if key_rect.contains(*pos) {
                                             target_semitone = Some(*semitone);
                                             break;
@@ -218,7 +220,7 @@ impl PianoGui {
             };
             for key in 0..num_keys {
                 let key_id = ui.id().with(format!("{color}{key}"));
-                let (_, key_rect, semitone) = key_info[&key_id];
+                let (key_rect, semitone) = key_info[&key_id];
 
                 // Get active pointers for this key from our local state
                 let touch_pointers = self
