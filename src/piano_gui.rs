@@ -27,6 +27,7 @@ pub struct PianoGui {
     // ~ CLAUDE
     pointer_to_key: HashMap<PointerId, usize>, // PointerId -> semitone
     key_pointers: HashMap<usize, HashSet<PointerId>>, // semitone -> set of pointers
+    previous_pointer_keys: KeySet, // Keys that were pressed by pointers in the previous frame
 }
 
 pub enum Action {
@@ -41,6 +42,7 @@ impl PianoGui {
             external_keys: Default::default(),
             pointer_to_key: HashMap::new(),
             key_pointers: HashMap::new(),
+            previous_pointer_keys: Default::default(),
         }
     }
 
@@ -208,8 +210,84 @@ impl PianoGui {
             }
         });
 
-        // Second pass: render keys and handle mouse interactions.
-        // This architecture processes all touch events globally first, then renders each key,
+        // Handle mouse interactions globally, similar to touch handling
+        let mouse_pointer_id = PointerId::Mouse;
+        let mouse_pos = ui.input(|i| i.pointer.latest_pos());
+        let mouse_down = ui.input(|i| i.pointer.primary_down());
+
+        if let Some(pos) = mouse_pos {
+            if mouse_down {
+                // Find which key the mouse is over (check black keys first for proper layering)
+                let mut target_semitone = None;
+                for color in [Color::Black, Color::White] {
+                    let num_keys = match color {
+                        Color::White => NUM_WHITE_KEYS,
+                        Color::Black => NUM_BLACK_KEYS,
+                    };
+                    for key in 0..num_keys {
+                        let key_id = ui.id().with(format!("{color}{key}"));
+                        if let Some((key_rect, semitone)) = key_info.get(&key_id) {
+                            if key_rect.contains(pos) {
+                                target_semitone = Some(*semitone);
+                                break;
+                            }
+                        }
+                    }
+                    if target_semitone.is_some() {
+                        break;
+                    }
+                }
+
+                if let Some(new_semitone) = target_semitone {
+                    // Check if mouse moved to a different key
+                    if let Some(old_semitone) = self.pointer_to_key.get(&mouse_pointer_id) {
+                        if *old_semitone != new_semitone {
+                            // Remove from old key
+                            if let Some(pointers) = self.key_pointers.get_mut(old_semitone) {
+                                pointers.remove(&mouse_pointer_id);
+                            }
+                            // Add to new key
+                            self.pointer_to_key.insert(mouse_pointer_id, new_semitone);
+                            self.key_pointers
+                                .entry(new_semitone)
+                                .or_default()
+                                .insert(mouse_pointer_id);
+                        }
+                    } else {
+                        // New mouse press
+                        self.pointer_to_key.insert(mouse_pointer_id, new_semitone);
+                        self.key_pointers
+                            .entry(new_semitone)
+                            .or_default()
+                            .insert(mouse_pointer_id);
+                    }
+                } else {
+                    // Mouse moved outside all keys
+                    if let Some(old_semitone) = self.pointer_to_key.remove(&mouse_pointer_id) {
+                        if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+                            pointers.remove(&mouse_pointer_id);
+                        }
+                    }
+                }
+            } else {
+                // Mouse button not down - remove from tracking
+                if let Some(old_semitone) = self.pointer_to_key.remove(&mouse_pointer_id) {
+                    if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+                        pointers.remove(&mouse_pointer_id);
+                    }
+                }
+            }
+        } else {
+            // No mouse position - remove from tracking
+            if let Some(old_semitone) = self.pointer_to_key.remove(&mouse_pointer_id) {
+                if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+                    pointers.remove(&mouse_pointer_id);
+                }
+            }
+        }
+
+        // Second pass: render keys and handle interactions.
+        // This architecture processes all pointer events globally first, then renders each key,
         // which is more efficient than the previous approach where each key processed all events.
         // The local state management also eliminates redundant event processing and ensures
         // proper multitouch handling without WASM compatibility issues.
@@ -223,26 +301,18 @@ impl PianoGui {
                 let (key_rect, semitone) = key_info[&key_id];
 
                 // Get active pointers for this key from our local state
-                let touch_pointers = self
+                let all_pointers = self
                     .key_pointers
                     .get(&semitone)
                     .cloned()
                     .unwrap_or_default();
-                let mut all_pointers = touch_pointers;
 
-                // Handle mouse interactions
-                let key_response = ui.allocate_rect(key_rect, Sense::click_and_drag());
-                let mouse_pressed = key_response.is_pointer_button_down_on();
-                let mouse_pointer_id = PointerId::Mouse;
-
-                // Track mouse pointer state
-                if mouse_pressed {
-                    all_pointers.insert(mouse_pointer_id);
-                }
+                // Allocate space for the key (needed for proper UI layout)
+                ui.allocate_rect(key_rect, Sense::click_and_drag());
 
                 let is_pressed = !all_pointers.is_empty();
 
-                let was_pressed = pressed_keys[semitone];
+                let was_pressed = self.previous_pointer_keys[semitone];
 
                 if is_pressed && !was_pressed {
                     let note = wmidi::Note::C4.step(semitone as i8).unwrap();
@@ -279,6 +349,14 @@ impl PianoGui {
                         StrokeKind::Middle,
                     );
                 }
+            }
+        }
+
+        // Update previous pointer keys for the next frame
+        self.previous_pointer_keys.fill(false);
+        for &semitone in self.key_pointers.keys() {
+            if !self.key_pointers[&semitone].is_empty() {
+                self.previous_pointer_keys.set(semitone, true);
             }
         }
 
