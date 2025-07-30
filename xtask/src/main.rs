@@ -289,6 +289,7 @@ fn check_all_crates() -> Result<()> {
     
     // Define which crates should use which target
     const NATIVE_CRATES: &[&str] = &["xtask", "dev-log-server"];
+    // dissonance-lab can't be checked natively on wsl2 due to winit
     const WASM_CRATES: &[&str] = &["dissonance-lab", "audio-worklet", "shared-types"];
 
     // Check native crates
