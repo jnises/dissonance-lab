@@ -31,16 +31,10 @@ The project it split into multiple crates. All in the same cargo workspace.
 - In `egui`, the coordinate system has the x-axis increasing to the right and the y-axis increasing downward.
 
 # Quality Assurance
-- **MANDATORY**: Before completing any task, run `cargo check --workspace`, `cargo clippy --workspace`, `trunk build`, and `cargo test`.
+- **MANDATORY**: Before completing any task, run `cargo xtask check-all`, `cargo clippy --workspace`, `trunk build`, and `cargo test`.
 - If these commands fail or show NEW warnings/errors compared to before your changes, you MUST fix them
 - Pre-existing warnings unrelated to your changes should be left alone
 - Document any intentional ignoring of errors with detailed comments explaining why
-
-# Agent Compliance
-- **MANDATORY**: Always read and apply the full instructions file for every task (copilot-instructions.md, CLAUDE.md, GEMINI.md ... depending on who you are).
-- **MANDATORY**: Follow the code style guidelines without exception
-- **MANDATORY**: Use the specified tools and commands as documented
-- If you cannot follow an instruction, explain why and ask for clarification before proceeding
 
 # Running
 - For development the project is started using `cargo xtask dev`. But the agent shouldn't call that. The user will keep that running continuously.
@@ -51,9 +45,6 @@ The project it split into multiple crates. All in the same cargo workspace.
   2. THEN: Use `cargo xtask dump-latest-logs` to read the frontend logs
   3. Do NOT skip step 1 - the logs will be stale/incomplete without user interaction
 - Use `cargo xtask dump-latest-logs` to read the frontend logs of the most recent session.
-- **Mobile Testing Notes**: 
-  - AudioWorklet support is limited on mobile devices - the app will gracefully disable audio and show informative messages
-  - Touch events and multitouch should work on mobile devices for the piano interface
 
 # Temporary Tools
 - If you need to create temporary scripts, tools, or files for debugging, analysis, or one-time tasks, place them in `tmp/` directory at the project root.
