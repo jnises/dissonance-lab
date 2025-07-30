@@ -71,6 +71,8 @@ enum Commands {
     DumpLatestLogs,
     /// Check all crates with appropriate targets
     CheckAll,
+    /// Run clippy on all crates with appropriate targets
+    ClippyAll,
 }
 
 fn main() -> Result<()> {
@@ -80,6 +82,7 @@ fn main() -> Result<()> {
         Commands::Dev { bind } => run_dev(bind),
         Commands::DumpLatestLogs => dump_log(),
         Commands::CheckAll => check_all_crates(),
+        Commands::ClippyAll => clippy_all_crates(),
     }
 }
 
@@ -390,6 +393,106 @@ fn check_wasm_crate(crate_name: &str) -> Result<()> {
 
     if !status.success() {
         anyhow::bail!("Failed to check {crate_name} for WASM target");
+    }
+
+    Ok(())
+}
+
+fn clippy_all_crates() -> Result<()> {
+    println!("🔧 Running clippy on all crates with appropriate targets...");
+    
+    // Ensure we're in the project root
+    let project_root = find_project_root()?;
+    env::set_current_dir(&project_root).context("Failed to change to project root directory")?;
+
+    // Get all crates in the workspace
+    let crates = get_workspace_crates(&project_root)?;
+    
+    // Define which crates should use which target
+    const NATIVE_CRATES: &[&str] = &["xtask", "dev-log-server"];
+    const WASM_CRATES: &[&str] = &["dissonance-lab", "audio-worklet", "shared-types"];
+
+    // Clippy native crates
+    println!("📦 Running clippy on native crates...");
+    for crate_name in &crates {
+        if NATIVE_CRATES.contains(&crate_name.as_str()) {
+            clippy_native_crate(crate_name)?;
+        }
+    }
+
+    // Clippy WASM crates
+    println!("🌐 Running clippy on WASM crates...");
+    for crate_name in &crates {
+        if WASM_CRATES.contains(&crate_name.as_str()) {
+            clippy_wasm_crate(crate_name)?;
+        }
+    }
+
+    // Verify all crates were checked
+    let mut all_expected_crates = NATIVE_CRATES.iter().chain(WASM_CRATES.iter()).collect::<std::collections::HashSet<_>>();
+    let mut missing_crates = Vec::new();
+    let mut uncategorized_crates = Vec::new();
+
+    for crate_name in &crates {
+        if all_expected_crates.remove(&crate_name.as_str()) {
+            // Crate was expected and found
+        } else {
+            uncategorized_crates.push(crate_name.clone());
+        }
+    }
+
+    // Check for missing expected crates
+    for missing in all_expected_crates {
+        missing_crates.push(missing.to_string());
+    }
+
+    if !missing_crates.is_empty() {
+        anyhow::bail!("Expected crates not found in workspace: {}", missing_crates.join(", "));
+    }
+
+    if !uncategorized_crates.is_empty() {
+        println!("⚠️  Warning: Found uncategorized crates (not linted): {}", uncategorized_crates.join(", "));
+        println!("   Consider adding them to NATIVE_CRATES or WASM_CRATES in clippy_all_crates()");
+    }
+
+    println!("✅ All crates linted successfully!");
+    println!("   📦 Native crates linted: {}", NATIVE_CRATES.len());
+    println!("   🌐 WASM crates linted: {}", WASM_CRATES.len());
+    
+    Ok(())
+}
+
+fn clippy_native_crate(crate_name: &str) -> Result<()> {
+    println!("  Running clippy on {crate_name} (native target)...");
+    
+    let mut cmd = Command::new("cargo");
+    cmd.args(["clippy", "-p", crate_name]);
+    cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+
+    let status = cmd
+        .status()
+        .with_context(|| format!("Failed to run cargo clippy for {crate_name}"))?;
+
+    if !status.success() {
+        anyhow::bail!("Failed to lint {crate_name}");
+    }
+
+    Ok(())
+}
+
+fn clippy_wasm_crate(crate_name: &str) -> Result<()> {
+    println!("  Running clippy on {crate_name} (WASM target)...");
+    
+    let mut cmd = Command::new("cargo");
+    cmd.args(["clippy", "-p", crate_name, "--target", "wasm32-unknown-unknown"]);
+    cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+
+    let status = cmd
+        .status()
+        .with_context(|| format!("Failed to run cargo clippy for {crate_name} with WASM target"))?;
+
+    if !status.success() {
+        anyhow::bail!("Failed to lint {crate_name} for WASM target");
     }
 
     Ok(())

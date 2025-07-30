@@ -1,6 +1,7 @@
 - [x] Add xtask task that checks all crates. xtask and dev_log_server should compile to the native target. the main crate, audi-worklet and shared-types should compile to wasm. update the agent instructions to use the new commands. this is needed since we cannot check the main create in native mode on wsl2
   - Implemented `cargo xtask check-all` command that programmatically discovers all workspace crates using cargo_metadata and checks each with appropriate targets (native for xtask/dev-log-server, WASM for dissonance-lab/audio-worklet/shared-types). Updated agent instructions to use this command instead of `cargo check --workspace`.
-- [ ] Add xtask task that clippys all crates. xtask and dev_log_server should compile to the native target. the main crate, audi-worklet and shared-types should compile to wasm. update the agent instructions to use the new commands. this is needed since we cannot compile the main create in native mode on wsl2
+- [x] Add xtask task that clippys all crates. xtask and dev_log_server should compile to the native target. the main crate, audi-worklet and shared-types should compile to wasm. update the agent instructions to use the new commands. this is needed since we cannot compile the main create in native mode on wsl2
+  - Implemented `cargo xtask clippy-all` command that follows the same pattern as check-all, running clippy on each crate with the appropriate target. Updated agent instructions to use this command instead of `cargo clippy --workspace`.
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation
