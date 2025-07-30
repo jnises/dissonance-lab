@@ -71,8 +71,9 @@ impl DissonanceLabApp {
 
     /// Check if the current audio state indicates failure and update to Disabled if so
     fn check_audio_status(&mut self) {
+        let mut audio_guard = self.audio.lock().unwrap();
         let should_disable = {
-            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+            if let AudioState::Playing(web_audio) = &*audio_guard {
                 web_audio.is_disabled()
             } else {
                 false
@@ -80,7 +81,7 @@ impl DissonanceLabApp {
         };
 
         if should_disable {
-            *self.audio.lock().unwrap() = AudioState::Disabled;
+            *audio_guard = AudioState::Disabled;
         }
     }
 
