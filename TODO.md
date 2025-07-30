@@ -75,6 +75,7 @@
   - [ ] make `is_black_key`, `semitone_to_white_key_index`, `semitone_to_black_key_index`, `semitone_name`, ` semitone_to_note_in_octave`, and `note_to_semitone` methods on the Semitone type.
   - [ ] in piano_gui.rs create methods that updates both key_held_by_pointer and pointers_holding_key. so that we assure they are kept in sync.
   - [ ] in piano_gui.rs, create the Actions when updating key_held_by_pointer rather than in the rendering part of show. can `previous_pointer_keys` be removed?
+  - [ ] look for old things in piano_gui.rs that can be simplified or removed
   - [ ] Test multi-touch functionality on mobile devices and touch screens
     - [ ] Test basic two-finger simultaneous key presses
     - [ ] Test chord playing with multiple fingers
