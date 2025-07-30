@@ -72,10 +72,12 @@ impl PianoGui {
         let keys_rect = rect.shrink(MARGIN);
         let shift_pressed = ui.input(|i| i.modifiers.shift);
 
-        // Process all touch events using local state instead of egui's ui.data() system.
+        // Process all pointer events (touch and mouse) using local state instead of egui's ui.data() system.
         // This avoids a specific WASM panic that occurred in egui 0.32.0 when ui.data()
         // triggered certain parking_lot code paths. While both egui and parking_lot support
         // WASM, this approach is more efficient and sidesteps the issue completely.
+
+        // Handle touch events
         ui.input(|i| {
             for event in &i.events {
                 if let Event::Touch { id, phase, pos, .. } = event {
@@ -83,161 +85,31 @@ impl PianoGui {
 
                     match phase {
                         TouchPhase::Start | TouchPhase::Move => {
-                            // Find which key this touch is over (check black keys first for proper layering)
-                            let mut target_note = None;
-
-                            // Check black keys first (they're on top)
-                            for semitone in [1, 3, 6, 8, 10] {
-                                let key_rect = key_rect_for_semitone(semitone, keys_rect);
-                                if key_rect.contains(*pos) {
-                                    target_note =
-                                        Some(semitone_to_note_in_octave(semitone, self.octave));
-                                    break;
-                                }
-                            }
-
-                            // If not on a black key, check white keys
-                            if target_note.is_none() {
-                                for semitone in [0, 2, 4, 5, 7, 9, 11] {
-                                    let key_rect = key_rect_for_semitone(semitone, keys_rect);
-                                    if key_rect.contains(*pos) {
-                                        target_note =
-                                            Some(semitone_to_note_in_octave(semitone, self.octave));
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if let Some(new_note) = target_note {
-                                // Check if touch moved to a different key
-                                if let Some(old_note) = self.key_held_by_pointer.get(&pointer_id) {
-                                    let old_note_val = *old_note;
-                                    if old_note_val != new_note {
-                                        // Remove from old key
-                                        if let Some(pointers) =
-                                            self.pointers_holding_key.get_mut(&old_note_val)
-                                        {
-                                            pointers.remove(&pointer_id);
-                                        }
-                                        // Add to new key
-                                        self.key_held_by_pointer.insert(pointer_id, new_note);
-                                        self.pointers_holding_key
-                                            .entry(new_note)
-                                            .or_default()
-                                            .insert(pointer_id);
-                                    }
-                                } else {
-                                    // New touch
-                                    self.key_held_by_pointer.insert(pointer_id, new_note);
-                                    self.pointers_holding_key
-                                        .entry(new_note)
-                                        .or_default()
-                                        .insert(pointer_id);
-                                }
-                            } else {
-                                // Touch moved outside all keys
-                                if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id)
-                                {
-                                    if let Some(pointers) =
-                                        self.pointers_holding_key.get_mut(&old_note)
-                                    {
-                                        pointers.remove(&pointer_id);
-                                    }
-                                }
-                            }
+                            let target_note = self.find_key_at_position(*pos, keys_rect);
+                            self.handle_pointer_move(pointer_id, target_note);
                         }
                         TouchPhase::End | TouchPhase::Cancel => {
-                            // Touch ended - remove from tracking
-                            if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id) {
-                                if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note)
-                                {
-                                    pointers.remove(&pointer_id);
-                                }
-                            }
+                            self.handle_pointer_release(pointer_id);
                         }
                     }
                 }
             }
         });
 
-        // Handle mouse interactions globally, similar to touch handling
+        // Handle mouse interactions
         let mouse_pointer_id = PointerId::Mouse;
         let mouse_pos = ui.input(|i| i.pointer.latest_pos());
         let mouse_down = ui.input(|i| i.pointer.primary_down());
 
         if let Some(pos) = mouse_pos {
             if mouse_down {
-                // Find which key the mouse is over (check black keys first for proper layering)
-                let mut target_note = None;
-
-                // Check black keys first (they're on top)
-                for semitone in [1, 3, 6, 8, 10] {
-                    let key_rect = key_rect_for_semitone(semitone, keys_rect);
-                    if key_rect.contains(pos) {
-                        target_note = Some(semitone_to_note_in_octave(semitone, self.octave));
-                        break;
-                    }
-                }
-
-                // If not on a black key, check white keys
-                if target_note.is_none() {
-                    for semitone in [0, 2, 4, 5, 7, 9, 11] {
-                        let key_rect = key_rect_for_semitone(semitone, keys_rect);
-                        if key_rect.contains(pos) {
-                            target_note = Some(semitone_to_note_in_octave(semitone, self.octave));
-                            break;
-                        }
-                    }
-                }
-
-                if let Some(new_note) = target_note {
-                    // Check if mouse moved to a different key
-                    if let Some(old_note) = self.key_held_by_pointer.get(&mouse_pointer_id) {
-                        let old_note_val = *old_note;
-                        if old_note_val != new_note {
-                            // Remove from old key
-                            if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note_val)
-                            {
-                                pointers.remove(&mouse_pointer_id);
-                            }
-                            // Add to new key
-                            self.key_held_by_pointer.insert(mouse_pointer_id, new_note);
-                            self.pointers_holding_key
-                                .entry(new_note)
-                                .or_default()
-                                .insert(mouse_pointer_id);
-                        }
-                    } else {
-                        // New mouse press
-                        self.key_held_by_pointer.insert(mouse_pointer_id, new_note);
-                        self.pointers_holding_key
-                            .entry(new_note)
-                            .or_default()
-                            .insert(mouse_pointer_id);
-                    }
-                } else {
-                    // Mouse moved outside all keys
-                    if let Some(old_note) = self.key_held_by_pointer.remove(&mouse_pointer_id) {
-                        if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
-                            pointers.remove(&mouse_pointer_id);
-                        }
-                    }
-                }
+                let target_note = self.find_key_at_position(pos, keys_rect);
+                self.handle_pointer_move(mouse_pointer_id, target_note);
             } else {
-                // Mouse button not down - remove from tracking
-                if let Some(old_note) = self.key_held_by_pointer.remove(&mouse_pointer_id) {
-                    if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
-                        pointers.remove(&mouse_pointer_id);
-                    }
-                }
+                self.handle_pointer_release(mouse_pointer_id);
             }
         } else {
-            // No mouse position - remove from tracking
-            if let Some(old_note) = self.key_held_by_pointer.remove(&mouse_pointer_id) {
-                if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
-                    pointers.remove(&mouse_pointer_id);
-                }
-            }
+            self.handle_pointer_release(mouse_pointer_id);
         }
 
         // Second pass: render keys and handle interactions.
@@ -424,6 +296,72 @@ impl PianoGui {
                 .map(|&semitone| semitone_name(semitone).to_string())
                 .collect();
             Some(notes.join("/"))
+        }
+    }
+
+    /// Find which key is at the given position, checking black keys first for proper layering
+    fn find_key_at_position(&self, pos: egui::Pos2, keys_rect: Rect) -> Option<wmidi::Note> {
+        // Check black keys first (they're on top)
+        for semitone in [1, 3, 6, 8, 10] {
+            let key_rect = key_rect_for_semitone(semitone, keys_rect);
+            if key_rect.contains(pos) {
+                return Some(semitone_to_note_in_octave(semitone, self.octave));
+            }
+        }
+
+        // If not on a black key, check white keys
+        for semitone in [0, 2, 4, 5, 7, 9, 11] {
+            let key_rect = key_rect_for_semitone(semitone, keys_rect);
+            if key_rect.contains(pos) {
+                return Some(semitone_to_note_in_octave(semitone, self.octave));
+            }
+        }
+
+        None
+    }
+
+    /// Handle a pointer moving to a new key (or moving off all keys)
+    fn handle_pointer_move(&mut self, pointer_id: PointerId, target_note: Option<wmidi::Note>) {
+        if let Some(new_note) = target_note {
+            // Check if pointer moved to a different key
+            if let Some(old_note) = self.key_held_by_pointer.get(&pointer_id) {
+                let old_note_val = *old_note;
+                if old_note_val != new_note {
+                    // Remove from old key
+                    if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note_val) {
+                        pointers.remove(&pointer_id);
+                    }
+                    // Add to new key
+                    self.key_held_by_pointer.insert(pointer_id, new_note);
+                    self.pointers_holding_key
+                        .entry(new_note)
+                        .or_default()
+                        .insert(pointer_id);
+                }
+            } else {
+                // New pointer press
+                self.key_held_by_pointer.insert(pointer_id, new_note);
+                self.pointers_holding_key
+                    .entry(new_note)
+                    .or_default()
+                    .insert(pointer_id);
+            }
+        } else {
+            // Pointer moved outside all keys
+            if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id) {
+                if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
+                    pointers.remove(&pointer_id);
+                }
+            }
+        }
+    }
+
+    /// Handle a pointer being released or ending
+    fn handle_pointer_release(&mut self, pointer_id: PointerId) {
+        if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id) {
+            if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
+                pointers.remove(&pointer_id);
+            }
         }
     }
 }
