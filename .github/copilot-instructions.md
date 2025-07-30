@@ -31,10 +31,11 @@ The project it split into multiple crates. All in the same cargo workspace.
 - In `egui`, the coordinate system has the x-axis increasing to the right and the y-axis increasing downward.
 
 # Quality Assurance
-- **MANDATORY**: Before completing any task, run `./check.sh`.
+- **MANDATORY**: Before completing any task, run `cargo xtask check`.
 - If this command fails or show NEW warnings/errors compared to before your changes, you MUST fix them
 - Pre-existing warnings unrelated to your changes should be left alone
 - Document any intentional ignoring of errors with detailed comments explaining why
+- If you need to skip formatting checks during development, use `cargo xtask check --skip-fmt`
 
 # Running
 - For development the project is started using `cargo xtask dev`. But the agent shouldn't call that. The user will keep that running continuously.

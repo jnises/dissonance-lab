@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+mod check;
 mod dev;
 mod utils;
 
@@ -22,6 +23,16 @@ enum Commands {
     },
     /// Dump the latest session from the development log file
     DumpLatestLogs,
+    /// Run comprehensive checks (build, format, clippy, tests)
+    Check {
+        /// Skip code formatting check
+        #[arg(long)]
+        skip_fmt: bool,
+    },
+    /// Check all crates with appropriate targets
+    CheckAll,
+    /// Run clippy on all crates with appropriate targets
+    ClippyAll,
 }
 
 fn main() -> Result<()> {
@@ -30,5 +41,8 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Dev { bind } => dev::run_dev(bind),
         Commands::DumpLatestLogs => dev::dump_log(),
+        Commands::Check { skip_fmt } => check::run_check(skip_fmt),
+        Commands::CheckAll => check::check_all_crates(),
+        Commands::ClippyAll => check::clippy_all_crates(),
     }
 }

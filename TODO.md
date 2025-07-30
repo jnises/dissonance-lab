@@ -2,6 +2,12 @@
   - Implemented `cargo xtask check-all` command that programmatically discovers all workspace crates using cargo_metadata and checks each with appropriate targets (native for xtask/dev-log-server, WASM for dissonance-lab/audio-worklet/shared-types). Updated agent instructions to use this command instead of `cargo check --workspace`.
 - [x] Add xtask task that clippys all crates. xtask and dev_log_server should compile to the native target. the main crate, audi-worklet and shared-types should compile to wasm. update the agent instructions to use the new commands. this is needed since we cannot compile the main create in native mode on wsl2
   - Implemented `cargo xtask clippy-all` command that follows the same pattern as check-all, running clippy on each crate with the appropriate target. Updated agent instructions to use this command instead of `cargo clippy --workspace`.
+- [x] Convert `check.sh` to an xtask comment
+  - Implemented comprehensive `cargo xtask check` command that replicates all functionality from check.sh, including check, check-wasm, formatting, clippy, tests, doc tests, and trunk build
+  - [x] add a argument to skip the fmt
+    - Added `--skip-fmt` flag to skip code formatting check when needed
+  - [x] Update the agent instructions to use the xtask, with the skip-fmt argument
+    - Updated .github/copilot-instructions.md to use `cargo xtask check` instead of `./check.sh` and documented the `--skip-fmt` option
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
   - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation

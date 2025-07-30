@@ -67,6 +67,22 @@ trunk build
 trunk build --release
 ```
 
+## Development Tools
+
+The project includes several development utilities via `cargo xtask`:
+
+```bash
+# Run comprehensive checks (build, format, clippy, tests, trunk build), mostly equivalent to CI
+cargo xtask check
+
+# Skip formatting check during development
+cargo xtask check --skip-fmt
+
+# Start development environment (frontend + log server)
+cargo xtask dev
+
+```
+
 ## Testing
 ```
 cargo test
