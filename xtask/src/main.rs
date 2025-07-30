@@ -2,12 +2,20 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::env;
 use std::fs;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
+/// Shutdown signal types
+#[derive(Debug)]
+enum ShutdownSignal {
+    CtrlC,
+    ProcessExit { name: String, status: ExitStatus },
+}
+
 /// A wrapper around Child that automatically kills the process when dropped
+/// and can monitor the process in a separate thread
 struct ManagedProcess {
     name: String,
     child: Child,
@@ -16,6 +24,21 @@ struct ManagedProcess {
 impl ManagedProcess {
     fn new(name: String, child: Child) -> Self {
         Self { name, child }
+    }
+
+    /// Spawn a monitoring thread that sends a shutdown signal when the process exits
+    fn spawn_monitor(mut self, tx: mpsc::Sender<ShutdownSignal>) {
+        let name = self.name.clone();
+        thread::spawn(move || {
+            match self.child.wait() {
+                Ok(status) => {
+                    let _ = tx.send(ShutdownSignal::ProcessExit { name, status });
+                }
+                Err(e) => {
+                    eprintln!("Error waiting for {name}: {e}");
+                }
+            }
+        });
     }
 }
 
@@ -102,14 +125,14 @@ fn run_dev(bind_address: String) -> Result<()> {
     // Project root is already set above
 
     // Start the log server in the background (silently)
-    let _log_server = start_log_server()?;
+    let log_server = start_log_server()?;
 
     // Wait a moment for the log server to start
     thread::sleep(Duration::from_millis(500));
 
     // Start trunk serve
     println!("🌐 Starting trunk development server...");
-    let _trunk_server = start_trunk_serve(&bind_address)?;
+    let trunk_server = start_trunk_serve(&bind_address)?;
 
     // Wait a bit for the initial trunk output
     thread::sleep(Duration::from_secs(4));
@@ -120,19 +143,39 @@ fn run_dev(bind_address: String) -> Result<()> {
     println!("   🛑 Press Ctrl+C to stop all servers");
     println!();
 
-    // Set up Ctrl+C handling with channel
-    let (tx, rx) = mpsc::channel();
+    // Set up shutdown signal channel
+    let (tx, rx) = mpsc::channel::<ShutdownSignal>();
 
+    // Set up Ctrl+C handler
+    let ctrl_c_tx = tx.clone();
     ctrlc::set_handler(move || {
         println!("\n🛑 Received Ctrl+C, shutting down...");
-        let _ = tx.send(()); // Ignore send errors - if receiver is dropped, we're already shutting down
+        let _ = ctrl_c_tx.send(ShutdownSignal::CtrlC);
     })
     .expect("Error setting Ctrl-C handler");
 
-    // Wait for Ctrl+C signal
-    let _ = rx.recv(); // Ignore recv errors - any error means we should proceed to shutdown
+    // Spawn monitoring threads for both servers
+    log_server.spawn_monitor(tx.clone());
+    trunk_server.spawn_monitor(tx.clone());
 
-    // Servers will be automatically killed when they go out of scope via Drop trait
+    // Wait for any shutdown signal
+    match rx.recv() {
+        Ok(ShutdownSignal::CtrlC) => {
+            // User requested shutdown - this is normal
+        }
+        Ok(ShutdownSignal::ProcessExit { name, status }) => {
+            if status.success() {
+                eprintln!("ℹ️  {name} exited cleanly");
+            } else {
+                eprintln!("❌ {name} exited with error: {status}");
+                anyhow::bail!("{name} failed");
+            }
+        }
+        Err(_) => {
+            // Channel closed - shouldn't happen but handle gracefully
+            eprintln!("Warning: Shutdown channel closed unexpectedly");
+        }
+    }
 
     Ok(())
 }
