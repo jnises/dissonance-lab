@@ -70,22 +70,28 @@ pub enum Action {
 
 impl PianoGui {
     pub fn new() -> Self {
+        const DEFAULT_OCTAVE: u8 = 4;
+
         Self {
             selected_keys: Default::default(),
             external_keys: Default::default(),
             key_held_by_pointer: HashMap::new(),
             pointers_holding_key: HashMap::new(),
             previous_pointer_keys: Default::default(),
-            octave: 4, // Default to 4th octave (C4-B4)
+            octave: DEFAULT_OCTAVE, // Default to 4th octave (C4-B4)
         }
     }
 
     pub fn external_note_on(&mut self, note: Note) {
-        self.external_keys.set(u8::from(note) as usize, true);
+        let note_value = u8::from(note) as usize;
+        debug_assert!(note_value < 128, "MIDI note value must be < 128");
+        self.external_keys.set(note_value, true);
     }
 
     pub fn external_note_off(&mut self, note: Note) {
-        self.external_keys.set(u8::from(note) as usize, false);
+        let note_value = u8::from(note) as usize;
+        debug_assert!(note_value < 128, "MIDI note value must be < 128");
+        self.external_keys.set(note_value, false);
     }
 
     pub fn show(&mut self, ui: &mut Ui) -> (Vec<Action>, Rect) {
@@ -337,6 +343,11 @@ impl PianoGui {
 
     /// Find which key is at the given position, checking black keys first for proper layering
     fn find_key_at_position(&self, pos: egui::Pos2, keys_rect: Rect) -> Option<wmidi::Note> {
+        debug_assert!(
+            keys_rect.is_positive(),
+            "Keys rect must have positive dimensions"
+        );
+
         // Check black keys first (they're on top)
         for semitone in [1, 3, 6, 8, 10] {
             let semitone = Semitone::new(semitone);
@@ -367,28 +378,43 @@ impl PianoGui {
                 if old_note_val != new_note {
                     // Remove from old key
                     if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note_val) {
-                        pointers.remove(&pointer_id);
+                        let was_removed = pointers.remove(&pointer_id);
+                        debug_assert!(was_removed, "Pointer should have been in the old key's set");
                     }
                     // Add to new key
                     self.key_held_by_pointer.insert(pointer_id, new_note);
-                    self.pointers_holding_key
+                    let was_inserted = self
+                        .pointers_holding_key
                         .entry(new_note)
                         .or_default()
                         .insert(pointer_id);
+                    debug_assert!(
+                        was_inserted,
+                        "Pointer should not already be in the new key's set"
+                    );
                 }
             } else {
                 // New pointer press
                 self.key_held_by_pointer.insert(pointer_id, new_note);
-                self.pointers_holding_key
+                let was_inserted = self
+                    .pointers_holding_key
                     .entry(new_note)
                     .or_default()
                     .insert(pointer_id);
+                debug_assert!(
+                    was_inserted,
+                    "New pointer should not already be in any key's set"
+                );
             }
         } else {
             // Pointer moved outside all keys
             if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id) {
                 if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
-                    pointers.remove(&pointer_id);
+                    let was_removed = pointers.remove(&pointer_id);
+                    debug_assert!(
+                        was_removed,
+                        "Pointer should have been in the key's set when removed"
+                    );
                 }
             }
         }
@@ -398,7 +424,11 @@ impl PianoGui {
     fn handle_pointer_release(&mut self, pointer_id: PointerId) {
         if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id) {
             if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
-                pointers.remove(&pointer_id);
+                let was_removed = pointers.remove(&pointer_id);
+                debug_assert!(
+                    was_removed,
+                    "Pointer should have been in the key's set when released"
+                );
             }
         }
     }
@@ -408,6 +438,11 @@ impl PianoGui {
 /// * `semitone` - The semitone index (0-11) representing the key within the octave. Determines which piano key's rectangle to compute.
 /// * `rect` - The bounding rectangle of the entire piano area. All key positions and sizes are calculated relative to this rectangle.
 fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
+    debug_assert!(
+        rect.is_positive(),
+        "Piano rect must have positive dimensions"
+    );
+
     const NUM_WHITE_KEYS: usize = 7;
     const NUM_BLACK_KEYS: usize = 5;
     const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
@@ -417,6 +452,10 @@ fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
 
     if is_black_key(semitone) {
         let black_key_index = semitone_to_black_key_index(semitone);
+        debug_assert!(
+            black_key_index < NUM_BLACK_KEYS,
+            "Black key index out of bounds"
+        );
         let x_pos = BLACK_KEY_X_POSITIONS[black_key_index];
         let key_size = vec2(
             rect.width() / SEMITONES_IN_OCTAVE,
@@ -431,6 +470,10 @@ fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
         )
     } else {
         let white_key_index = semitone_to_white_key_index(semitone);
+        debug_assert!(
+            white_key_index < NUM_WHITE_KEYS,
+            "White key index out of bounds"
+        );
         let x_pos = WHITE_KEY_X_POSITIONS[white_key_index];
         let next_x_pos = WHITE_KEY_X_POSITIONS
             .get(white_key_index + 1)
@@ -454,6 +497,7 @@ fn is_black_key(semitone: Semitone) -> bool {
 }
 
 fn semitone_to_white_key_index(semitone: Semitone) -> usize {
+    debug_assert!(!is_black_key(semitone), "Semitone must be a white key");
     match semitone.value() {
         0 => 0,  // C
         2 => 1,  // D
@@ -467,6 +511,7 @@ fn semitone_to_white_key_index(semitone: Semitone) -> usize {
 }
 
 fn semitone_to_black_key_index(semitone: Semitone) -> usize {
+    debug_assert!(is_black_key(semitone), "Semitone must be a black key");
     match semitone.value() {
         1 => 0,  // C#
         3 => 1,  // D#
