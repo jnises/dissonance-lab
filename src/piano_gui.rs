@@ -67,51 +67,10 @@ impl PianoGui {
         const PIANO_RECT_CORNER_RADIUS: f32 = 1.0;
         painter.rect_filled(rect, PIANO_RECT_CORNER_RADIUS, ui.visuals().panel_fill);
         const MARGIN: f32 = 2.0;
+        // keys_rect represents the inner rectangle of the piano widget, after applying a margin.
+        // All piano key positions and sizes are calculated relative to this area.
         let keys_rect = rect.shrink(MARGIN);
         let shift_pressed = ui.input(|i| i.modifiers.shift);
-
-        const NUM_WHITE_KEYS: usize = 7;
-        const NUM_BLACK_KEYS: usize = 5;
-        const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
-        const BLACK_KEY_X_POSITIONS: [f32; NUM_BLACK_KEYS] = [1.0, 3.0, 6.0, 8.0, 10.0];
-        const SEMITONES_IN_OCTAVE: f32 = 12.0;
-        const BLACK_KEY_HEIGHT_RATIO: f32 = 0.6;
-
-        // Helper function to get key rect from semitone
-        let key_rect_for_semitone = |semitone: usize| -> Rect {
-            if is_black_key(semitone) {
-                let black_key_index = semitone_to_black_key_index(semitone);
-                let x_pos = BLACK_KEY_X_POSITIONS[black_key_index];
-                let key_size = vec2(
-                    keys_rect.width() / SEMITONES_IN_OCTAVE,
-                    keys_rect.height() * BLACK_KEY_HEIGHT_RATIO,
-                );
-                Rect::from_min_size(
-                    pos2(
-                        keys_rect.min.x + x_pos / SEMITONES_IN_OCTAVE * keys_rect.width(),
-                        keys_rect.min.y,
-                    ),
-                    key_size,
-                )
-            } else {
-                let white_key_index = semitone_to_white_key_index(semitone);
-                let x_pos = WHITE_KEY_X_POSITIONS[white_key_index];
-                let next_x_pos = WHITE_KEY_X_POSITIONS
-                    .get(white_key_index + 1)
-                    .unwrap_or(&SEMITONES_IN_OCTAVE);
-                let key_size = vec2(
-                    (next_x_pos - x_pos) / SEMITONES_IN_OCTAVE * keys_rect.width(),
-                    keys_rect.height(),
-                );
-                Rect::from_min_size(
-                    pos2(
-                        keys_rect.min.x + x_pos / SEMITONES_IN_OCTAVE * keys_rect.width(),
-                        keys_rect.min.y,
-                    ),
-                    key_size,
-                )
-            }
-        };
 
         // Process all touch events using local state instead of egui's ui.data() system.
         // This avoids a specific WASM panic that occurred in egui 0.32.0 when ui.data()
@@ -129,7 +88,7 @@ impl PianoGui {
 
                             // Check black keys first (they're on top)
                             for semitone in [1, 3, 6, 8, 10] {
-                                let key_rect = key_rect_for_semitone(semitone);
+                                let key_rect = key_rect_for_semitone(semitone, keys_rect);
                                 if key_rect.contains(*pos) {
                                     target_semitone = Some(semitone);
                                     break;
@@ -139,7 +98,7 @@ impl PianoGui {
                             // If not on a black key, check white keys
                             if target_semitone.is_none() {
                                 for semitone in [0, 2, 4, 5, 7, 9, 11] {
-                                    let key_rect = key_rect_for_semitone(semitone);
+                                    let key_rect = key_rect_for_semitone(semitone, keys_rect);
                                     if key_rect.contains(*pos) {
                                         target_semitone = Some(semitone);
                                         break;
@@ -208,7 +167,7 @@ impl PianoGui {
 
                 // Check black keys first (they're on top)
                 for semitone in [1, 3, 6, 8, 10] {
-                    let key_rect = key_rect_for_semitone(semitone);
+                    let key_rect = key_rect_for_semitone(semitone, keys_rect);
                     if key_rect.contains(pos) {
                         target_semitone = Some(semitone);
                         break;
@@ -218,7 +177,7 @@ impl PianoGui {
                 // If not on a black key, check white keys
                 if target_semitone.is_none() {
                     for semitone in [0, 2, 4, 5, 7, 9, 11] {
-                        let key_rect = key_rect_for_semitone(semitone);
+                        let key_rect = key_rect_for_semitone(semitone, keys_rect);
                         if key_rect.contains(pos) {
                             target_semitone = Some(semitone);
                             break;
@@ -282,7 +241,7 @@ impl PianoGui {
 
         // Render white keys first (so black keys appear on top)
         for semitone in [0, 2, 4, 5, 7, 9, 11] {
-            let key_rect = key_rect_for_semitone(semitone);
+            let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
             // Get active pointers for this key from our local state
             let all_pointers = self
@@ -337,7 +296,7 @@ impl PianoGui {
 
         // Render black keys on top
         for semitone in [1, 3, 6, 8, 10] {
-            let key_rect = key_rect_for_semitone(semitone);
+            let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
             // Get active pointers for this key from our local state
             let all_pointers = self
@@ -460,6 +419,51 @@ impl PianoGui {
                 .collect();
             Some(notes.join("/"))
         }
+    }
+}
+
+/// Returns the rectangle for a piano key.
+/// * `semitone` - The semitone index (0-11) representing the key within the octave. Determines which piano key's rectangle to compute.
+/// * `rect` - The bounding rectangle of the entire piano area. All key positions and sizes are calculated relative to this rectangle.
+fn key_rect_for_semitone(semitone: usize, rect: Rect) -> Rect {
+    const NUM_WHITE_KEYS: usize = 7;
+    const NUM_BLACK_KEYS: usize = 5;
+    const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
+    const BLACK_KEY_X_POSITIONS: [f32; NUM_BLACK_KEYS] = [1.0, 3.0, 6.0, 8.0, 10.0];
+    const SEMITONES_IN_OCTAVE: f32 = 12.0;
+    const BLACK_KEY_HEIGHT_RATIO: f32 = 0.6;
+
+    if is_black_key(semitone) {
+        let black_key_index = semitone_to_black_key_index(semitone);
+        let x_pos = BLACK_KEY_X_POSITIONS[black_key_index];
+        let key_size = vec2(
+            rect.width() / SEMITONES_IN_OCTAVE,
+            rect.height() * BLACK_KEY_HEIGHT_RATIO,
+        );
+        Rect::from_min_size(
+            pos2(
+                rect.min.x + x_pos / SEMITONES_IN_OCTAVE * rect.width(),
+                rect.min.y,
+            ),
+            key_size,
+        )
+    } else {
+        let white_key_index = semitone_to_white_key_index(semitone);
+        let x_pos = WHITE_KEY_X_POSITIONS[white_key_index];
+        let next_x_pos = WHITE_KEY_X_POSITIONS
+            .get(white_key_index + 1)
+            .unwrap_or(&SEMITONES_IN_OCTAVE);
+        let key_size = vec2(
+            (next_x_pos - x_pos) / SEMITONES_IN_OCTAVE * rect.width(),
+            rect.height(),
+        );
+        Rect::from_min_size(
+            pos2(
+                rect.min.x + x_pos / SEMITONES_IN_OCTAVE * rect.width(),
+                rect.min.y,
+            ),
+            key_size,
+        )
     }
 }
 
