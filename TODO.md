@@ -78,6 +78,7 @@
     - [ ] Test single-touch on mobile devices
     - [ ] Ensure keyboard shortcuts (shift+click) still work
     - [ ] Test mixed input scenarios (mouse + touch simultaneously)
+- [ ] Make the console output from the audio worklet also forward back to the dev server. perhaps we need to have the audio worklet log using a message instead of straight to console
 - [ ] Try increasing the reverb to hear how it sounds
 - [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.

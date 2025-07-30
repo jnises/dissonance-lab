@@ -20,6 +20,7 @@ struct ProcessorOptions {
 pub struct WebAudio {
     node: FutureData<Result<AudioNodeConnection, JsValue>>,
     message_attempt_count: std::cell::Cell<u32>,
+    init_failure_logged: std::cell::Cell<bool>,
 }
 
 // SAFETY: we need to send messages from the midi callback. and midir requires Send. JsValue is !Send, but since we aren't using wasm threads that should not be a problem
@@ -122,6 +123,7 @@ impl WebAudio {
         Self {
             node,
             message_attempt_count: std::cell::Cell::new(0),
+            init_failure_logged: std::cell::Cell::new(false),
         }
     }
 
@@ -144,14 +146,13 @@ impl WebAudio {
                 }
                 Err(e) => {
                     // AudioWorklet failed to initialize, log the error once and stop trying
-                    let count = self.message_attempt_count.get();
-                    if count == 0 {
+                    if !self.init_failure_logged.get() {
                         log::info!("Audio worklet initialization failed: {e:?}");
                         log::info!(
                             "Audio functionality is disabled. The visual interface remains fully functional."
                         );
                     }
-                    self.message_attempt_count.set(1); // Mark as failed, don't increment
+                    self.init_failure_logged.set(true);
                 }
             }
         } else {
