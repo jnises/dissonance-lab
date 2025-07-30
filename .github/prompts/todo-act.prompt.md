@@ -9,4 +9,4 @@ If it looks like a bigger task first split it up into subtasks and add add those
 If it looks like a small task just do it.
 Stop after you've completed the item, unless it was a small change the next item looks directly related and also looks small.
 If your solution to the task differs from the original description in the todo, add a brief comment to the task explaining how you addressed it.
-Before marking the task as complete, verify that you have followed all instructions from your instructions file. Make absolutely sure you have applied all the rules from the "Code Style", "Quality Assurance", and "Agent Compliance" sections.
+Before marking the task as complete, verify that you have followed all instructions from your instructions file.
