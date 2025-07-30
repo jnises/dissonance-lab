@@ -1,6 +1,6 @@
 use bitvec::{BitArr, order::Msb0};
 use egui::{Event, Rect, Sense, Stroke, StrokeKind, TouchPhase, Ui, pos2, vec2};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashSet, HashMap};
 use wmidi::Note;
 
 use crate::theme;
@@ -70,9 +70,6 @@ impl PianoGui {
         let keys_rect = rect.shrink(MARGIN);
         let shift_pressed = ui.input(|i| i.modifiers.shift);
 
-        // Create a map of key_id -> (key_rect, semitone)
-        let mut key_info = HashMap::new();
-
         const NUM_WHITE_KEYS: usize = 7;
         const NUM_BLACK_KEYS: usize = 5;
         const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
@@ -80,54 +77,39 @@ impl PianoGui {
         const SEMITONES_IN_OCTAVE: f32 = 12.0;
         const BLACK_KEY_HEIGHT_RATIO: f32 = 0.6;
 
-        #[derive(strum_macros::Display)]
-        enum Color {
-            White,
-            Black,
-        }
-
-        // First pass: build key info map
-        for color in [Color::White, Color::Black] {
-            let (num_keys, x_positions, semitone_fn) = match color {
-                Color::White => (
-                    NUM_WHITE_KEYS,
-                    &WHITE_KEY_X_POSITIONS[..],
-                    white_key_to_semitone as fn(usize) -> usize,
-                ),
-                Color::Black => (
-                    NUM_BLACK_KEYS,
-                    &BLACK_KEY_X_POSITIONS[..],
-                    black_key_to_semitone as fn(usize) -> usize,
-                ),
-            };
-
-            for key in 0..num_keys {
-                let key_id = ui.id().with(format!("{color}{key}"));
-                let key_size = match color {
-                    Color::White => vec2(
-                        (x_positions.get(key + 1).unwrap_or(&SEMITONES_IN_OCTAVE)
-                            - x_positions[key])
-                            / SEMITONES_IN_OCTAVE
-                            * keys_rect.width(),
-                        keys_rect.height(),
-                    ),
-                    Color::Black => vec2(
-                        keys_rect.width() / SEMITONES_IN_OCTAVE,
-                        keys_rect.height() * BLACK_KEY_HEIGHT_RATIO,
-                    ),
-                };
-                let key_rect = Rect::from_min_size(
+        // Helper function to get key rect from semitone
+        let key_rect_for_semitone = |semitone: usize| -> Rect {
+            if is_black_key(semitone) {
+                let black_key_index = semitone_to_black_key_index(semitone);
+                let x_pos = BLACK_KEY_X_POSITIONS[black_key_index];
+                let key_size = vec2(
+                    keys_rect.width() / SEMITONES_IN_OCTAVE,
+                    keys_rect.height() * BLACK_KEY_HEIGHT_RATIO,
+                );
+                Rect::from_min_size(
                     pos2(
-                        keys_rect.min.x
-                            + x_positions[key] / SEMITONES_IN_OCTAVE * keys_rect.width(),
+                        keys_rect.min.x + x_pos / SEMITONES_IN_OCTAVE * keys_rect.width(),
                         keys_rect.min.y,
                     ),
                     key_size,
+                )
+            } else {
+                let white_key_index = semitone_to_white_key_index(semitone);
+                let x_pos = WHITE_KEY_X_POSITIONS[white_key_index];
+                let next_x_pos = WHITE_KEY_X_POSITIONS.get(white_key_index + 1).unwrap_or(&SEMITONES_IN_OCTAVE);
+                let key_size = vec2(
+                    (next_x_pos - x_pos) / SEMITONES_IN_OCTAVE * keys_rect.width(),
+                    keys_rect.height(),
                 );
-                let semitone = semitone_fn(key);
-                key_info.insert(key_id, (key_rect, semitone));
+                Rect::from_min_size(
+                    pos2(
+                        keys_rect.min.x + x_pos / SEMITONES_IN_OCTAVE * keys_rect.width(),
+                        keys_rect.min.y,
+                    ),
+                    key_size,
+                )
             }
-        }
+        };
 
         // Process all touch events using local state instead of egui's ui.data() system.
         // This avoids a specific WASM panic that occurred in egui 0.32.0 when ui.data()
@@ -142,22 +124,24 @@ impl PianoGui {
                         TouchPhase::Start | TouchPhase::Move => {
                             // Find which key this touch is over (check black keys first for proper layering)
                             let mut target_semitone = None;
-                            for color in [Color::Black, Color::White] {
-                                let num_keys = match color {
-                                    Color::White => NUM_WHITE_KEYS,
-                                    Color::Black => NUM_BLACK_KEYS,
-                                };
-                                for key in 0..num_keys {
-                                    let key_id = ui.id().with(format!("{color}{key}"));
-                                    if let Some((key_rect, semitone)) = key_info.get(&key_id) {
-                                        if key_rect.contains(*pos) {
-                                            target_semitone = Some(*semitone);
-                                            break;
-                                        }
-                                    }
-                                }
-                                if target_semitone.is_some() {
+                            
+                            // Check black keys first (they're on top)
+                            for semitone in [1, 3, 6, 8, 10] {
+                                let key_rect = key_rect_for_semitone(semitone);
+                                if key_rect.contains(*pos) {
+                                    target_semitone = Some(semitone);
                                     break;
+                                }
+                            }
+                            
+                            // If not on a black key, check white keys
+                            if target_semitone.is_none() {
+                                for semitone in [0, 2, 4, 5, 7, 9, 11] {
+                                    let key_rect = key_rect_for_semitone(semitone);
+                                    if key_rect.contains(*pos) {
+                                        target_semitone = Some(semitone);
+                                        break;
+                                    }
                                 }
                             }
 
@@ -219,22 +203,24 @@ impl PianoGui {
             if mouse_down {
                 // Find which key the mouse is over (check black keys first for proper layering)
                 let mut target_semitone = None;
-                for color in [Color::Black, Color::White] {
-                    let num_keys = match color {
-                        Color::White => NUM_WHITE_KEYS,
-                        Color::Black => NUM_BLACK_KEYS,
-                    };
-                    for key in 0..num_keys {
-                        let key_id = ui.id().with(format!("{color}{key}"));
-                        if let Some((key_rect, semitone)) = key_info.get(&key_id) {
-                            if key_rect.contains(pos) {
-                                target_semitone = Some(*semitone);
-                                break;
-                            }
-                        }
-                    }
-                    if target_semitone.is_some() {
+                
+                // Check black keys first (they're on top)
+                for semitone in [1, 3, 6, 8, 10] {
+                    let key_rect = key_rect_for_semitone(semitone);
+                    if key_rect.contains(pos) {
+                        target_semitone = Some(semitone);
                         break;
+                    }
+                }
+                
+                // If not on a black key, check white keys
+                if target_semitone.is_none() {
+                    for semitone in [0, 2, 4, 5, 7, 9, 11] {
+                        let key_rect = key_rect_for_semitone(semitone);
+                        if key_rect.contains(pos) {
+                            target_semitone = Some(semitone);
+                            break;
+                        }
                     }
                 }
 
@@ -291,64 +277,114 @@ impl PianoGui {
         // which is more efficient than the previous approach where each key processed all events.
         // The local state management also eliminates redundant event processing and ensures
         // proper multitouch handling without WASM compatibility issues.
-        for color in [Color::White, Color::Black] {
-            let num_keys = match color {
-                Color::White => NUM_WHITE_KEYS,
-                Color::Black => NUM_BLACK_KEYS,
+        
+        // Render white keys first (so black keys appear on top)
+        for semitone in [0, 2, 4, 5, 7, 9, 11] {
+            let key_rect = key_rect_for_semitone(semitone);
+
+            // Get active pointers for this key from our local state
+            let all_pointers = self
+                .key_pointers
+                .get(&semitone)
+                .cloned()
+                .unwrap_or_default();
+
+            // Allocate space for the key (needed for proper UI layout)
+            ui.allocate_rect(key_rect, Sense::click_and_drag());
+
+            let is_pressed = !all_pointers.is_empty();
+
+            let was_pressed = self.previous_pointer_keys[semitone];
+
+            if is_pressed && !was_pressed {
+                let note = wmidi::Note::C4.step(semitone as i8).unwrap();
+                actions.push(Action::Pressed(note));
+                if !shift_pressed {
+                    self.selected_keys.fill(false);
+                }
+                let key_selected = self.selected_keys[semitone];
+                self.selected_keys.set(semitone, !key_selected);
+            } else if !is_pressed && was_pressed {
+                let note = wmidi::Note::C4.step(semitone as i8).unwrap();
+                actions.push(Action::Released(note));
+            }
+
+            let selected = self.selected_keys[semitone];
+            let combined_selected = pressed_keys[semitone];
+
+            let key_fill = if selected {
+                theme::selected_key()
+            } else if combined_selected {
+                theme::external_selected_key()
+            } else {
+                ui.visuals().panel_fill
             };
-            for key in 0..num_keys {
-                let key_id = ui.id().with(format!("{color}{key}"));
-                let (key_rect, semitone) = key_info[&key_id];
+            let key_stroke = Stroke::new(2.0, theme::outlines());
+            painter.rect(key_rect, 0.0, key_fill, key_stroke, StrokeKind::Middle);
+            if is_pressed {
+                const HIGHLIGHT_INSET: f32 = 2.0;
+                let highlight_rect = key_rect.shrink(HIGHLIGHT_INSET);
+                painter.rect_stroke(
+                    highlight_rect,
+                    0.0,
+                    Stroke::new(2.0, theme::selected_key()),
+                    StrokeKind::Middle,
+                );
+            }
+        }
+        
+        // Render black keys on top
+        for semitone in [1, 3, 6, 8, 10] {
+            let key_rect = key_rect_for_semitone(semitone);
 
-                // Get active pointers for this key from our local state
-                let all_pointers = self
-                    .key_pointers
-                    .get(&semitone)
-                    .cloned()
-                    .unwrap_or_default();
+            // Get active pointers for this key from our local state
+            let all_pointers = self
+                .key_pointers
+                .get(&semitone)
+                .cloned()
+                .unwrap_or_default();
 
-                // Allocate space for the key (needed for proper UI layout)
-                ui.allocate_rect(key_rect, Sense::click_and_drag());
+            // Allocate space for the key (needed for proper UI layout)
+            ui.allocate_rect(key_rect, Sense::click_and_drag());
 
-                let is_pressed = !all_pointers.is_empty();
+            let is_pressed = !all_pointers.is_empty();
 
-                let was_pressed = self.previous_pointer_keys[semitone];
+            let was_pressed = self.previous_pointer_keys[semitone];
 
-                if is_pressed && !was_pressed {
-                    let note = wmidi::Note::C4.step(semitone as i8).unwrap();
-                    actions.push(Action::Pressed(note));
-                    if !shift_pressed {
-                        self.selected_keys.fill(false);
-                    }
-                    let key_selected = self.selected_keys[semitone];
-                    self.selected_keys.set(semitone, !key_selected);
-                } else if !is_pressed && was_pressed {
-                    let note = wmidi::Note::C4.step(semitone as i8).unwrap();
-                    actions.push(Action::Released(note));
+            if is_pressed && !was_pressed {
+                let note = wmidi::Note::C4.step(semitone as i8).unwrap();
+                actions.push(Action::Pressed(note));
+                if !shift_pressed {
+                    self.selected_keys.fill(false);
                 }
+                let key_selected = self.selected_keys[semitone];
+                self.selected_keys.set(semitone, !key_selected);
+            } else if !is_pressed && was_pressed {
+                let note = wmidi::Note::C4.step(semitone as i8).unwrap();
+                actions.push(Action::Released(note));
+            }
 
-                let selected = self.selected_keys[semitone];
-                let combined_selected = pressed_keys[semitone];
+            let selected = self.selected_keys[semitone];
+            let combined_selected = pressed_keys[semitone];
 
-                let key_fill = if selected {
-                    theme::selected_key()
-                } else if combined_selected {
-                    theme::external_selected_key()
-                } else {
-                    ui.visuals().panel_fill
-                };
-                let key_stroke = Stroke::new(2.0, theme::outlines());
-                painter.rect(key_rect, 0.0, key_fill, key_stroke, StrokeKind::Middle);
-                if is_pressed {
-                    const HIGHLIGHT_INSET: f32 = 2.0;
-                    let highlight_rect = key_rect.shrink(HIGHLIGHT_INSET);
-                    painter.rect_stroke(
-                        highlight_rect,
-                        0.0,
-                        Stroke::new(2.0, theme::selected_key()),
-                        StrokeKind::Middle,
-                    );
-                }
+            let key_fill = if selected {
+                theme::selected_key()
+            } else if combined_selected {
+                theme::external_selected_key()
+            } else {
+                ui.visuals().panel_fill
+            };
+            let key_stroke = Stroke::new(2.0, theme::outlines());
+            painter.rect(key_rect, 0.0, key_fill, key_stroke, StrokeKind::Middle);
+            if is_pressed {
+                const HIGHLIGHT_INSET: f32 = 2.0;
+                let highlight_rect = key_rect.shrink(HIGHLIGHT_INSET);
+                painter.rect_stroke(
+                    highlight_rect,
+                    0.0,
+                    Stroke::new(2.0, theme::selected_key()),
+                    StrokeKind::Middle,
+                );
             }
         }
 
@@ -425,27 +461,31 @@ impl PianoGui {
     }
 }
 
-fn white_key_to_semitone(key: usize) -> usize {
-    match key {
-        0 => 0,
-        1 => 2,
-        2 => 4,
-        3 => 5,
-        4 => 7,
-        5 => 9,
-        6 => 11,
-        _ => panic!("Invalid white key index"),
+fn is_black_key(semitone: usize) -> bool {
+    matches!(semitone, 1 | 3 | 6 | 8 | 10)
+}
+
+fn semitone_to_white_key_index(semitone: usize) -> usize {
+    match semitone {
+        0 => 0,  // C
+        2 => 1,  // D
+        4 => 2,  // E
+        5 => 3,  // F
+        7 => 4,  // G
+        9 => 5,  // A
+        11 => 6, // B
+        _ => panic!("Invalid white key semitone: {semitone}"),
     }
 }
 
-fn black_key_to_semitone(key: usize) -> usize {
-    match key {
-        0 => 1,
-        1 => 3,
-        2 => 6,
-        3 => 8,
-        4 => 10,
-        _ => panic!("Invalid black key index"),
+fn semitone_to_black_key_index(semitone: usize) -> usize {
+    match semitone {
+        1 => 0,  // C#
+        3 => 1,  // D#
+        6 => 2,  // F#
+        8 => 3,  // G#
+        10 => 4, // A#
+        _ => panic!("Invalid black key semitone: {semitone}"),
     }
 }
 
