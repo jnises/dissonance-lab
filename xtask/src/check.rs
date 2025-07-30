@@ -161,11 +161,7 @@ pub fn clippy_all_crates() -> Result<()> {
 }
 
 /// Run clippy on a specific crate with optional target
-fn run_clippy_on_crate(
-    crate_name: &str,
-    manifest_path: &str,
-    target: Option<&str>,
-) -> Result<()> {
+fn run_clippy_on_crate(crate_name: &str, manifest_path: &str, target: Option<&str>) -> Result<()> {
     let target_desc = if target.is_some() { " (WASM)" } else { "" };
     println!("  Running clippy on {crate_name}{target_desc} ...");
 

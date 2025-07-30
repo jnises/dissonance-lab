@@ -1,6 +1,6 @@
 use bitvec::{BitArr, order::Msb0};
 use egui::{Event, Rect, Sense, Stroke, StrokeKind, TouchPhase, Ui, pos2, vec2};
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use wmidi::Note;
 
 use crate::theme;
@@ -96,7 +96,9 @@ impl PianoGui {
             } else {
                 let white_key_index = semitone_to_white_key_index(semitone);
                 let x_pos = WHITE_KEY_X_POSITIONS[white_key_index];
-                let next_x_pos = WHITE_KEY_X_POSITIONS.get(white_key_index + 1).unwrap_or(&SEMITONES_IN_OCTAVE);
+                let next_x_pos = WHITE_KEY_X_POSITIONS
+                    .get(white_key_index + 1)
+                    .unwrap_or(&SEMITONES_IN_OCTAVE);
                 let key_size = vec2(
                     (next_x_pos - x_pos) / SEMITONES_IN_OCTAVE * keys_rect.width(),
                     keys_rect.height(),
@@ -124,7 +126,7 @@ impl PianoGui {
                         TouchPhase::Start | TouchPhase::Move => {
                             // Find which key this touch is over (check black keys first for proper layering)
                             let mut target_semitone = None;
-                            
+
                             // Check black keys first (they're on top)
                             for semitone in [1, 3, 6, 8, 10] {
                                 let key_rect = key_rect_for_semitone(semitone);
@@ -133,7 +135,7 @@ impl PianoGui {
                                     break;
                                 }
                             }
-                            
+
                             // If not on a black key, check white keys
                             if target_semitone.is_none() {
                                 for semitone in [0, 2, 4, 5, 7, 9, 11] {
@@ -203,7 +205,7 @@ impl PianoGui {
             if mouse_down {
                 // Find which key the mouse is over (check black keys first for proper layering)
                 let mut target_semitone = None;
-                
+
                 // Check black keys first (they're on top)
                 for semitone in [1, 3, 6, 8, 10] {
                     let key_rect = key_rect_for_semitone(semitone);
@@ -212,7 +214,7 @@ impl PianoGui {
                         break;
                     }
                 }
-                
+
                 // If not on a black key, check white keys
                 if target_semitone.is_none() {
                     for semitone in [0, 2, 4, 5, 7, 9, 11] {
@@ -277,7 +279,7 @@ impl PianoGui {
         // which is more efficient than the previous approach where each key processed all events.
         // The local state management also eliminates redundant event processing and ensures
         // proper multitouch handling without WASM compatibility issues.
-        
+
         // Render white keys first (so black keys appear on top)
         for semitone in [0, 2, 4, 5, 7, 9, 11] {
             let key_rect = key_rect_for_semitone(semitone);
@@ -332,7 +334,7 @@ impl PianoGui {
                 );
             }
         }
-        
+
         // Render black keys on top
         for semitone in [1, 3, 6, 8, 10] {
             let key_rect = key_rect_for_semitone(semitone);
