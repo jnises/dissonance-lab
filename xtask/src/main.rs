@@ -39,5 +39,3 @@ fn main() -> Result<()> {
         Commands::ClippyAll => check::clippy_all_crates(),
     }
 }
-
-

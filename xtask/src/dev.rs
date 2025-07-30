@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use crate::utils::{find_project_root, ManagedProcess, ShutdownSignal};
+use crate::utils::{ManagedProcess, ShutdownSignal, find_project_root};
 
 /// Start development server (log server + trunk serve)
 pub fn run_dev(bind_address: String) -> Result<()> {

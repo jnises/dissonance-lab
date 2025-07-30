@@ -12,14 +12,14 @@ const WASM_TARGET: &str = "wasm32-unknown-unknown";
 /// Check all crates with appropriate targets
 pub fn check_all_crates() -> Result<()> {
     println!("🔧 Checking all crates with appropriate targets...");
-    
+
     // Ensure we're in the project root
     let project_root = find_project_root()?;
     env::set_current_dir(&project_root).context("Failed to change to project root directory")?;
 
     // Get all crates in the workspace
     let crates = get_workspace_crates(&project_root)?;
-    
+
     // Check native crates
     println!("📦 Checking native crates...");
     for crate_name in &crates {
@@ -41,21 +41,21 @@ pub fn check_all_crates() -> Result<()> {
     println!("✅ All crates checked successfully!");
     println!("   📦 Native crates checked: {}", NATIVE_CRATES.len());
     println!("   🌐 WASM crates checked: {}", WASM_CRATES.len());
-    
+
     Ok(())
 }
 
 /// Run clippy on all crates with appropriate targets
 pub fn clippy_all_crates() -> Result<()> {
     println!("🔧 Running clippy on all crates with appropriate targets...");
-    
+
     // Ensure we're in the project root
     let project_root = find_project_root()?;
     env::set_current_dir(&project_root).context("Failed to change to project root directory")?;
 
     // Get all crates in the workspace
     let crates = get_workspace_crates(&project_root)?;
-    
+
     // Clippy native crates
     println!("📦 Running clippy on native crates...");
     for crate_name in &crates {
@@ -77,13 +77,16 @@ pub fn clippy_all_crates() -> Result<()> {
     println!("✅ All crates linted successfully!");
     println!("   📦 Native crates linted: {}", NATIVE_CRATES.len());
     println!("   🌐 WASM crates linted: {}", WASM_CRATES.len());
-    
+
     Ok(())
 }
 
 /// Verify that all crates in the workspace are categorized and handled
 fn verify_crate_coverage(crates: &[String]) -> Result<()> {
-    let mut all_expected_crates = NATIVE_CRATES.iter().chain(WASM_CRATES.iter()).collect::<HashSet<_>>();
+    let mut all_expected_crates = NATIVE_CRATES
+        .iter()
+        .chain(WASM_CRATES.iter())
+        .collect::<HashSet<_>>();
     let mut missing_crates = Vec::new();
     let mut uncategorized_crates = Vec::new();
 
@@ -101,11 +104,17 @@ fn verify_crate_coverage(crates: &[String]) -> Result<()> {
     }
 
     if !missing_crates.is_empty() {
-        anyhow::bail!("Expected crates not found in workspace: {}", missing_crates.join(", "));
+        anyhow::bail!(
+            "Expected crates not found in workspace: {}",
+            missing_crates.join(", ")
+        );
     }
 
     if !uncategorized_crates.is_empty() {
-        println!("⚠️  Warning: Found uncategorized crates (not processed): {}", uncategorized_crates.join(", "));
+        println!(
+            "⚠️  Warning: Found uncategorized crates (not processed): {}",
+            uncategorized_crates.join(", ")
+        );
         println!("   Consider adding them to NATIVE_CRATES or WASM_CRATES in check.rs");
     }
 

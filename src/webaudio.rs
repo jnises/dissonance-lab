@@ -55,26 +55,29 @@ impl WebAudio {
             let js_response: web_sys::Response = js_response.dyn_into()?;
             let js_glue_code = JsFuture::from(js_response.text()?).await?;
 
-            let context = AudioContext::new().map_err(|e| {
-                JsValue::from_str(&format!("Failed to create AudioContext: {e:?}"))
-            })?;
-            
+            let context = AudioContext::new()
+                .map_err(|e| JsValue::from_str(&format!("Failed to create AudioContext: {e:?}")))?;
+
             // Check if AudioWorklet is supported by checking if the property exists
             let worklet_js = js_sys::Reflect::get(&context, &JsValue::from_str("audioWorklet"))
                 .map_err(|_| JsValue::from_str("Failed to check AudioWorklet support"))?;
-            
+
             if worklet_js.is_undefined() || worklet_js.is_null() {
-                return Err(JsValue::from_str("AudioWorklet is not supported in this browser. This is common on mobile devices or older browsers. The visual interface will work, but audio playback is disabled."));
+                return Err(JsValue::from_str(
+                    "AudioWorklet is not supported in this browser. This is common on mobile devices or older browsers. The visual interface will work, but audio playback is disabled.",
+                ));
             }
-            
+
             // Now try to get the audio worklet
-            let audio_worklet = context.audio_worklet().map_err(|e| {
-                JsValue::from_str(&format!("Failed to get AudioWorklet: {e:?}"))
-            })?;
-            
-            JsFuture::from(audio_worklet.add_module(worklet_url)?).await.map_err(|e| {
-                JsValue::from_str(&format!("Failed to load audio worklet module: {e:?}"))
-            })?;
+            let audio_worklet = context
+                .audio_worklet()
+                .map_err(|e| JsValue::from_str(&format!("Failed to get AudioWorklet: {e:?}")))?;
+
+            JsFuture::from(audio_worklet.add_module(worklet_url)?)
+                .await
+                .map_err(|e| {
+                    JsValue::from_str(&format!("Failed to load audio worklet module: {e:?}"))
+                })?;
 
             // Create processor options with WASM data using serde
             let processor_options = ProcessorOptions {
@@ -144,7 +147,9 @@ impl WebAudio {
                     let count = self.message_attempt_count.get();
                     if count == 0 {
                         log::info!("Audio worklet initialization failed: {e:?}");
-                        log::info!("Audio functionality is disabled. The visual interface remains fully functional.");
+                        log::info!(
+                            "Audio functionality is disabled. The visual interface remains fully functional."
+                        );
                     }
                     self.message_attempt_count.set(1); // Mark as failed, don't increment
                 }

@@ -1,7 +1,7 @@
 use bitvec::{BitArr, order::Msb0};
-use egui::{Rect, Sense, Stroke, StrokeKind, Ui, pos2, vec2, Event, TouchPhase};
-use wmidi::Note;
+use egui::{Event, Rect, Sense, Stroke, StrokeKind, TouchPhase, Ui, pos2, vec2};
 use std::collections::{HashMap, HashSet};
+use wmidi::Note;
 
 use crate::theme;
 
@@ -69,7 +69,7 @@ impl PianoGui {
 
         // Create a map of key_id -> (key_index, key_rect, semitone)
         let mut key_info = HashMap::new();
-        
+
         const NUM_WHITE_KEYS: usize = 7;
         const NUM_BLACK_KEYS: usize = 5;
         const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
@@ -81,7 +81,7 @@ impl PianoGui {
             White,
             Black,
         }
-        
+
         // First pass: build key info map
         for color in [Color::White, Color::Black] {
             let num_keys = match color {
@@ -123,7 +123,7 @@ impl PianoGui {
                 key_info.insert(key_id, (key, key_rect, semitone));
             }
         }
-        
+
         // Process all touch events using local state instead of egui's ui.data() system.
         // This avoids a specific WASM panic that occurred in egui 0.32.0 when ui.data()
         // triggered certain parking_lot code paths. While both egui and parking_lot support
@@ -132,7 +132,7 @@ impl PianoGui {
             for event in &i.events {
                 if let Event::Touch { id, phase, pos, .. } = event {
                     let pointer_id = PointerId::Touch(id.0);
-                    
+
                     match phase {
                         TouchPhase::Start | TouchPhase::Move => {
                             // Find which key this touch is over (check black keys first for proper layering)
@@ -155,28 +155,38 @@ impl PianoGui {
                                     break;
                                 }
                             }
-                            
+
                             if let Some(new_semitone) = target_semitone {
                                 // Check if touch moved to a different key
                                 if let Some(old_semitone) = self.pointer_to_key.get(&pointer_id) {
                                     if *old_semitone != new_semitone {
                                         // Remove from old key
-                                        if let Some(pointers) = self.key_pointers.get_mut(old_semitone) {
+                                        if let Some(pointers) =
+                                            self.key_pointers.get_mut(old_semitone)
+                                        {
                                             pointers.remove(&pointer_id);
                                         }
                                         // Add to new key
                                         self.pointer_to_key.insert(pointer_id, new_semitone);
-                                        self.key_pointers.entry(new_semitone).or_default().insert(pointer_id);
+                                        self.key_pointers
+                                            .entry(new_semitone)
+                                            .or_default()
+                                            .insert(pointer_id);
                                     }
                                 } else {
                                     // New touch
                                     self.pointer_to_key.insert(pointer_id, new_semitone);
-                                    self.key_pointers.entry(new_semitone).or_default().insert(pointer_id);
+                                    self.key_pointers
+                                        .entry(new_semitone)
+                                        .or_default()
+                                        .insert(pointer_id);
                                 }
                             } else {
                                 // Touch moved outside all keys
-                                if let Some(old_semitone) = self.pointer_to_key.remove(&pointer_id) {
-                                    if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+                                if let Some(old_semitone) = self.pointer_to_key.remove(&pointer_id)
+                                {
+                                    if let Some(pointers) = self.key_pointers.get_mut(&old_semitone)
+                                    {
                                         pointers.remove(&pointer_id);
                                     }
                                 }
@@ -208,26 +218,30 @@ impl PianoGui {
             for key in 0..num_keys {
                 let key_id = ui.id().with(format!("{color}{key}"));
                 let (_, key_rect, semitone) = key_info[&key_id];
-                
+
                 // Get active pointers for this key from our local state
-                let touch_pointers = self.key_pointers.get(&semitone).cloned().unwrap_or_default();
+                let touch_pointers = self
+                    .key_pointers
+                    .get(&semitone)
+                    .cloned()
+                    .unwrap_or_default();
                 let mut all_pointers = touch_pointers;
 
                 // Handle mouse interactions
                 let key_response = ui.allocate_rect(key_rect, Sense::click_and_drag());
                 let mouse_pressed = key_response.is_pointer_button_down_on();
                 let mouse_pointer_id = PointerId::Mouse;
-                
+
                 // Track mouse pointer state
                 if mouse_pressed {
                     all_pointers.insert(mouse_pointer_id);
                 }
-                
+
                 let is_pressed = !all_pointers.is_empty();
 
-                let was_pressed = self.selected_keys[semitone] || 
-                    self.external_keys.iter_ones().any(|k| k % 12 == semitone);
-                
+                let was_pressed = self.selected_keys[semitone]
+                    || self.external_keys.iter_ones().any(|k| k % 12 == semitone);
+
                 if is_pressed && !was_pressed {
                     let note = wmidi::Note::C4.step(semitone as i8).unwrap();
                     actions.push(Action::Pressed(note));
@@ -243,7 +257,7 @@ impl PianoGui {
 
                 let selected = self.selected_keys[semitone];
                 let combined_selected = pressed_keys[semitone];
-                
+
                 let key_fill = if selected {
                     theme::selected_key()
                 } else if combined_selected {
@@ -252,26 +266,20 @@ impl PianoGui {
                     ui.visuals().panel_fill
                 };
                 let key_stroke = Stroke::new(2.0, theme::outlines());
-                painter.rect(
-                    key_rect,
-                    0.0,
-                    key_fill,
-                    key_stroke,
-                    StrokeKind::Middle,
-                );
+                painter.rect(key_rect, 0.0, key_fill, key_stroke, StrokeKind::Middle);
                 if is_pressed {
                     const HIGHLIGHT_INSET: f32 = 2.0;
                     let highlight_rect = key_rect.shrink(HIGHLIGHT_INSET);
                     painter.rect_stroke(
-                        highlight_rect, 
-                        0.0, 
+                        highlight_rect,
+                        0.0,
                         Stroke::new(2.0, theme::selected_key()),
-                        StrokeKind::Middle
+                        StrokeKind::Middle,
                     );
                 }
             }
         }
-        
+
         (actions, keys_rect)
     }
 

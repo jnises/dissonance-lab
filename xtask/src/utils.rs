@@ -27,14 +27,12 @@ impl ManagedProcess {
     /// Spawn a monitoring thread that sends a shutdown signal when the process exits
     pub fn spawn_monitor(mut self, tx: mpsc::Sender<ShutdownSignal>) {
         let name = self.name.clone();
-        thread::spawn(move || {
-            match self.child.wait() {
-                Ok(status) => {
-                    let _ = tx.send(ShutdownSignal::ProcessExit { name, status });
-                }
-                Err(e) => {
-                    eprintln!("Error waiting for {name}: {e}");
-                }
+        thread::spawn(move || match self.child.wait() {
+            Ok(status) => {
+                let _ = tx.send(ShutdownSignal::ProcessExit { name, status });
+            }
+            Err(e) => {
+                eprintln!("Error waiting for {name}: {e}");
             }
         });
     }
@@ -85,8 +83,12 @@ pub fn get_workspace_crates(project_root: &std::path::Path) -> Result<Vec<String
         anyhow::bail!("No crates found in workspace");
     }
 
-    println!("📋 Found {} crates in workspace: {}", crates.len(), crates.join(", "));
-    
+    println!(
+        "📋 Found {} crates in workspace: {}",
+        crates.len(),
+        crates.join(", ")
+    );
+
     Ok(crates)
 }
 
@@ -97,41 +99,42 @@ pub fn run_cargo_command(
     target: Option<&str>,
     description: &str,
 ) -> Result<()> {
-    println!("  {description} {crate_name}{}...", 
-        if let Some(t) = target { 
-            format!(" ({t} target)") 
-        } else { 
-            " (native target)".to_string() 
+    println!(
+        "  {description} {crate_name}{}...",
+        if let Some(t) = target {
+            format!(" ({t} target)")
+        } else {
+            " (native target)".to_string()
         }
     );
-    
+
     let mut cmd = Command::new("cargo");
     cmd.args([command, "-p", crate_name]);
-    
+
     if let Some(target) = target {
         cmd.args(["--target", target]);
     }
-    
+
     cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
 
-    let status = cmd
-        .status()
-        .with_context(|| {
-            format!("Failed to run cargo {command} for {crate_name}{}", 
-                if let Some(t) = target { 
-                    format!(" with {t} target") 
-                } else { 
-                    String::new() 
-                }
-            )
-        })?;
+    let status = cmd.status().with_context(|| {
+        format!(
+            "Failed to run cargo {command} for {crate_name}{}",
+            if let Some(t) = target {
+                format!(" with {t} target")
+            } else {
+                String::new()
+            }
+        )
+    })?;
 
     if !status.success() {
-        anyhow::bail!("Failed to {command} {crate_name}{}", 
-            if let Some(t) = target { 
-                format!(" for {t} target") 
-            } else { 
-                String::new() 
+        anyhow::bail!(
+            "Failed to {command} {crate_name}{}",
+            if let Some(t) = target {
+                format!(" for {t} target")
+            } else {
+                String::new()
             }
         );
     }

@@ -78,7 +78,7 @@ impl DissonanceLabApp {
                 false
             }
         };
-        
+
         if should_disable {
             *self.audio.lock().unwrap() = AudioState::Disabled;
         }
@@ -157,7 +157,7 @@ impl eframe::App for DissonanceLabApp {
                                     matches!(audio_state, AudioState::Uninitialized),
                                 )
                             };
-                            
+
                             if playing {
                                 if ui
                                     .button(RichText::new("🔈").size(MUTE_FONT_SIZE))
@@ -171,9 +171,10 @@ impl eframe::App for DissonanceLabApp {
                                     RichText::new("🔇")
                                         .size(MUTE_FONT_SIZE)
                                         .color(ui.visuals().weak_text_color())
-                                        .strikethrough()
+                                        .strikethrough(),
                                 );
-                                disabled_button.on_hover_text("Audio not supported on this device/browser");
+                                disabled_button
+                                    .on_hover_text("Audio not supported on this device/browser");
                             } else {
                                 #[allow(clippy::collapsible_else_if)]
                                 let mute_button_response = ui.button(
@@ -188,8 +189,7 @@ impl eframe::App for DissonanceLabApp {
 
                                 // Draw custom graphic hint: rotated text with arrow pointing to mute button
                                 // Only show on wider screens to avoid clutter on mobile
-                                if uninitialized
-                                    && ui.available_width() >= MOBILE_BREAKPOINT_WIDTH
+                                if uninitialized && ui.available_width() >= MOBILE_BREAKPOINT_WIDTH
                                 {
                                     // Constants for mute button hint styling
                                     const GAMMA_BLEND_FACTOR: f32 = 0.2;
