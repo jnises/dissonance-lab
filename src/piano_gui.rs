@@ -1,5 +1,5 @@
 use bitvec::{BitArr, order::Msb0};
-use egui::{Event, Rect, Sense, Stroke, StrokeKind, TouchPhase, Ui, pos2, vec2};
+use egui::{Event, Rect, Sense, TouchPhase, Ui, pos2, vec2};
 use std::collections::{HashMap, HashSet};
 use wmidi::Note;
 
@@ -229,112 +229,28 @@ impl PianoGui {
 
         // Render white keys first (so black keys appear on top)
         for semitone in [0, 2, 4, 5, 7, 9, 11] {
-            let semitone = Semitone::new(semitone);
-            let note = semitone.to_note_in_octave(self.octave);
-            let key_rect = key_rect_for_semitone(semitone, keys_rect);
-
-            // Get active pointers for this key from our local state
-            let all_pointers = self
-                .pointers_holding_key
-                .get(&note)
-                .cloned()
-                .unwrap_or_default();
-
-            // Allocate space for the key (needed for proper UI layout)
-            ui.allocate_rect(key_rect, Sense::click_and_drag());
-
-            let is_pressed = !all_pointers.is_empty();
-
-            let was_pressed = self.previous_pointer_keys[semitone.as_index()];
-
-            if is_pressed && !was_pressed {
-                actions.push(Action::Pressed(note));
-                if !shift_pressed {
-                    self.selected_keys.fill(false);
-                }
-                let key_selected = self.selected_keys[semitone.as_index()];
-                self.selected_keys.set(semitone.as_index(), !key_selected);
-            } else if !is_pressed && was_pressed {
-                actions.push(Action::Released(note));
-            }
-
-            let selected = self.selected_keys[semitone.as_index()];
-            let combined_selected = pressed_keys[semitone.as_index()];
-
-            let key_fill = if selected {
-                theme::selected_key()
-            } else if combined_selected {
-                theme::external_selected_key()
-            } else {
-                ui.visuals().panel_fill
-            };
-            let key_stroke = Stroke::new(2.0, theme::outlines());
-            painter.rect(key_rect, 0.0, key_fill, key_stroke, StrokeKind::Middle);
-            if is_pressed {
-                const HIGHLIGHT_INSET: f32 = 2.0;
-                let highlight_rect = key_rect.shrink(HIGHLIGHT_INSET);
-                painter.rect_stroke(
-                    highlight_rect,
-                    0.0,
-                    Stroke::new(2.0, theme::selected_key()),
-                    StrokeKind::Middle,
-                );
-            }
+            self.render_key(
+                Semitone::new(semitone),
+                ui,
+                &painter,
+                keys_rect,
+                &pressed_keys,
+                shift_pressed,
+                &mut actions,
+            );
         }
 
         // Render black keys on top
         for semitone in [1, 3, 6, 8, 10] {
-            let semitone = Semitone::new(semitone);
-            let note = semitone.to_note_in_octave(self.octave);
-            let key_rect = key_rect_for_semitone(semitone, keys_rect);
-
-            // Get active pointers for this key from our local state
-            let all_pointers = self
-                .pointers_holding_key
-                .get(&note)
-                .cloned()
-                .unwrap_or_default();
-
-            // Allocate space for the key (needed for proper UI layout)
-            ui.allocate_rect(key_rect, Sense::click_and_drag());
-
-            let is_pressed = !all_pointers.is_empty();
-
-            let was_pressed = self.previous_pointer_keys[semitone.as_index()];
-
-            if is_pressed && !was_pressed {
-                actions.push(Action::Pressed(note));
-                if !shift_pressed {
-                    self.selected_keys.fill(false);
-                }
-                let key_selected = self.selected_keys[semitone.as_index()];
-                self.selected_keys.set(semitone.as_index(), !key_selected);
-            } else if !is_pressed && was_pressed {
-                actions.push(Action::Released(note));
-            }
-
-            let selected = self.selected_keys[semitone.as_index()];
-            let combined_selected = pressed_keys[semitone.as_index()];
-
-            let key_fill = if selected {
-                theme::selected_key()
-            } else if combined_selected {
-                theme::external_selected_key()
-            } else {
-                ui.visuals().panel_fill
-            };
-            let key_stroke = Stroke::new(2.0, theme::outlines());
-            painter.rect(key_rect, 0.0, key_fill, key_stroke, StrokeKind::Middle);
-            if is_pressed {
-                const HIGHLIGHT_INSET: f32 = 2.0;
-                let highlight_rect = key_rect.shrink(HIGHLIGHT_INSET);
-                painter.rect_stroke(
-                    highlight_rect,
-                    0.0,
-                    Stroke::new(2.0, theme::selected_key()),
-                    StrokeKind::Middle,
-                );
-            }
+            self.render_key(
+                Semitone::new(semitone),
+                ui,
+                &painter,
+                keys_rect,
+                &pressed_keys,
+                shift_pressed,
+                &mut actions,
+            );
         }
 
         // Update previous pointer keys for the next frame
@@ -411,6 +327,83 @@ impl PianoGui {
                 .map(|&semitone| Semitone::from_usize(semitone).name().to_string())
                 .collect();
             Some(notes.join("/"))
+        }
+    }
+
+    /// Render a single piano key with all associated logic
+    ///
+    /// This method takes 8 arguments, which exceeds clippy's default limit of 7.
+    /// However, this is justified because:
+    /// 1. The method extracts duplicated rendering logic from two loops (white/black keys)
+    /// 2. All arguments are necessary for key rendering and interaction handling
+    /// 3. Grouping them into a struct would be artificial since they represent different concerns
+    ///    (UI state, rendering context, input state, and output collection)
+    /// 4. The method significantly reduces code duplication (eliminated ~80 lines of repetition)
+    #[allow(clippy::too_many_arguments)]
+    fn render_key(
+        &mut self,
+        semitone: Semitone,
+        ui: &mut Ui,
+        painter: &egui::Painter,
+        keys_rect: Rect,
+        pressed_keys: &KeySet,
+        shift_pressed: bool,
+        actions: &mut Vec<Action>,
+    ) {
+        let note = semitone.to_note_in_octave(self.octave);
+        let key_rect = key_rect_for_semitone(semitone, keys_rect);
+
+        // Get active pointers for this key from our local state
+        let all_pointers = self
+            .pointers_holding_key
+            .get(&note)
+            .cloned()
+            .unwrap_or_default();
+
+        // Allocate space for the key (needed for proper UI layout)
+        ui.allocate_rect(key_rect, Sense::click_and_drag());
+
+        let is_pressed = !all_pointers.is_empty();
+        let was_pressed = self.previous_pointer_keys[semitone.as_index()];
+
+        if is_pressed && !was_pressed {
+            actions.push(Action::Pressed(note));
+            if !shift_pressed {
+                self.selected_keys.fill(false);
+            }
+            let key_selected = self.selected_keys[semitone.as_index()];
+            self.selected_keys.set(semitone.as_index(), !key_selected);
+        } else if !is_pressed && was_pressed {
+            actions.push(Action::Released(note));
+        }
+
+        let selected = self.selected_keys[semitone.as_index()];
+        let combined_selected = pressed_keys[semitone.as_index()];
+
+        let key_fill = if selected {
+            theme::selected_key()
+        } else if combined_selected {
+            theme::external_selected_key()
+        } else {
+            ui.visuals().panel_fill
+        };
+        let key_stroke = egui::Stroke::new(2.0, theme::outlines());
+        painter.rect(
+            key_rect,
+            0.0,
+            key_fill,
+            key_stroke,
+            egui::StrokeKind::Middle,
+        );
+        if is_pressed {
+            const HIGHLIGHT_INSET: f32 = 2.0;
+            let highlight_rect = key_rect.shrink(HIGHLIGHT_INSET);
+            painter.rect_stroke(
+                highlight_rect,
+                0.0,
+                egui::Stroke::new(2.0, theme::selected_key()),
+                egui::StrokeKind::Middle,
+            );
         }
     }
 
@@ -521,17 +514,15 @@ fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
         "Piano rect must have positive dimensions"
     );
 
-    const NUM_WHITE_KEYS: usize = 7;
-    const NUM_BLACK_KEYS: usize = 5;
-    const WHITE_KEY_X_POSITIONS: [f32; NUM_WHITE_KEYS] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
-    const BLACK_KEY_X_POSITIONS: [f32; NUM_BLACK_KEYS] = [1.0, 3.0, 6.0, 8.0, 10.0];
+    const WHITE_KEY_X_POSITIONS: [f32; 7] = [0.0, 1.5, 3.5, 5.0, 6.5, 8.5, 10.5];
+    const BLACK_KEY_X_POSITIONS: [f32; 5] = [1.0, 3.0, 6.0, 8.0, 10.0];
     const SEMITONES_IN_OCTAVE: f32 = 12.0;
     const BLACK_KEY_HEIGHT_RATIO: f32 = 0.6;
 
     if semitone.is_black_key() {
         let black_key_index = semitone.black_key_index();
         debug_assert!(
-            black_key_index < NUM_BLACK_KEYS,
+            black_key_index < BLACK_KEY_X_POSITIONS.len(),
             "Black key index out of bounds"
         );
         let x_pos = BLACK_KEY_X_POSITIONS[black_key_index];
@@ -549,7 +540,7 @@ fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
     } else {
         let white_key_index = semitone.white_key_index();
         debug_assert!(
-            white_key_index < NUM_WHITE_KEYS,
+            white_key_index < WHITE_KEY_X_POSITIONS.len(),
             "White key index out of bounds"
         );
         let x_pos = WHITE_KEY_X_POSITIONS[white_key_index];
