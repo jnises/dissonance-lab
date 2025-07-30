@@ -24,6 +24,7 @@ pub struct PianoGui {
     // WASM panic that occurred with egui 0.32.0. While egui and parking_lot both support
     // WASM, ui.data() triggered a code path that caused threading-related panics.
     // This local state approach is more efficient anyway and avoids the issue entirely.
+    // ~ CLAUDE
     pointer_to_key: HashMap<PointerId, usize>, // PointerId -> semitone
     key_pointers: HashMap<usize, HashSet<PointerId>>, // semitone -> set of pointers
 }
@@ -239,8 +240,7 @@ impl PianoGui {
 
                 let is_pressed = !all_pointers.is_empty();
 
-                let was_pressed = self.selected_keys[semitone]
-                    || self.external_keys.iter_ones().any(|k| k % 12 == semitone);
+                let was_pressed = pressed_keys[semitone];
 
                 if is_pressed && !was_pressed {
                     let note = wmidi::Note::C4.step(semitone as i8).unwrap();
