@@ -449,61 +449,66 @@ impl PianoGui {
             if let Some(old_note) = self.key_held_by_pointer.get(&pointer_id) {
                 let old_note_val = *old_note;
                 if old_note_val != new_note {
-                    // Remove from old key
-                    if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note_val) {
-                        let was_removed = pointers.remove(&pointer_id);
-                        debug_assert!(was_removed, "Pointer should have been in the old key's set");
-                    }
-                    // Add to new key
-                    self.key_held_by_pointer.insert(pointer_id, new_note);
-                    let was_inserted = self
-                        .pointers_holding_key
-                        .entry(new_note)
-                        .or_default()
-                        .insert(pointer_id);
-                    debug_assert!(
-                        was_inserted,
-                        "Pointer should not already be in the new key's set"
-                    );
+                    // Move to the new key
+                    self.move_pointer_to_key(pointer_id, new_note);
                 }
             } else {
                 // New pointer press
-                self.key_held_by_pointer.insert(pointer_id, new_note);
-                let was_inserted = self
-                    .pointers_holding_key
-                    .entry(new_note)
-                    .or_default()
-                    .insert(pointer_id);
-                debug_assert!(
-                    was_inserted,
-                    "New pointer should not already be in any key's set"
-                );
+                self.add_pointer_to_key(pointer_id, new_note);
             }
         } else {
             // Pointer moved outside all keys
-            if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id) {
-                if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
-                    let was_removed = pointers.remove(&pointer_id);
-                    debug_assert!(
-                        was_removed,
-                        "Pointer should have been in the key's set when removed"
-                    );
-                }
-            }
+            self.remove_pointer_from_current_key(pointer_id);
         }
     }
 
     /// Handle a pointer being released or ending
     fn handle_pointer_release(&mut self, pointer_id: PointerId) {
+        self.remove_pointer_from_current_key(pointer_id);
+    }
+
+    /// Add a pointer to a key, updating both tracking data structures
+    fn add_pointer_to_key(&mut self, pointer_id: PointerId, note: wmidi::Note) {
+        // Update the reverse mapping (pointer -> key)
+        self.key_held_by_pointer.insert(pointer_id, note);
+
+        // Update the forward mapping (key -> pointers)
+        let was_inserted = self
+            .pointers_holding_key
+            .entry(note)
+            .or_default()
+            .insert(pointer_id);
+
+        debug_assert!(
+            was_inserted,
+            "Pointer should not already be in the key's set when adding"
+        );
+    }
+
+    /// Remove a pointer from its current key, updating both tracking data structures
+    /// Returns the note that the pointer was removed from, if any
+    fn remove_pointer_from_current_key(&mut self, pointer_id: PointerId) -> Option<wmidi::Note> {
         if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id) {
             if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
                 let was_removed = pointers.remove(&pointer_id);
                 debug_assert!(
                     was_removed,
-                    "Pointer should have been in the key's set when released"
+                    "Pointer should have been in the key's set when removed"
                 );
             }
+            Some(old_note)
+        } else {
+            None
         }
+    }
+
+    /// Move a pointer from its current key to a new key, updating both tracking data structures
+    fn move_pointer_to_key(&mut self, pointer_id: PointerId, new_note: wmidi::Note) {
+        // Remove from current key (if any)
+        self.remove_pointer_from_current_key(pointer_id);
+
+        // Add to new key
+        self.add_pointer_to_key(pointer_id, new_note);
     }
 }
 
