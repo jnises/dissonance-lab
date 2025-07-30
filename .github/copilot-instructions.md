@@ -31,8 +31,8 @@ The project it split into multiple crates. All in the same cargo workspace.
 - In `egui`, the coordinate system has the x-axis increasing to the right and the y-axis increasing downward.
 
 # Quality Assurance
-- **MANDATORY**: Before completing any task, run `cargo xtask check-all`, `cargo xtask clippy-all`, `trunk build`, and `cargo test`.
-- If these commands fail or show NEW warnings/errors compared to before your changes, you MUST fix them
+- **MANDATORY**: Before completing any task, run `./check.sh`.
+- If this command fails or show NEW warnings/errors compared to before your changes, you MUST fix them
 - Pre-existing warnings unrelated to your changes should be left alone
 - Document any intentional ignoring of errors with detailed comments explaining why
 

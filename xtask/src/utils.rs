@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
-use cargo_metadata::MetadataCommand;
 use std::env;
-use std::process::{Child, Command, ExitStatus, Stdio};
+use std::process::{Child, ExitStatus};
 use std::sync::mpsc;
 use std::thread;
 
@@ -64,80 +63,4 @@ pub fn find_project_root() -> Result<std::path::PathBuf> {
             }
         }
     }
-}
-
-/// Get all crates in the workspace
-pub fn get_workspace_crates(project_root: &std::path::Path) -> Result<Vec<String>> {
-    let metadata = MetadataCommand::new()
-        .manifest_path(project_root.join("Cargo.toml"))
-        .exec()
-        .context("Failed to get cargo metadata")?;
-
-    let crates: Vec<String> = metadata
-        .workspace_packages()
-        .iter()
-        .map(|package| package.name.clone())
-        .collect();
-
-    if crates.is_empty() {
-        anyhow::bail!("No crates found in workspace");
-    }
-
-    println!(
-        "📋 Found {} crates in workspace: {}",
-        crates.len(),
-        crates.join(", ")
-    );
-
-    Ok(crates)
-}
-
-/// Run a cargo command for a specific crate with given target
-pub fn run_cargo_command(
-    command: &str,
-    crate_name: &str,
-    target: Option<&str>,
-    description: &str,
-) -> Result<()> {
-    println!(
-        "  {description} {crate_name}{}...",
-        if let Some(t) = target {
-            format!(" ({t} target)")
-        } else {
-            " (native target)".to_string()
-        }
-    );
-
-    let mut cmd = Command::new("cargo");
-    cmd.args([command, "-p", crate_name]);
-
-    if let Some(target) = target {
-        cmd.args(["--target", target]);
-    }
-
-    cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-
-    let status = cmd.status().with_context(|| {
-        format!(
-            "Failed to run cargo {command} for {crate_name}{}",
-            if let Some(t) = target {
-                format!(" with {t} target")
-            } else {
-                String::new()
-            }
-        )
-    })?;
-
-    if !status.success() {
-        anyhow::bail!(
-            "Failed to {command} {crate_name}{}",
-            if let Some(t) = target {
-                format!(" for {t} target")
-            } else {
-                String::new()
-            }
-        );
-    }
-
-    Ok(())
 }

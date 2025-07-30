@@ -1,7 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-mod check;
 mod dev;
 mod utils;
 
@@ -23,10 +22,6 @@ enum Commands {
     },
     /// Dump the latest session from the development log file
     DumpLatestLogs,
-    /// Check all crates with appropriate targets
-    CheckAll,
-    /// Run clippy on all crates with appropriate targets
-    ClippyAll,
 }
 
 fn main() -> Result<()> {
@@ -35,7 +30,5 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Dev { bind } => dev::run_dev(bind),
         Commands::DumpLatestLogs => dev::dump_log(),
-        Commands::CheckAll => check::check_all_crates(),
-        Commands::ClippyAll => check::clippy_all_crates(),
     }
 }

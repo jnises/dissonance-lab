@@ -14,4 +14,3 @@ anyhow.workspace = true
 clap.workspace = true
 which.workspace = true
 ctrlc.workspace = true
-cargo_metadata = "0.18"
