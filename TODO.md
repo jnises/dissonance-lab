@@ -74,6 +74,8 @@
       - Touch move events check if pointer is still within key_rect
       - Automatic removal from old key when touch moves to new key
       - Proper cleanup of pointer mappings when touches leave key areas
+  - [x] use wmidi::Note rather than usize to represent semitones in piano_gui.rs
+    - Replaced HashMap<usize, HashSet<PointerId>> with HashMap<wmidi::Note, HashSet<PointerId>> for tracking which pointers are holding each key. This is more efficient since wmidi::Note is internally a u8, compared to usize which is pointer-sized. Added configurable octave support so the piano GUI can display any octave (0-9) rather than being hardcoded to a single octave. Added helper function semitone_to_note_in_octave() for clean conversion. The note_to_semitone() function retains the % 12 operation only for UI purposes where semitone indices (0-11) are still needed for the BitArray operations.
   - [ ] Test multi-touch functionality on mobile devices and touch screens
     - [ ] Test basic two-finger simultaneous key presses
     - [ ] Test chord playing with multiple fingers

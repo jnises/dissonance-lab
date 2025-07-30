@@ -22,8 +22,11 @@ pub struct PianoGui {
     external_keys: ExternalKeySet,
 
     key_held_by_pointer: HashMap<PointerId, wmidi::Note>,
-    pointers_holding_key: HashMap<usize, HashSet<PointerId>>, // semitone -> set of pointers
+    pointers_holding_key: HashMap<wmidi::Note, HashSet<PointerId>>, // note -> set of pointers
     previous_pointer_keys: KeySet, // Keys that were pressed by pointers in the previous frame
+
+    /// The octave that this piano GUI displays (default: 4, meaning C4-B4)
+    octave: u8,
 }
 
 pub enum Action {
@@ -39,6 +42,7 @@ impl PianoGui {
             key_held_by_pointer: HashMap::new(),
             pointers_holding_key: HashMap::new(),
             previous_pointer_keys: Default::default(),
+            octave: 4, // Default to 4th octave (C4-B4)
         }
     }
 
@@ -80,44 +84,45 @@ impl PianoGui {
                     match phase {
                         TouchPhase::Start | TouchPhase::Move => {
                             // Find which key this touch is over (check black keys first for proper layering)
-                            let mut target_semitone = None;
+                            let mut target_note = None;
 
                             // Check black keys first (they're on top)
                             for semitone in [1, 3, 6, 8, 10] {
                                 let key_rect = key_rect_for_semitone(semitone, keys_rect);
                                 if key_rect.contains(*pos) {
-                                    target_semitone = Some(semitone);
+                                    target_note =
+                                        Some(semitone_to_note_in_octave(semitone, self.octave));
                                     break;
                                 }
                             }
 
                             // If not on a black key, check white keys
-                            if target_semitone.is_none() {
+                            if target_note.is_none() {
                                 for semitone in [0, 2, 4, 5, 7, 9, 11] {
                                     let key_rect = key_rect_for_semitone(semitone, keys_rect);
                                     if key_rect.contains(*pos) {
-                                        target_semitone = Some(semitone);
+                                        target_note =
+                                            Some(semitone_to_note_in_octave(semitone, self.octave));
                                         break;
                                     }
                                 }
                             }
 
-                            if let Some(new_semitone) = target_semitone {
-                                let new_note = wmidi::Note::C4.step(new_semitone as i8).unwrap();
+                            if let Some(new_note) = target_note {
                                 // Check if touch moved to a different key
                                 if let Some(old_note) = self.key_held_by_pointer.get(&pointer_id) {
-                                    let old_semitone = (u8::from(*old_note) % 12) as usize;
-                                    if old_semitone != new_semitone {
+                                    let old_note_val = *old_note;
+                                    if old_note_val != new_note {
                                         // Remove from old key
                                         if let Some(pointers) =
-                                            self.pointers_holding_key.get_mut(&old_semitone)
+                                            self.pointers_holding_key.get_mut(&old_note_val)
                                         {
                                             pointers.remove(&pointer_id);
                                         }
                                         // Add to new key
                                         self.key_held_by_pointer.insert(pointer_id, new_note);
                                         self.pointers_holding_key
-                                            .entry(new_semitone)
+                                            .entry(new_note)
                                             .or_default()
                                             .insert(pointer_id);
                                     }
@@ -125,7 +130,7 @@ impl PianoGui {
                                     // New touch
                                     self.key_held_by_pointer.insert(pointer_id, new_note);
                                     self.pointers_holding_key
-                                        .entry(new_semitone)
+                                        .entry(new_note)
                                         .or_default()
                                         .insert(pointer_id);
                                 }
@@ -133,9 +138,8 @@ impl PianoGui {
                                 // Touch moved outside all keys
                                 if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id)
                                 {
-                                    let old_semitone = (u8::from(old_note) % 12) as usize;
                                     if let Some(pointers) =
-                                        self.pointers_holding_key.get_mut(&old_semitone)
+                                        self.pointers_holding_key.get_mut(&old_note)
                                     {
                                         pointers.remove(&pointer_id);
                                     }
@@ -145,9 +149,7 @@ impl PianoGui {
                         TouchPhase::End | TouchPhase::Cancel => {
                             // Touch ended - remove from tracking
                             if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id) {
-                                let old_semitone = (u8::from(old_note) % 12) as usize;
-                                if let Some(pointers) =
-                                    self.pointers_holding_key.get_mut(&old_semitone)
+                                if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note)
                                 {
                                     pointers.remove(&pointer_id);
                                 }
@@ -166,43 +168,42 @@ impl PianoGui {
         if let Some(pos) = mouse_pos {
             if mouse_down {
                 // Find which key the mouse is over (check black keys first for proper layering)
-                let mut target_semitone = None;
+                let mut target_note = None;
 
                 // Check black keys first (they're on top)
                 for semitone in [1, 3, 6, 8, 10] {
                     let key_rect = key_rect_for_semitone(semitone, keys_rect);
                     if key_rect.contains(pos) {
-                        target_semitone = Some(semitone);
+                        target_note = Some(semitone_to_note_in_octave(semitone, self.octave));
                         break;
                     }
                 }
 
                 // If not on a black key, check white keys
-                if target_semitone.is_none() {
+                if target_note.is_none() {
                     for semitone in [0, 2, 4, 5, 7, 9, 11] {
                         let key_rect = key_rect_for_semitone(semitone, keys_rect);
                         if key_rect.contains(pos) {
-                            target_semitone = Some(semitone);
+                            target_note = Some(semitone_to_note_in_octave(semitone, self.octave));
                             break;
                         }
                     }
                 }
 
-                if let Some(new_semitone) = target_semitone {
-                    let new_note = wmidi::Note::C4.step(new_semitone as i8).unwrap();
+                if let Some(new_note) = target_note {
                     // Check if mouse moved to a different key
                     if let Some(old_note) = self.key_held_by_pointer.get(&mouse_pointer_id) {
-                        let old_semitone = (u8::from(*old_note) % 12) as usize;
-                        if old_semitone != new_semitone {
+                        let old_note_val = *old_note;
+                        if old_note_val != new_note {
                             // Remove from old key
-                            if let Some(pointers) = self.pointers_holding_key.get_mut(&old_semitone)
+                            if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note_val)
                             {
                                 pointers.remove(&mouse_pointer_id);
                             }
                             // Add to new key
                             self.key_held_by_pointer.insert(mouse_pointer_id, new_note);
                             self.pointers_holding_key
-                                .entry(new_semitone)
+                                .entry(new_note)
                                 .or_default()
                                 .insert(mouse_pointer_id);
                         }
@@ -210,15 +211,14 @@ impl PianoGui {
                         // New mouse press
                         self.key_held_by_pointer.insert(mouse_pointer_id, new_note);
                         self.pointers_holding_key
-                            .entry(new_semitone)
+                            .entry(new_note)
                             .or_default()
                             .insert(mouse_pointer_id);
                     }
                 } else {
                     // Mouse moved outside all keys
                     if let Some(old_note) = self.key_held_by_pointer.remove(&mouse_pointer_id) {
-                        let old_semitone = (u8::from(old_note) % 12) as usize;
-                        if let Some(pointers) = self.pointers_holding_key.get_mut(&old_semitone) {
+                        if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
                             pointers.remove(&mouse_pointer_id);
                         }
                     }
@@ -226,8 +226,7 @@ impl PianoGui {
             } else {
                 // Mouse button not down - remove from tracking
                 if let Some(old_note) = self.key_held_by_pointer.remove(&mouse_pointer_id) {
-                    let old_semitone = (u8::from(old_note) % 12) as usize;
-                    if let Some(pointers) = self.pointers_holding_key.get_mut(&old_semitone) {
+                    if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
                         pointers.remove(&mouse_pointer_id);
                     }
                 }
@@ -235,8 +234,7 @@ impl PianoGui {
         } else {
             // No mouse position - remove from tracking
             if let Some(old_note) = self.key_held_by_pointer.remove(&mouse_pointer_id) {
-                let old_semitone = (u8::from(old_note) % 12) as usize;
-                if let Some(pointers) = self.pointers_holding_key.get_mut(&old_semitone) {
+                if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
                     pointers.remove(&mouse_pointer_id);
                 }
             }
@@ -250,12 +248,13 @@ impl PianoGui {
 
         // Render white keys first (so black keys appear on top)
         for semitone in [0, 2, 4, 5, 7, 9, 11] {
+            let note = semitone_to_note_in_octave(semitone, self.octave);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
             // Get active pointers for this key from our local state
             let all_pointers = self
                 .pointers_holding_key
-                .get(&semitone)
+                .get(&note)
                 .cloned()
                 .unwrap_or_default();
 
@@ -267,7 +266,6 @@ impl PianoGui {
             let was_pressed = self.previous_pointer_keys[semitone];
 
             if is_pressed && !was_pressed {
-                let note = wmidi::Note::C4.step(semitone as i8).unwrap();
                 actions.push(Action::Pressed(note));
                 if !shift_pressed {
                     self.selected_keys.fill(false);
@@ -275,7 +273,6 @@ impl PianoGui {
                 let key_selected = self.selected_keys[semitone];
                 self.selected_keys.set(semitone, !key_selected);
             } else if !is_pressed && was_pressed {
-                let note = wmidi::Note::C4.step(semitone as i8).unwrap();
                 actions.push(Action::Released(note));
             }
 
@@ -305,12 +302,13 @@ impl PianoGui {
 
         // Render black keys on top
         for semitone in [1, 3, 6, 8, 10] {
+            let note = semitone_to_note_in_octave(semitone, self.octave);
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
             // Get active pointers for this key from our local state
             let all_pointers = self
                 .pointers_holding_key
-                .get(&semitone)
+                .get(&note)
                 .cloned()
                 .unwrap_or_default();
 
@@ -322,7 +320,6 @@ impl PianoGui {
             let was_pressed = self.previous_pointer_keys[semitone];
 
             if is_pressed && !was_pressed {
-                let note = wmidi::Note::C4.step(semitone as i8).unwrap();
                 actions.push(Action::Pressed(note));
                 if !shift_pressed {
                     self.selected_keys.fill(false);
@@ -330,7 +327,6 @@ impl PianoGui {
                 let key_selected = self.selected_keys[semitone];
                 self.selected_keys.set(semitone, !key_selected);
             } else if !is_pressed && was_pressed {
-                let note = wmidi::Note::C4.step(semitone as i8).unwrap();
                 actions.push(Action::Released(note));
             }
 
@@ -360,8 +356,9 @@ impl PianoGui {
 
         // Update previous pointer keys for the next frame
         self.previous_pointer_keys.fill(false);
-        for &semitone in self.pointers_holding_key.keys() {
-            if !self.pointers_holding_key[&semitone].is_empty() {
+        for &note in self.pointers_holding_key.keys() {
+            if !self.pointers_holding_key[&note].is_empty() {
+                let semitone = note_to_semitone(note);
                 self.previous_pointer_keys.set(semitone, true);
             }
         }
@@ -520,4 +517,25 @@ fn semitone_name(semitone: usize) -> &'static str {
         11 => "B",
         _ => panic!("Invalid semitone"),
     }
+}
+
+/// Convert a semitone (0-11) to a Note in the specified octave
+fn semitone_to_note_in_octave(semitone: usize, octave: u8) -> Note {
+    debug_assert!(semitone < 12, "Semitone must be in range 0-11");
+    debug_assert!(
+        octave <= 9,
+        "Octave must be in range 0-9 for valid MIDI notes"
+    );
+
+    // Calculate the MIDI note number: (octave + 1) * 12 + semitone
+    // The +1 is because MIDI octave numbering starts at -1, so C4 = 60
+    let midi_note = (octave as usize + 1) * 12 + semitone;
+    debug_assert!(midi_note <= 127, "MIDI note number must be <= 127");
+
+    Note::try_from(midi_note as u8).unwrap()
+}
+
+/// Convert a Note to its semitone representation (0-11) within its octave
+fn note_to_semitone(note: Note) -> usize {
+    (u8::from(note) % 12) as usize
 }

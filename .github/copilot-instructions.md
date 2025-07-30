@@ -25,6 +25,7 @@ The project it split into multiple crates. All in the same cargo workspace.
 - Avoid unsafe. If you really think you need unsafe, ask the user first, and write a detailed comment why unsafe was required.
 - Avoid wildcard imports (`use x::*;`) unless explicitly recommended for a specific case, such as importing a crate's prelude. Prefer listing only the items you need to improve code clarity and maintainability.
 - Place comments on the line above the code they reference, rather than as trailing comments on the same line.
+- If you decide to solve "unused symbol" warnings by `#[allow(dead_code)]` write a comment about why you think it should be kept. And think a second time about whether it really needs to be kept..
 
 # Conventions
 - We use `egui` as our GUI library.
@@ -49,5 +50,6 @@ The project it split into multiple crates. All in the same cargo workspace.
 
 # Temporary Tools
 - If you need to create temporary scripts, tools, or files for debugging, analysis, or one-time tasks, place them in `tmp/` directory at the project root.
+- Create separate cargo projects rather than stand alone .rs files.
 - Clean up temporary files when they are no longer needed.
 
