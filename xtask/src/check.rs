@@ -6,7 +6,6 @@ use crate::utils::{find_project_root, get_workspace_crates, run_cargo_command};
 
 /// Define which crates should use which target
 const NATIVE_CRATES: &[&str] = &["xtask", "dev-log-server"];
-// dissonance-lab can't be checked natively on wsl2 due to winit
 const WASM_CRATES: &[&str] = &["dissonance-lab", "audio-worklet", "shared-types"];
 const WASM_TARGET: &str = "wasm32-unknown-unknown";
 

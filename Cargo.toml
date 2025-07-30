@@ -7,6 +7,8 @@ egui = "0.32"
 eframe = { version = "0.32", default-features = false, features = [
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
+    "x11",           # Enable X11 support for Linux/WSL2.
+    "wayland",       # Enable Wayland support and fix clipboard issues.
 ] }
 log = "0.4"
 num-rational = "0.4"
