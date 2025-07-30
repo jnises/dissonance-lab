@@ -20,13 +20,9 @@ type ExternalKeySet = BitArr!(for 128, in u32, Msb0);
 pub struct PianoGui {
     selected_keys: KeySet,
     external_keys: ExternalKeySet,
-    // Touch state managed locally instead of using egui's ui.data() to avoid a specific
-    // WASM panic that occurred with egui 0.32.0. While egui and parking_lot both support
-    // WASM, ui.data() triggered a code path that caused threading-related panics.
-    // This local state approach is more efficient anyway and avoids the issue entirely.
-    // ~ CLAUDE
-    pointer_to_key: HashMap<PointerId, usize>, // PointerId -> semitone
-    key_pointers: HashMap<usize, HashSet<PointerId>>, // semitone -> set of pointers
+
+    key_held_by_pointer: HashMap<PointerId, usize>,
+    pointers_holding_key: HashMap<usize, HashSet<PointerId>>, // semitone -> set of pointers
     previous_pointer_keys: KeySet, // Keys that were pressed by pointers in the previous frame
 }
 
@@ -40,8 +36,8 @@ impl PianoGui {
         Self {
             selected_keys: Default::default(),
             external_keys: Default::default(),
-            pointer_to_key: HashMap::new(),
-            key_pointers: HashMap::new(),
+            key_held_by_pointer: HashMap::new(),
+            pointers_holding_key: HashMap::new(),
             previous_pointer_keys: Default::default(),
         }
     }
@@ -108,34 +104,38 @@ impl PianoGui {
 
                             if let Some(new_semitone) = target_semitone {
                                 // Check if touch moved to a different key
-                                if let Some(old_semitone) = self.pointer_to_key.get(&pointer_id) {
+                                if let Some(old_semitone) =
+                                    self.key_held_by_pointer.get(&pointer_id)
+                                {
                                     if *old_semitone != new_semitone {
                                         // Remove from old key
                                         if let Some(pointers) =
-                                            self.key_pointers.get_mut(old_semitone)
+                                            self.pointers_holding_key.get_mut(old_semitone)
                                         {
                                             pointers.remove(&pointer_id);
                                         }
                                         // Add to new key
-                                        self.pointer_to_key.insert(pointer_id, new_semitone);
-                                        self.key_pointers
+                                        self.key_held_by_pointer.insert(pointer_id, new_semitone);
+                                        self.pointers_holding_key
                                             .entry(new_semitone)
                                             .or_default()
                                             .insert(pointer_id);
                                     }
                                 } else {
                                     // New touch
-                                    self.pointer_to_key.insert(pointer_id, new_semitone);
-                                    self.key_pointers
+                                    self.key_held_by_pointer.insert(pointer_id, new_semitone);
+                                    self.pointers_holding_key
                                         .entry(new_semitone)
                                         .or_default()
                                         .insert(pointer_id);
                                 }
                             } else {
                                 // Touch moved outside all keys
-                                if let Some(old_semitone) = self.pointer_to_key.remove(&pointer_id)
+                                if let Some(old_semitone) =
+                                    self.key_held_by_pointer.remove(&pointer_id)
                                 {
-                                    if let Some(pointers) = self.key_pointers.get_mut(&old_semitone)
+                                    if let Some(pointers) =
+                                        self.pointers_holding_key.get_mut(&old_semitone)
                                     {
                                         pointers.remove(&pointer_id);
                                     }
@@ -144,8 +144,11 @@ impl PianoGui {
                         }
                         TouchPhase::End | TouchPhase::Cancel => {
                             // Touch ended - remove from tracking
-                            if let Some(old_semitone) = self.pointer_to_key.remove(&pointer_id) {
-                                if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+                            if let Some(old_semitone) = self.key_held_by_pointer.remove(&pointer_id)
+                            {
+                                if let Some(pointers) =
+                                    self.pointers_holding_key.get_mut(&old_semitone)
+                                {
                                     pointers.remove(&pointer_id);
                                 }
                             }
@@ -187,47 +190,50 @@ impl PianoGui {
 
                 if let Some(new_semitone) = target_semitone {
                     // Check if mouse moved to a different key
-                    if let Some(old_semitone) = self.pointer_to_key.get(&mouse_pointer_id) {
+                    if let Some(old_semitone) = self.key_held_by_pointer.get(&mouse_pointer_id) {
                         if *old_semitone != new_semitone {
                             // Remove from old key
-                            if let Some(pointers) = self.key_pointers.get_mut(old_semitone) {
+                            if let Some(pointers) = self.pointers_holding_key.get_mut(old_semitone)
+                            {
                                 pointers.remove(&mouse_pointer_id);
                             }
                             // Add to new key
-                            self.pointer_to_key.insert(mouse_pointer_id, new_semitone);
-                            self.key_pointers
+                            self.key_held_by_pointer
+                                .insert(mouse_pointer_id, new_semitone);
+                            self.pointers_holding_key
                                 .entry(new_semitone)
                                 .or_default()
                                 .insert(mouse_pointer_id);
                         }
                     } else {
                         // New mouse press
-                        self.pointer_to_key.insert(mouse_pointer_id, new_semitone);
-                        self.key_pointers
+                        self.key_held_by_pointer
+                            .insert(mouse_pointer_id, new_semitone);
+                        self.pointers_holding_key
                             .entry(new_semitone)
                             .or_default()
                             .insert(mouse_pointer_id);
                     }
                 } else {
                     // Mouse moved outside all keys
-                    if let Some(old_semitone) = self.pointer_to_key.remove(&mouse_pointer_id) {
-                        if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+                    if let Some(old_semitone) = self.key_held_by_pointer.remove(&mouse_pointer_id) {
+                        if let Some(pointers) = self.pointers_holding_key.get_mut(&old_semitone) {
                             pointers.remove(&mouse_pointer_id);
                         }
                     }
                 }
             } else {
                 // Mouse button not down - remove from tracking
-                if let Some(old_semitone) = self.pointer_to_key.remove(&mouse_pointer_id) {
-                    if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+                if let Some(old_semitone) = self.key_held_by_pointer.remove(&mouse_pointer_id) {
+                    if let Some(pointers) = self.pointers_holding_key.get_mut(&old_semitone) {
                         pointers.remove(&mouse_pointer_id);
                     }
                 }
             }
         } else {
             // No mouse position - remove from tracking
-            if let Some(old_semitone) = self.pointer_to_key.remove(&mouse_pointer_id) {
-                if let Some(pointers) = self.key_pointers.get_mut(&old_semitone) {
+            if let Some(old_semitone) = self.key_held_by_pointer.remove(&mouse_pointer_id) {
+                if let Some(pointers) = self.pointers_holding_key.get_mut(&old_semitone) {
                     pointers.remove(&mouse_pointer_id);
                 }
             }
@@ -245,7 +251,7 @@ impl PianoGui {
 
             // Get active pointers for this key from our local state
             let all_pointers = self
-                .key_pointers
+                .pointers_holding_key
                 .get(&semitone)
                 .cloned()
                 .unwrap_or_default();
@@ -300,7 +306,7 @@ impl PianoGui {
 
             // Get active pointers for this key from our local state
             let all_pointers = self
-                .key_pointers
+                .pointers_holding_key
                 .get(&semitone)
                 .cloned()
                 .unwrap_or_default();
@@ -351,8 +357,8 @@ impl PianoGui {
 
         // Update previous pointer keys for the next frame
         self.previous_pointer_keys.fill(false);
-        for &semitone in self.key_pointers.keys() {
-            if !self.key_pointers[&semitone].is_empty() {
+        for &semitone in self.pointers_holding_key.keys() {
+            if !self.pointers_holding_key[&semitone].is_empty() {
                 self.previous_pointer_keys.set(semitone, true);
             }
         }
