@@ -10,8 +10,8 @@ use egui::{
     vec2,
 };
 
-pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::Action> {
-    let (action, piano_rect) = piano.show(ui);
+pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Vec<piano_gui::Action> {
+    let (actions, piano_rect) = piano.show(ui);
     const INTERVAL_DISPLAY_HEIGHT: f32 = 200.0;
     const TEXT_Y_OFFSET: f32 = 4.0;
     const KEY_RECT_CORNER_RADIUS: f32 = 0.0;
@@ -137,5 +137,5 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Option<piano_gui::A
             }
         }
     }
-    action
+    actions
 }

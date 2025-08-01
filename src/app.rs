@@ -1,8 +1,7 @@
 use crossbeam::channel;
 use egui::{Align, Align2, Color32, FontId, Layout, RichText, pos2, vec2};
 use log::error;
-use parking_lot::Mutex;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use web_time::{Duration, Instant};
 
 use crate::{
@@ -20,6 +19,7 @@ enum AudioState {
     Uninitialized,
     Muted,
     Playing(WebAudio),
+    Disabled, // Audio is not supported (e.g., mobile devices without AudioWorklet)
 }
 
 enum MidiState {
@@ -62,10 +62,21 @@ impl DissonanceLabApp {
 
     fn setup_audio(&mut self) {
         assert!(matches!(
-            *self.audio.lock(),
+            *self.audio.lock().unwrap(),
             AudioState::Muted | AudioState::Uninitialized
         ));
-        *self.audio.lock() = AudioState::Playing(WebAudio::new());
+        let web_audio = WebAudio::new();
+        *self.audio.lock().unwrap() = AudioState::Playing(web_audio);
+    }
+
+    /// Check if the current audio state indicates failure and update to Disabled if so
+    fn check_audio_status(&mut self) {
+        let mut audio_guard = self.audio.lock().unwrap();
+        if let AudioState::Playing(web_audio) = &*audio_guard {
+            if web_audio.is_disabled() {
+                *audio_guard = AudioState::Disabled;
+            }
+        }
     }
 
     fn ensure_midi(&mut self, ctx: &egui::Context) {
@@ -79,7 +90,7 @@ impl DissonanceLabApp {
                 let ctx = ctx.clone();
                 let audio = self.audio.clone();
                 match MidiReader::new(move |message| {
-                    if let AudioState::Playing(web_audio) = &*audio.lock() {
+                    if let AudioState::Playing(web_audio) = &*audio.lock().unwrap() {
                         match message {
                             wmidi::MidiMessage::NoteOff(_, note, _) => {
                                 web_audio.send_message(ToWorkletMessage::NoteOff {
@@ -123,6 +134,7 @@ impl DissonanceLabApp {
 impl eframe::App for DissonanceLabApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ensure_midi(ctx);
+        self.check_audio_status();
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 const STATUS_HEIGHT: f32 = 40.0;
@@ -132,17 +144,32 @@ impl eframe::App for DissonanceLabApp {
                         const MUTE_FONT_SIZE: f32 = 16.0;
                         const STATUS_FONT_SIZE: f32 = 14.0;
                         ui.horizontal(|ui| {
-                            let playing = match *self.audio.lock() {
-                                AudioState::Playing(_) => true,
-                                AudioState::Uninitialized | AudioState::Muted => false,
+                            let (playing, disabled, uninitialized) = {
+                                let audio_state = &*self.audio.lock().unwrap();
+                                (
+                                    matches!(audio_state, AudioState::Playing(_)),
+                                    matches!(audio_state, AudioState::Disabled),
+                                    matches!(audio_state, AudioState::Uninitialized),
+                                )
                             };
+
                             if playing {
                                 if ui
                                     .button(RichText::new("🔈").size(MUTE_FONT_SIZE))
                                     .clicked()
                                 {
-                                    *self.audio.lock() = AudioState::Muted;
+                                    *self.audio.lock().unwrap() = AudioState::Muted;
                                 }
+                            } else if disabled {
+                                // Show disabled audio icon with explanatory text
+                                let disabled_button = ui.button(
+                                    RichText::new("🔇")
+                                        .size(MUTE_FONT_SIZE)
+                                        .color(ui.visuals().weak_text_color())
+                                        .strikethrough(),
+                                );
+                                disabled_button
+                                    .on_hover_text("Audio not supported on this device/browser");
                             } else {
                                 #[allow(clippy::collapsible_else_if)]
                                 let mute_button_response = ui.button(
@@ -157,8 +184,7 @@ impl eframe::App for DissonanceLabApp {
 
                                 // Draw custom graphic hint: rotated text with arrow pointing to mute button
                                 // Only show on wider screens to avoid clutter on mobile
-                                if matches!(*self.audio.lock(), AudioState::Uninitialized)
-                                    && ui.available_width() >= MOBILE_BREAKPOINT_WIDTH
+                                if uninitialized && ui.available_width() >= MOBILE_BREAKPOINT_WIDTH
                                 {
                                     // Constants for mute button hint styling
                                     const GAMMA_BLEND_FACTOR: f32 = 0.2;
@@ -258,11 +284,13 @@ impl eframe::App for DissonanceLabApp {
 
                             ui.label("|");
                             let is_connected = matches!(&self.midi, MidiState::Connected(_));
-                            let midi_text = RichText::new("MIDI").size(STATUS_FONT_SIZE);
                             let midi_text = if is_connected {
-                                midi_text.color(ui.visuals().text_color())
+                                RichText::new("MIDI ☑")
+                                    .size(STATUS_FONT_SIZE)
+                                    .color(ui.visuals().text_color())
                             } else {
-                                midi_text
+                                RichText::new("MIDI")
+                                    .size(STATUS_FONT_SIZE)
                                     .color(ui.visuals().weak_text_color())
                                     .strikethrough()
                             };
@@ -315,21 +343,23 @@ impl eframe::App for DissonanceLabApp {
                         _ => {}
                     }
                 }
-                match interval_display::show(&mut self.piano_gui, ui) {
-                    None => {}
-                    Some(piano_gui::Action::Pressed(note)) => {
-                        if let AudioState::Playing(web_audio) = &*self.audio.lock() {
-                            web_audio.send_message(ToWorkletMessage::NoteOn {
-                                note: u8::from(note),
-                                velocity: 64,
-                            });
+                let actions = interval_display::show(&mut self.piano_gui, ui);
+                for action in actions {
+                    match action {
+                        piano_gui::Action::Pressed(note) => {
+                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                web_audio.send_message(ToWorkletMessage::NoteOn {
+                                    note: u8::from(note),
+                                    velocity: 64,
+                                });
+                            }
                         }
-                    }
-                    Some(piano_gui::Action::Released(note)) => {
-                        if let AudioState::Playing(web_audio) = &*self.audio.lock() {
-                            web_audio.send_message(ToWorkletMessage::NoteOff {
-                                note: u8::from(note),
-                            });
+                        piano_gui::Action::Released(note) => {
+                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                web_audio.send_message(ToWorkletMessage::NoteOff {
+                                    note: u8::from(note),
+                                });
+                            }
                         }
                     }
                 }

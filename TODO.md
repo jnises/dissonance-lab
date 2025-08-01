@@ -1,5 +1,5 @@
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
-  - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
+  - [x] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation
       - Found: input.multi_touch() returns Option<MultiTouchInfo> for gestures (zoom, rotation)
       - Found: input.any_touches() returns bool for active touches
@@ -17,31 +17,72 @@
       - Strategy: Track TouchId -> Key mapping for individual finger tracking
       - Current issue: ui.interact() and is_pointer_button_down_on() are single-pointer
       - Solution: Process touch events directly, bypass single-pointer Response methods
-  - [ ] Analyze current single-touch implementation to understand what needs to change
-    - [ ] Review how is_pointer_button_down_on() works with multiple pointers
-    - [ ] Understand the key_id and temp data storage mechanism
-    - [ ] Document the current state tracking for mouse_pressed per key
-  - [ ] Design multi-touch data structures
-    - [ ] Define how to track multiple pointer IDs per key
-    - [ ] Decide on data structure to map pointer IDs to pressed keys
-    - [ ] Plan how to handle pointer lifecycle (press, hold, release)
+  - [x] Analyze current single-touch implementation to understand what needs to change
+    - [x] Review how is_pointer_button_down_on() works with multiple pointers
+      - is_pointer_button_down_on() only detects single primary pointer, not individual touch IDs
+      - Returns true if any pointer is down on the widget, but doesn't distinguish between multiple pointers
+      - This is the core limitation preventing multi-touch functionality
+    - [x] Understand the key_id and temp data storage mechanism
+      - Each key gets unique key_id using ui.id().with(format!("{color}{key}"))
+      - temp data stores boolean mouse_pressed state per key_id
+      - Current system works well for single pointer but needs extension for multiple TouchId tracking
+    - [x] Document the current state tracking for mouse_pressed per key
+      - Lines 116-131: Press detection when is_pointer_button_down_on() && !mouse_pressed
+      - Release detection when !is_pointer_button_down_on() && mouse_pressed
+      - State stored/retrieved via ui.data().get_temp::<bool>(key_id)
+      - Single boolean per key limits to one active pointer per key
+  - [x] Design multi-touch data structures
+    - [x] Define how to track multiple pointer IDs per key
+      - Replace single boolean with HashSet<TouchId> per key to track all active pointers
+      - Key is considered pressed if HashSet is non-empty
+      - Allows multiple fingers to press same key simultaneously
+    - [x] Decide on data structure to map pointer IDs to pressed keys
+      - Primary: HashMap<KeyId, HashSet<TouchId>> - tracks which pointers are on each key
+      - Secondary: HashMap<TouchId, KeyId> - reverse lookup to find which key a pointer is on
+      - Use egui::TouchId for touch identification (wraps u64)
+      - Mouse input can use special TouchId::from_u64(0) for compatibility
+    - [x] Plan how to handle pointer lifecycle (press, hold, release)
+      - Press: TouchId enters key area, add to key's HashSet, send Action::Pressed if key becomes newly active
+      - Hold: TouchId remains in key area, no action needed
+      - Release: TouchId leaves key area or touch ends, remove from HashSet, send Action::Released if key becomes inactive
+      - Drag between keys: Remove from old key's set, add to new key's set, handle press/release actions accordingly
   - [ ] Implement pointer tracking to handle multiple simultaneous touches
-    - [ ] Replace single boolean mouse_pressed with multi-pointer tracking
-    - [ ] Update key press detection to handle multiple active pointers
-    - [ ] Implement pointer release detection for multi-touch
-    - [ ] Handle edge cases like pointer leaving key area during touch
-  - [ ] Test multi-touch functionality on mobile devices and touch screens
-    - [ ] Test basic two-finger simultaneous key presses
-    - [ ] Test chord playing with multiple fingers
-    - [ ] Verify touch responsiveness and accuracy
-    - [ ] Test edge cases like sliding fingers between keys
-  - [ ] Ensure multi-touch doesn't break existing mouse and single-touch interactions
-    - [ ] Verify mouse clicks still work as expected
-    - [ ] Test single-touch on mobile devices
-    - [ ] Ensure keyboard shortcuts (shift+click) still work
-    - [ ] Test mixed input scenarios (mouse + touch simultaneously)
-- [ ] Try increasing the reverb to hear how it sounds
-- [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
+    - [x] Replace single boolean mouse_pressed with multi-pointer tracking
+      - Implemented PointerId enum to distinguish Mouse vs Touch(u64) pointers
+      - Replaced single boolean with HashSet<PointerId> per key for tracking active pointers
+      - Added HashMap<PointerId, Id> for reverse lookup (pointer -> key mapping)
+      - Mouse uses PointerId::Mouse, touches use PointerId::Touch(id.0) from TouchId
+    - [x] Update key press detection to handle multiple active pointers
+      - Key press detected when HashSet transitions from empty to non-empty
+      - Key release detected when HashSet transitions from non-empty to empty
+      - Handles both mouse (via is_pointer_button_down_on) and touch events (via Event::Touch)
+    - [x] Implement pointer release detection for multi-touch
+      - Touch events processed for Start/Move/End/Cancel phases
+      - Proper cleanup when touches end or are cancelled
+      - Mouse release handled via !is_pointer_button_down_on transition
+    - [x] Handle edge cases like pointer leaving key area during touch
+      - Touch move events check if pointer is still within key_rect
+      - Automatic removal from old key when touch moves to new key
+      - Proper cleanup of pointer mappings when touches leave key areas
+  - [x] use wmidi::Note rather than usize to represent semitones in piano_gui.rs
+    - Replaced HashMap<usize, HashSet<PointerId>> with HashMap<wmidi::Note, HashSet<PointerId>> for tracking which pointers are holding each key. This is more efficient since wmidi::Note is internally a u8, compared to usize which is pointer-sized. Added configurable octave support so the piano GUI can display any octave (0-9) rather than being hardcoded to a single octave. Added helper function semitone_to_note_in_octave() for clean conversion. The note_to_semitone() function retains the % 12 operation only for UI purposes where semitone indices (0-11) are still needed for the BitArray operations.
+  - [x] Create a type that represents a semitone in piano_gui.rs. That is, a value between 0 and 11. And use that instead of usize.
+    - Implemented `Semitone` struct that wraps a u8 value with range validation (0-11). Added methods for type conversions (`new`, `from_usize`, `value`, `as_usize`, `as_index`) with appropriate debug assertions. Updated all function signatures and usages throughout piano_gui.rs to use `Semitone` instead of `usize` for semitone values. This provides better type safety and self-documenting code while maintaining compatibility with existing BitArray indexing via the `as_index()` method.
+  - [x] Make sure you add `debug_assert` where it makes sense in piano_gui.rs
+    - Added debug_assert statements in key functions to validate assumptions: semitone_to_white_key_index and semitone_to_black_key_index now assert that the input is the correct key type; key_rect_for_semitone validates positive rect dimensions and array bounds; pointer handling methods validate state consistency between the two tracking HashMaps; external_note_on/off validate MIDI note ranges; find_key_at_position validates positive rect dimensions. These assertions help catch logic errors during development while being optimized out in release builds.
+  - [x] make `is_black_key`, `semitone_to_white_key_index`, `semitone_to_black_key_index`, `semitone_name`, ` semitone_to_note_in_octave`, and `note_to_semitone` methods on the Semitone type.
+    - Converted all standalone functions to methods on the Semitone type: is_black_key() → is_black_key(), semitone_to_white_key_index() → white_key_index(), semitone_to_black_key_index() → black_key_index(), semitone_name() → name(), semitone_to_note_in_octave() → to_note_in_octave(), and note_to_semitone() → from_note(). Updated all call sites throughout piano_gui.rs to use the new method syntax. Removed all standalone functions and the unused value() method. This improves the API design by grouping related functionality with the type it operates on.
+  - [x] in piano_gui.rs create methods that updates both key_held_by_pointer and pointers_holding_key. so that we assure they are kept in sync.
+    - Created helper methods `add_pointer_to_key()`, `remove_pointer_from_current_key()`, and `move_pointer_to_key()` that atomically update both `key_held_by_pointer` and `pointers_holding_key` data structures. Refactored `handle_pointer_move()` and `handle_pointer_release()` to use these methods, eliminating duplicate update logic and ensuring the two tracking structures remain synchronized. Each method includes appropriate debug assertions to validate state consistency.
+  - [x] look for old things in piano_gui.rs that can be simplified or removed
+    - Extracted duplicated key rendering logic into a shared `render_key` method, eliminating ~80 lines of repetition between white and black key rendering loops. Removed unused constants (`NUM_WHITE_KEYS`, `NUM_BLACK_KEYS`) and simplified array bounds checking to use array length directly. Removed unused import statements (`Stroke`, `StrokeKind`) and moved to fully qualified names where needed. The refactoring maintains identical functionality while improving code maintainability and readability.
+  - [x] render_key in piano_gui.rs also handles Actions. That doesn't seem very "rendery". Try to move that functionality to somewhere else.
+    - Extracted action generation logic from render_key() into a separate generate_actions_for_all_keys() method that runs before rendering. The render_key() method now focuses purely on drawing the key rectangle with appropriate colors and highlights, while action generation (detecting press/release state changes) happens in the main show() method. This improves separation of concerns and makes the code more maintainable.
+  - [x] Make sure interval_display.rs handles multitouch correctly
+    - Verified that interval_display.rs already handles multitouch correctly by design. The component is purely visual and gets its data from piano.pressed_keys(), which aggregates all pressed keys regardless of input method. Since piano_gui.rs already has comprehensive multitouch support implemented, the interval display automatically works with multitouch, MIDI, and mixed input modes without requiring any code changes.
+- [ ] Make `shift` behave like a sustain pedal. We want almost infinite sustain to allow the user to hear chord dissonances.
+  - [ ] Update the gui. pressing and holding shift when you are clicking on a piano key should keep the keys selected. untill you release shift.
+  - [ ] update the synth to accept sustain pedal input
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
   - [ ] Modify PianoGui to track the chronological order of mouse key presses
@@ -50,6 +91,9 @@
   - [ ] Modify interval_display.rs to use different ordering logic based on input method
   - [ ] Update the pressed_keys data structure to include ordering/priority information
   - [ ] Test the new ordering behavior with both mouse and MIDI input
+- [ ] Make the console output from the audio worklet also forward back to the dev server. perhaps we need to have the audio worklet log using a message instead of straight to console
+- [ ] Try increasing the reverb to hear how it sounds
+- [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
 - [ ] model piano string stiffness inharmonicity
 - [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
 - [ ] Calculate dissonances using critical bands theory instead.
@@ -61,4 +105,3 @@
 - [ ] We only need one row of dissonances that shows what dissonance a new note would result in.
     - for the second note we show the same as we currently do
     - for more notes we show what chord they would result in
-- [ ] Make `shift` behave like a sustain pedal. We want almost infinite sustain to allow the user to hear chord dissonances.

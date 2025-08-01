@@ -20,6 +20,7 @@ struct ProcessorOptions {
 pub struct WebAudio {
     node: FutureData<Result<AudioNodeConnection, JsValue>>,
     message_attempt_count: std::cell::Cell<u32>,
+    init_failure_logged: std::cell::Cell<bool>,
 }
 
 // SAFETY: we need to send messages from the midi callback. and midir requires Send. JsValue is !Send, but since we aren't using wasm threads that should not be a problem
@@ -55,8 +56,29 @@ impl WebAudio {
             let js_response: web_sys::Response = js_response.dyn_into()?;
             let js_glue_code = JsFuture::from(js_response.text()?).await?;
 
-            let context = AudioContext::new().unwrap();
-            JsFuture::from(context.audio_worklet()?.add_module(worklet_url)?).await?;
+            let context = AudioContext::new()
+                .map_err(|e| JsValue::from_str(&format!("Failed to create AudioContext: {e:?}")))?;
+
+            // Check if AudioWorklet is supported by checking if the property exists
+            let worklet_js = js_sys::Reflect::get(&context, &JsValue::from_str("audioWorklet"))
+                .map_err(|_| JsValue::from_str("Failed to check AudioWorklet support"))?;
+
+            if worklet_js.is_undefined() || worklet_js.is_null() {
+                return Err(JsValue::from_str(
+                    "AudioWorklet is not supported in this browser. This is common on mobile devices or older browsers. The visual interface will work, but audio playback is disabled.",
+                ));
+            }
+
+            // Now try to get the audio worklet
+            let audio_worklet = context
+                .audio_worklet()
+                .map_err(|e| JsValue::from_str(&format!("Failed to get AudioWorklet: {e:?}")))?;
+
+            JsFuture::from(audio_worklet.add_module(worklet_url)?)
+                .await
+                .map_err(|e| {
+                    JsValue::from_str(&format!("Failed to load audio worklet module: {e:?}"))
+                })?;
 
             // Create processor options with WASM data using serde
             let processor_options = ProcessorOptions {
@@ -101,20 +123,38 @@ impl WebAudio {
         Self {
             node,
             message_attempt_count: std::cell::Cell::new(0),
+            init_failure_logged: std::cell::Cell::new(false),
         }
     }
 
     pub fn send_message(&self, message: ToWorkletMessage) {
         // it might take a while to load the worklet, so early messages might get a None from try_get
         if let Some(node) = self.node.try_get() {
-            let connection = node.as_ref().expect("Audio worklet connection failed");
-            connection
-                .node
-                .port()
-                .expect("Failed to get audio worklet port")
-                .post_message(&message.into())
-                .expect("Failed to send message to audio worklet");
-            self.message_attempt_count.set(0);
+            match node.as_ref() {
+                Ok(connection) => {
+                    match connection.node.port() {
+                        Ok(port) => {
+                            if let Err(e) = port.post_message(&message.into()) {
+                                log::error!("Failed to send message to audio worklet: {e:?}");
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Failed to get audio worklet port: {e:?}");
+                        }
+                    }
+                    self.message_attempt_count.set(0);
+                }
+                Err(e) => {
+                    // AudioWorklet failed to initialize, log the error once and stop trying
+                    if !self.init_failure_logged.get() {
+                        log::info!("Audio worklet initialization failed: {e:?}");
+                        log::info!(
+                            "Audio functionality is disabled. The visual interface remains fully functional."
+                        );
+                    }
+                    self.init_failure_logged.set(true);
+                }
+            }
         } else {
             let count = self.message_attempt_count.get();
             self.message_attempt_count.set(count + 1);
@@ -127,6 +167,15 @@ impl WebAudio {
             } else if count > 100 && count % 50 == 0 {
                 log::warn!("Audio worklet still not ready after {count} message attempts.");
             }
+        }
+    }
+
+    /// Check if audio is disabled (AudioWorklet failed to initialize)
+    pub fn is_disabled(&self) -> bool {
+        if let Some(node) = self.node.try_get() {
+            node.is_err()
+        } else {
+            false // Still loading
         }
     }
 }
