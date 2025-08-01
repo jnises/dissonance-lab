@@ -361,6 +361,11 @@ impl eframe::App for DissonanceLabApp {
                                 });
                             }
                         }
+                        piano_gui::Action::SustainPedal(active) => {
+                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                web_audio.send_message(ToWorkletMessage::SustainPedal { active });
+                            }
+                        }
                     }
                 }
             });

@@ -144,11 +144,15 @@ pub struct PianoGui {
 
     /// The octave that this piano GUI displays (default: 4, meaning C4-B4)
     octave: u8,
+
+    /// Whether the sustain pedal (shift key) was active in the previous frame
+    previous_sustain_active: bool,
 }
 
 pub enum Action {
     Pressed(wmidi::Note),
     Released(wmidi::Note),
+    SustainPedal(bool),
 }
 
 impl PianoGui {
@@ -162,6 +166,7 @@ impl PianoGui {
             pointers_holding_key: HashMap::new(),
             previous_pointer_keys: Default::default(),
             octave: DEFAULT_OCTAVE, // Default to 4th octave (C4-B4)
+            previous_sustain_active: false,
         }
     }
 
@@ -239,6 +244,12 @@ impl PianoGui {
 
         // Generate actions based on key state changes BEFORE rendering for immediate visual feedback
         self.generate_actions_for_all_keys(&mut actions, shift_pressed);
+
+        // Check for sustain pedal state change
+        if shift_pressed != self.previous_sustain_active {
+            actions.push(Action::SustainPedal(shift_pressed));
+            self.previous_sustain_active = shift_pressed;
+        }
 
         // Update previous pointer keys for the next frame
         self.previous_pointer_keys.fill(false);
@@ -342,8 +353,8 @@ impl PianoGui {
     /// Generate actions for all keys based on state changes.
     ///
     /// This method checks each key for state changes (pressed/released) and generates
-    /// the appropriate actions. It also handles key selection logic when shift is not pressed.
-    fn generate_actions_for_all_keys(&mut self, actions: &mut Vec<Action>, shift_pressed: bool) {
+    /// the appropriate actions. It also handles key selection logic including sustain pedal behavior.
+    fn generate_actions_for_all_keys(&mut self, actions: &mut Vec<Action>, sustain_active: bool) {
         for semitone_value in 0..12 {
             let semitone = Semitone::new(semitone_value);
             let note = semitone.to_note_in_octave(self.octave);
@@ -357,27 +368,28 @@ impl PianoGui {
 
             if is_pressed && !was_pressed {
                 actions.push(Action::Pressed(note));
-                if !shift_pressed {
-                    // TODO: this is a bit weird. should be simplified once we change "shift" behavior to sustain
-                    // Only clear keys that are not currently being pressed by any pointer
-                    for clear_semitone_value in 0..12 {
-                        let clear_semitone = Semitone::new(clear_semitone_value);
-                        let clear_note = clear_semitone.to_note_in_octave(self.octave);
-                        let clear_pointers_empty = self
-                            .pointers_holding_key
-                            .get(&clear_note)
-                            .is_none_or(|p| p.is_empty());
-
-                        // Only clear selection if no pointers are currently pressing this key
-                        if clear_pointers_empty {
-                            self.selected_keys.set(clear_semitone.as_index(), false);
-                        }
-                    }
-                }
-                let key_selected = self.selected_keys[semitone.as_index()];
-                self.selected_keys.set(semitone.as_index(), !key_selected);
-            } else if !is_pressed && was_pressed {
+                self.selected_keys.set(semitone.as_index(), true);
+            } else if !is_pressed && was_pressed && !sustain_active {
                 actions.push(Action::Released(note));
+            }
+        }
+
+        // Handle sustain pedal release - when shift is released, clear all selections
+        // except for keys that are currently being actively pressed
+        if !sustain_active && self.previous_sustain_active {
+            for semitone_value in 0..12 {
+                let semitone = Semitone::new(semitone_value);
+                let note = semitone.to_note_in_octave(self.octave);
+                let is_currently_pressed = self
+                    .pointers_holding_key
+                    .get(&note)
+                    .is_some_and(|pointers| !pointers.is_empty());
+
+                // Clear selection if key is not currently being pressed
+                if !is_currently_pressed && self.selected_keys[semitone.as_index()] {
+                    self.selected_keys.set(semitone.as_index(), false);
+                    actions.push(Action::Released(note));
+                }
             }
         }
     }

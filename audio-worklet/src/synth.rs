@@ -1,4 +1,5 @@
 use crate::{limiter::Limiter, reverb::Reverb};
+use bitvec::{BitArr, order::Msb0};
 use std::{cmp::Ordering, f32::consts::PI};
 
 /// Synth trait for audio synthesis
@@ -455,6 +456,8 @@ pub struct PianoSynth {
     sample_rate: Option<u32>,
     reverb: Option<Reverb>,
     limiter: Option<Limiter>,
+    sustain_pedal_active: bool,
+    sustained_notes: BitArr!(for 128, in u32, Msb0),
 }
 
 impl Default for PianoSynth {
@@ -470,6 +473,8 @@ impl PianoSynth {
             sample_rate: None,
             reverb: None,
             limiter: None,
+            sustain_pedal_active: false,
+            sustained_notes: Default::default(),
         }
     }
 
@@ -546,6 +551,19 @@ impl PianoSynth {
     }
 
     pub fn note_off(&mut self, midi_note: wmidi::Note) {
+        if self.sustain_pedal_active {
+            // If sustain pedal is active, mark the note as sustained instead of releasing it
+            let note_value = u8::from(midi_note) as usize;
+            debug_assert!(note_value < 128, "MIDI note value must be < 128");
+            self.sustained_notes.set(note_value, true);
+        } else {
+            // Normal note off behavior
+            self.release_note(midi_note);
+        }
+    }
+
+    /// Actually release a note (used both for normal note-off and when sustain pedal is released)
+    fn release_note(&mut self, midi_note: wmidi::Note) {
         for voice in self.voices.iter_mut() {
             if let Some(key) = &voice.current_key {
                 if key.midi_note == midi_note {
@@ -553,6 +571,21 @@ impl PianoSynth {
                 }
             }
         }
+    }
+
+    /// Set the sustain pedal state
+    pub fn set_sustain_pedal(&mut self, active: bool) {
+        if self.sustain_pedal_active && !active {
+            // Sustain pedal being released - release all sustained notes
+            let sustained_notes_copy = self.sustained_notes;
+            for note_value in sustained_notes_copy.iter_ones() {
+                let midi_note = wmidi::Note::try_from(note_value as u8).unwrap();
+                self.release_note(midi_note);
+            }
+            // Clear all sustained notes
+            self.sustained_notes.fill(false);
+        }
+        self.sustain_pedal_active = active;
     }
 
     #[inline]
