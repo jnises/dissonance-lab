@@ -195,10 +195,7 @@ impl PianoGui {
         let keys_rect = rect.shrink(MARGIN);
         let shift_pressed = ui.input(|i| i.modifiers.shift);
 
-        // Process all pointer events (touch and mouse) using local state instead of egui's ui.data() system.
-        // This avoids a specific WASM panic that occurred in egui 0.32.0 when ui.data()
-        // triggered certain parking_lot code paths. While both egui and parking_lot support
-        // WASM, this approach is more efficient and sidesteps the issue completely.
+        // Process all pointer events (touch and mouse)
 
         // Handle touch events
         let mut has_active_touches = false;
@@ -364,6 +361,7 @@ impl PianoGui {
             if is_pressed && !was_pressed {
                 actions.push(Action::Pressed(note));
                 if !shift_pressed {
+                    // TODO: this is a bit weird. should be simplified once we change "shift" behavior to sustain
                     // Only clear keys that are not currently being pressed by any pointer
                     for clear_semitone_value in 0..12 {
                         let clear_semitone = Semitone::new(clear_semitone_value);

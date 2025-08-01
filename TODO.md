@@ -80,6 +80,9 @@
     - Extracted action generation logic from render_key() into a separate generate_actions_for_all_keys() method that runs before rendering. The render_key() method now focuses purely on drawing the key rectangle with appropriate colors and highlights, while action generation (detecting press/release state changes) happens in the main show() method. This improves separation of concerns and makes the code more maintainable.
   - [x] Make sure interval_display.rs handles multitouch correctly
     - Verified that interval_display.rs already handles multitouch correctly by design. The component is purely visual and gets its data from piano.pressed_keys(), which aggregates all pressed keys regardless of input method. Since piano_gui.rs already has comprehensive multitouch support implemented, the interval display automatically works with multitouch, MIDI, and mixed input modes without requiring any code changes.
+- [ ] Make `shift` behave like a sustain pedal. We want almost infinite sustain to allow the user to hear chord dissonances.
+  - [ ] Update the gui. pressing and holding shift when you are clicking on a piano key should keep the keys selected. untill you release shift.
+  - [ ] update the synth to accept sustain pedal input
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
   - [ ] Modify PianoGui to track the chronological order of mouse key presses
@@ -102,4 +105,3 @@
 - [ ] We only need one row of dissonances that shows what dissonance a new note would result in.
     - for the second note we show the same as we currently do
     - for more notes we show what chord they would result in
-- [ ] Make `shift` behave like a sustain pedal. We want almost infinite sustain to allow the user to hear chord dissonances.
