@@ -41,7 +41,10 @@ impl ManagedProcess {
 impl Drop for ManagedProcess {
     fn drop(&mut self) {
         if let Err(e) = self.child.kill() {
-            eprintln!("Warning: Failed to kill {}: {e}", self.name);
+            // Ignore error if process is already dead (InvalidInput)
+            if e.kind() != std::io::ErrorKind::InvalidInput {
+                eprintln!("Warning: Failed to kill {}: {e}", self.name);
+            }
         }
     }
 }
