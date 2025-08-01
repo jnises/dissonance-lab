@@ -363,14 +363,13 @@ impl PianoGui {
                     for clear_semitone_value in 0..12 {
                         let clear_semitone = Semitone::new(clear_semitone_value);
                         let clear_note = clear_semitone.to_note_in_octave(self.octave);
-                        let clear_pointers = self
+                        let clear_pointers_empty = self
                             .pointers_holding_key
                             .get(&clear_note)
-                            .cloned()
-                            .unwrap_or_default();
+                            .is_none_or(|p| p.is_empty());
 
                         // Only clear selection if no pointers are currently pressing this key
-                        if clear_pointers.is_empty() {
+                        if clear_pointers_empty {
                             self.selected_keys.set(clear_semitone.as_index(), false);
                         }
                     }
