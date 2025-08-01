@@ -349,13 +349,10 @@ impl PianoGui {
             let note = semitone.to_note_in_octave(self.octave);
 
             // Get active pointers for this key from our local state
-            let all_pointers = self
+            let is_pressed = self
                 .pointers_holding_key
                 .get(&note)
-                .cloned()
-                .unwrap_or_default();
-
-            let is_pressed = !all_pointers.is_empty();
+                .is_some_and(|pointers| !pointers.is_empty());
             let was_pressed = self.previous_pointer_keys[semitone.as_index()];
 
             if is_pressed && !was_pressed {
@@ -398,17 +395,13 @@ impl PianoGui {
         let note = semitone.to_note_in_octave(self.octave);
         let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
-        // Get active pointers for this key from our local state
-        let all_pointers = self
-            .pointers_holding_key
-            .get(&note)
-            .cloned()
-            .unwrap_or_default();
-
         // Allocate space for the key (needed for proper UI layout)
         ui.allocate_rect(key_rect, Sense::click_and_drag());
 
-        let is_pressed = !all_pointers.is_empty();
+        let is_pressed = self
+                .pointers_holding_key
+                .get(&note)
+                .is_some_and(|pointers| !pointers.is_empty());
         let selected = self.selected_keys[semitone.as_index()];
         let combined_selected = pressed_keys[semitone.as_index()];
 
