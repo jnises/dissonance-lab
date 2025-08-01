@@ -121,12 +121,26 @@ pub type KeySet = BitArr!(for 12, in u16, Msb0);
 type ExternalKeySet = BitArr!(for 128, in u32, Msb0);
 
 pub struct PianoGui {
+    /// Keys that are persistently selected/toggled by user interaction.
+    /// These remain visually highlighted even when not actively pressed.
+    /// Toggled on/off each time a key is pressed (unless shift is held).
     selected_keys: KeySet,
+    
+    /// Keys that are currently pressed via external MIDI input.
+    /// Tracks all 128 MIDI notes, not just the current octave.
     external_keys: ExternalKeySet,
 
+    /// Maps each active pointer (mouse/touch) to the note it's currently pressing.
+    /// Used for reverse lookup: given a pointer, what key is it on?
     key_held_by_pointer: HashMap<PointerId, wmidi::Note>,
+    
+    /// Maps each note to the set of pointers currently pressing it.
+    /// Enables multi-touch: multiple fingers can press the same key simultaneously.
     pointers_holding_key: HashMap<wmidi::Note, HashSet<PointerId>>,
-    previous_pointer_keys: KeySet, // Keys that were pressed by pointers in the previous frame
+    
+    /// Keys that had active pointers in the previous frame.
+    /// Used to detect press/release transitions for action generation.
+    previous_pointer_keys: KeySet,
 
     /// The octave that this piano GUI displays (default: 4, meaning C4-B4)
     octave: u8,
@@ -221,11 +235,8 @@ impl PianoGui {
             self.handle_pointer_release(mouse_pointer_id);
         }
 
-        // Second pass: render keys and handle interactions.
-        // This architecture processes all pointer events globally first, then renders each key,
-        // which is more efficient than the previous approach where each key processed all events.
-        // The local state management also eliminates redundant event processing and ensures
-        // proper multitouch handling without WASM compatibility issues.
+        // Generate actions based on key state changes BEFORE rendering for immediate visual feedback
+        self.generate_actions_for_all_keys(&mut actions, shift_pressed);
 
         // Render white keys first (so black keys appear on top)
         for semitone in [0, 2, 4, 5, 7, 9, 11] {
@@ -235,8 +246,6 @@ impl PianoGui {
                 &painter,
                 keys_rect,
                 &pressed_keys,
-                shift_pressed,
-                &mut actions,
             );
         }
 
@@ -248,8 +257,6 @@ impl PianoGui {
                 &painter,
                 keys_rect,
                 &pressed_keys,
-                shift_pressed,
-                &mut actions,
             );
         }
 
@@ -330,16 +337,39 @@ impl PianoGui {
         }
     }
 
-    /// Render a single piano key with all associated logic
+    /// Generate actions for all keys based on state changes.
     ///
-    /// This method takes 8 arguments, which exceeds clippy's default limit of 7.
-    /// However, this is justified because:
-    /// 1. The method extracts duplicated rendering logic from two loops (white/black keys)
-    /// 2. All arguments are necessary for key rendering and interaction handling
-    /// 3. Grouping them into a struct would be artificial since they represent different concerns
-    ///    (UI state, rendering context, input state, and output collection)
-    /// 4. The method significantly reduces code duplication (eliminated ~80 lines of repetition)
-    #[allow(clippy::too_many_arguments)]
+    /// This method checks each key for state changes (pressed/released) and generates
+    /// the appropriate actions. It also handles key selection logic when shift is not pressed.
+    fn generate_actions_for_all_keys(&mut self, actions: &mut Vec<Action>, shift_pressed: bool) {
+        for semitone_value in 0..12 {
+            let semitone = Semitone::new(semitone_value);
+            let note = semitone.to_note_in_octave(self.octave);
+            
+            // Get active pointers for this key from our local state
+            let all_pointers = self
+                .pointers_holding_key
+                .get(&note)
+                .cloned()
+                .unwrap_or_default();
+
+            let is_pressed = !all_pointers.is_empty();
+            let was_pressed = self.previous_pointer_keys[semitone.as_index()];
+
+            if is_pressed && !was_pressed {
+                actions.push(Action::Pressed(note));
+                if !shift_pressed {
+                    self.selected_keys.fill(false);
+                }
+                let key_selected = self.selected_keys[semitone.as_index()];
+                self.selected_keys.set(semitone.as_index(), !key_selected);
+            } else if !is_pressed && was_pressed {
+                actions.push(Action::Released(note));
+            }
+        }
+    }
+
+    /// Render a single piano key (pure rendering, no action generation).
     fn render_key(
         &mut self,
         semitone: Semitone,
@@ -347,8 +377,6 @@ impl PianoGui {
         painter: &egui::Painter,
         keys_rect: Rect,
         pressed_keys: &KeySet,
-        shift_pressed: bool,
-        actions: &mut Vec<Action>,
     ) {
         let note = semitone.to_note_in_octave(self.octave);
         let key_rect = key_rect_for_semitone(semitone, keys_rect);
@@ -364,19 +392,6 @@ impl PianoGui {
         ui.allocate_rect(key_rect, Sense::click_and_drag());
 
         let is_pressed = !all_pointers.is_empty();
-        let was_pressed = self.previous_pointer_keys[semitone.as_index()];
-
-        if is_pressed && !was_pressed {
-            actions.push(Action::Pressed(note));
-            if !shift_pressed {
-                self.selected_keys.fill(false);
-            }
-            let key_selected = self.selected_keys[semitone.as_index()];
-            self.selected_keys.set(semitone.as_index(), !key_selected);
-        } else if !is_pressed && was_pressed {
-            actions.push(Action::Released(note));
-        }
-
         let selected = self.selected_keys[semitone.as_index()];
         let combined_selected = pressed_keys[semitone.as_index()];
 

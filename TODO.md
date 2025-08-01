@@ -1,7 +1,5 @@
-- [x] Add a checkmark after the "midi" text in the gui when midi is correctly set up
-  - Added checkmark (✓) after "MIDI" text when MIDI is connected. The checkmark appears only when `MidiState::Connected` is active, maintaining the existing color coding (normal text color for connected, weak/strikethrough for not connected).
 - [ ] piano_gui.rs: handle multi touch? is it possible to do it since this is just a single widget?
-  - [ ] Research egui's MultiTouchInfo API and how to access it in the current context
+  - [x] Research egui's MultiTouchInfo API and how to access it in the current context
     - [x] Study egui::InputState and egui::MultiTouchInfo documentation
       - Found: input.multi_touch() returns Option<MultiTouchInfo> for gestures (zoom, rotation)
       - Found: input.any_touches() returns bool for active touches
@@ -78,7 +76,8 @@
     - Created helper methods `add_pointer_to_key()`, `remove_pointer_from_current_key()`, and `move_pointer_to_key()` that atomically update both `key_held_by_pointer` and `pointers_holding_key` data structures. Refactored `handle_pointer_move()` and `handle_pointer_release()` to use these methods, eliminating duplicate update logic and ensuring the two tracking structures remain synchronized. Each method includes appropriate debug assertions to validate state consistency.
   - [x] look for old things in piano_gui.rs that can be simplified or removed
     - Extracted duplicated key rendering logic into a shared `render_key` method, eliminating ~80 lines of repetition between white and black key rendering loops. Removed unused constants (`NUM_WHITE_KEYS`, `NUM_BLACK_KEYS`) and simplified array bounds checking to use array length directly. Removed unused import statements (`Stroke`, `StrokeKind`) and moved to fully qualified names where needed. The refactoring maintains identical functionality while improving code maintainability and readability.
-  - [ ] render_key in piano_gui.rs also handles Actions. That doesn't seem very "rendery". Try to move that functionality to somewhere else.
+  - [x] render_key in piano_gui.rs also handles Actions. That doesn't seem very "rendery". Try to move that functionality to somewhere else.
+    - Extracted action generation logic from render_key() into a separate generate_actions_for_all_keys() method that runs before rendering. The render_key() method now focuses purely on drawing the key rectangle with appropriate colors and highlights, while action generation (detecting press/release state changes) happens in the main show() method. This improves separation of concerns and makes the code more maintainable.
   - [ ] Make sure interval_display.rs handles multitouch correctly
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
