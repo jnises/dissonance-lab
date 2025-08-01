@@ -235,7 +235,8 @@ impl PianoVoice {
         const MIDI_VELOCITY_MAX: f32 = 127.0;
 
         const BASE_DECAY_RATE_HZ: f32 = 44100.0;
-        const BASE_DECAY_RATE: f32 = 0.00001;
+        // Much slower sustain decay that a normal piano, we want to allow the user to hear many notes at once.
+        const BASE_DECAY_RATE: f32 = 0.000001;
 
         const FREQUENCY_DECAY_REFERENCE_HZ: f32 = 110.0;
 

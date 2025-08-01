@@ -22,8 +22,9 @@
   - Modified theme.rs to explicitly set dark_mode = true and added a check in app.rs update loop to ensure dark mode remains enforced
 - [x] Make pressed, sustained, external, and external sustained keys have slightly different colors in piano_gui
   - Added four distinct color functions: `pressed_key()`, `sustained_key()`, `external_key()`, and `external_sustained_key()` to provide visual differentiation between key states. Updated the render_key logic to use these colors appropriately based on the key's current state.
-- [ ] Make the synth sustain for a very long time. we want to allow users to really hear how multiple notes sound together
-- [ ] Figure out why the synth distorts so much
+- [x] Make the synth sustain for a very long time. we want to allow users to really hear how multiple notes sound together
+  - Reduced sustain decay rate from 0.00001 to 0.000001 to make notes sustain much longer during the sustain phase (when keys are held or sustain pedal is active)
+- [ ] Figure out why the synth distorts so much (on mobile at least..)
 - [ ] Try increasing the reverb to hear how it sounds
 - [ ] model piano string stiffness inharmonicity
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
