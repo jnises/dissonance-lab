@@ -491,13 +491,21 @@ impl PianoGui {
         let external_selected = self.external_keys[semitone.as_index() % 12];
         let sustained_external = self.sustained_external_keys[semitone.as_index() % 12];
 
-        let key_fill = if selected || sustained_selected {
-            theme::selected_key()
-        } else if external_selected || sustained_external {
-            theme::external_selected_key()
+        let key_fill = if selected {
+            // Currently pressed via GUI
+            theme::pressed_key()
+        } else if sustained_selected {
+            // Sustained GUI keys (were pressed while sustain was active, now released)
+            theme::sustained_key()
+        } else if external_selected {
+            // Currently pressed via external MIDI
+            theme::external_key()
+        } else if sustained_external {
+            // Sustained external keys (were pressed via MIDI while sustain was active, now released)
+            theme::external_sustained_key()
         } else if is_pressed {
             // Show actively pressed keys even when sustain is off
-            theme::selected_key()
+            theme::pressed_key()
         } else {
             ui.visuals().panel_fill
         };
@@ -515,7 +523,7 @@ impl PianoGui {
             painter.rect_stroke(
                 highlight_rect,
                 0.0,
-                egui::Stroke::new(2.0, theme::selected_key()),
+                egui::Stroke::new(2.0, theme::pressed_key()),
                 egui::StrokeKind::Middle,
             );
         }

@@ -20,8 +20,12 @@
   - [x] update midi input to send sustain pedal input to the gui and the synth. in the gui show an indication that sustain pedal is active. this indication should replace the "shift for multi select" label and say "⬆ sustain". Change the colors of the label to indicate that it is active.
 - [x] Force dark mode for the theme, even if the user has a light mode os
   - Modified theme.rs to explicitly set dark_mode = true and added a check in app.rs update loop to ensure dark mode remains enforced
-- [ ] Make pressed, sustained, external, and external sustained keys have slightly different colors in piano_gui
+- [x] Make pressed, sustained, external, and external sustained keys have slightly different colors in piano_gui
+  - Added four distinct color functions: `pressed_key()`, `sustained_key()`, `external_key()`, and `external_sustained_key()` to provide visual differentiation between key states. Updated the render_key logic to use these colors appropriately based on the key's current state.
+- [ ] Make the synth sustain for a very long time. we want to allow users to really hear how multiple notes sound together
 - [ ] Figure out why the synth distorts so much
+- [ ] Try increasing the reverb to hear how it sounds
+- [ ] model piano string stiffness inharmonicity
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
   - [ ] Modify PianoGui to track the chronological order of mouse key presses
@@ -31,9 +35,7 @@
   - [ ] Update the pressed_keys data structure to include ordering/priority information
   - [ ] Test the new ordering behavior with both mouse and MIDI input
 - [ ] Make the console output from the audio worklet also forward back to the dev server. perhaps we need to have the audio worklet log using a message instead of straight to console
-- [ ] Try increasing the reverb to hear how it sounds
 - [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
-- [ ] model piano string stiffness inharmonicity
 - [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
 - [ ] Calculate dissonances using critical bands theory (plomp levelt) instead.
     - This would allow us to calculate the dissonance of entire chords
