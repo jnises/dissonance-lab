@@ -147,7 +147,7 @@ impl eframe::App for DissonanceLabApp {
         if !ctx.style().visuals.dark_mode {
             theme::setup_custom_theme(ctx);
         }
-        
+
         self.ensure_midi(ctx);
         self.check_audio_status();
 

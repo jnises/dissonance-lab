@@ -30,7 +30,7 @@ pub fn pressed_key() -> Color32 {
 
 pub fn sustained_key() -> Color32 {
     // Slightly darker/desaturated version of pressed keys
-    Color32::from_rgb(175, 173, 164) 
+    Color32::from_rgb(175, 173, 164)
 }
 
 const EXTERNAL_SELECTED_KEY_R: u8 = 150;
@@ -61,7 +61,7 @@ pub static DISSONANCE_GRADIENT: LazyLock<BasisGradient> = LazyLock::new(|| {
 
 pub fn setup_custom_theme(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();
-    
+
     // Force dark mode regardless of system preference
     visuals.dark_mode = true;
 
