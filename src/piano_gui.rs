@@ -201,9 +201,11 @@ impl PianoGui {
         // WASM, this approach is more efficient and sidesteps the issue completely.
 
         // Handle touch events
+        let mut has_active_touches = false;
         ui.input(|i| {
             for event in &i.events {
                 if let Event::Touch { id, phase, pos, .. } = event {
+                    has_active_touches = true;
                     let pointer_id = PointerId::Touch(id.0);
 
                     match phase {
@@ -219,24 +221,36 @@ impl PianoGui {
             }
         });
 
-        // Handle mouse interactions
-        let mouse_pointer_id = PointerId::Mouse;
-        let mouse_pos = ui.input(|i| i.pointer.latest_pos());
-        let mouse_down = ui.input(|i| i.pointer.primary_down());
+        // Handle mouse interactions only if there are no active touches
+        // This prevents mouse events from interfering with multitouch on touch devices
+        if !has_active_touches {
+            let mouse_pointer_id = PointerId::Mouse;
+            let mouse_pos = ui.input(|i| i.pointer.latest_pos());
+            let mouse_down = ui.input(|i| i.pointer.primary_down());
 
-        if let Some(pos) = mouse_pos {
-            if mouse_down {
-                let target_note = self.find_key_at_position(pos, keys_rect);
-                self.handle_pointer_move(mouse_pointer_id, target_note);
+            if let Some(pos) = mouse_pos {
+                if mouse_down {
+                    let target_note = self.find_key_at_position(pos, keys_rect);
+                    self.handle_pointer_move(mouse_pointer_id, target_note);
+                } else {
+                    self.handle_pointer_release(mouse_pointer_id);
+                }
             } else {
                 self.handle_pointer_release(mouse_pointer_id);
             }
-        } else {
-            self.handle_pointer_release(mouse_pointer_id);
         }
 
         // Generate actions based on key state changes BEFORE rendering for immediate visual feedback
         self.generate_actions_for_all_keys(&mut actions, shift_pressed);
+
+        // Update previous pointer keys for the next frame
+        self.previous_pointer_keys.fill(false);
+        for &note in self.pointers_holding_key.keys() {
+            if !self.pointers_holding_key[&note].is_empty() {
+                let semitone = Semitone::from_note(note);
+                self.previous_pointer_keys.set(semitone.as_index(), true);
+            }
+        }
 
         // Render white keys first (so black keys appear on top)
         for semitone in [0, 2, 4, 5, 7, 9, 11] {
@@ -258,15 +272,6 @@ impl PianoGui {
                 keys_rect,
                 &pressed_keys,
             );
-        }
-
-        // Update previous pointer keys for the next frame
-        self.previous_pointer_keys.fill(false);
-        for &note in self.pointers_holding_key.keys() {
-            if !self.pointers_holding_key[&note].is_empty() {
-                let semitone = Semitone::from_note(note);
-                self.previous_pointer_keys.set(semitone.as_index(), true);
-            }
         }
 
         (actions, keys_rect)
@@ -359,7 +364,21 @@ impl PianoGui {
             if is_pressed && !was_pressed {
                 actions.push(Action::Pressed(note));
                 if !shift_pressed {
-                    self.selected_keys.fill(false);
+                    // Only clear keys that are not currently being pressed by any pointer
+                    for clear_semitone_value in 0..12 {
+                        let clear_semitone = Semitone::new(clear_semitone_value);
+                        let clear_note = clear_semitone.to_note_in_octave(self.octave);
+                        let clear_pointers = self
+                            .pointers_holding_key
+                            .get(&clear_note)
+                            .cloned()
+                            .unwrap_or_default();
+
+                        // Only clear selection if no pointers are currently pressing this key
+                        if clear_pointers.is_empty() {
+                            self.selected_keys.set(clear_semitone.as_index(), false);
+                        }
+                    }
                 }
                 let key_selected = self.selected_keys[semitone.as_index()];
                 self.selected_keys.set(semitone.as_index(), !key_selected);
