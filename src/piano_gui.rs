@@ -125,7 +125,7 @@ pub struct PianoGui {
     /// These remain visually highlighted even when not actively pressed.
     /// Toggled on/off each time a key is pressed (unless shift is held).
     selected_keys: KeySet,
-    
+
     /// Keys that are currently pressed via external MIDI input.
     /// Tracks all 128 MIDI notes, not just the current octave.
     external_keys: ExternalKeySet,
@@ -133,11 +133,11 @@ pub struct PianoGui {
     /// Maps each active pointer (mouse/touch) to the note it's currently pressing.
     /// Used for reverse lookup: given a pointer, what key is it on?
     key_held_by_pointer: HashMap<PointerId, wmidi::Note>,
-    
+
     /// Maps each note to the set of pointers currently pressing it.
     /// Enables multi-touch: multiple fingers can press the same key simultaneously.
     pointers_holding_key: HashMap<wmidi::Note, HashSet<PointerId>>,
-    
+
     /// Keys that had active pointers in the previous frame.
     /// Used to detect press/release transitions for action generation.
     previous_pointer_keys: KeySet,
@@ -345,7 +345,7 @@ impl PianoGui {
         for semitone_value in 0..12 {
             let semitone = Semitone::new(semitone_value);
             let note = semitone.to_note_in_octave(self.octave);
-            
+
             // Get active pointers for this key from our local state
             let all_pointers = self
                 .pointers_holding_key
