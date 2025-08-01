@@ -18,7 +18,8 @@
     - Fixed by modifying the key selection logic: keys are now only added to selected_keys when sustain is active, and removed immediately when released if sustain is not active. Visual rendering was updated to show actively pressed keys even when not sustained.
   - [x] change piano_gui to not toggle the keys anymore. they should be pressed as long as the mouse/touch is pressed, unless sustain pedal/shift is active in which case they should remain pressed until it is released.
   - [x] update midi input to send sustain pedal input to the gui and the synth. in the gui show an indication that sustain pedal is active. this indication should replace the "shift for multi select" label and say "⬆ sustain". Change the colors of the label to indicate that it is active.
-- [ ] Force dark mode for the theme, even if the user has a light mode os
+- [x] Force dark mode for the theme, even if the user has a light mode os
+  - Modified theme.rs to explicitly set dark_mode = true and added a check in app.rs update loop to ensure dark mode remains enforced
 - [ ] Make pressed, sustained, external, and external sustained keys have slightly different colors in piano_gui
 - [ ] Figure out why the synth distorts so much
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.

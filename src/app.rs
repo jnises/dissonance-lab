@@ -143,6 +143,11 @@ impl DissonanceLabApp {
 
 impl eframe::App for DissonanceLabApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Ensure dark mode remains forced, reapply custom theme if needed
+        if !ctx.style().visuals.dark_mode {
+            theme::setup_custom_theme(ctx);
+        }
+        
         self.ensure_midi(ctx);
         self.check_audio_status();
 

@@ -51,6 +51,9 @@ pub static DISSONANCE_GRADIENT: LazyLock<BasisGradient> = LazyLock::new(|| {
 
 pub fn setup_custom_theme(ctx: &egui::Context) {
     let mut visuals = egui::Visuals::dark();
+    
+    // Force dark mode regardless of system preference
+    visuals.dark_mode = true;
 
     const PANEL_FILL_L: f32 = 0.19;
     const PANEL_FILL_A: f32 = -0.01;
