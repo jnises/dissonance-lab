@@ -64,7 +64,7 @@ web-sys = { version = "0.3.70", features = [
 
 [package]
 name = "dissonance-lab"
-version = "0.1.4"
+version = "0.2.0"
 authors = ["Joel Nises <joel.nises@gmail.com>"]
 edition = "2024"
 include = ["LICENSE", "**/*.rs", "Cargo.toml"]
