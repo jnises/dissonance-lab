@@ -167,10 +167,13 @@ pub struct PianoGui {
     /// The octave that this piano GUI displays (default: 4, meaning C4-B4)
     octave: u8,
 
-    /// Whether the sustain pedal (shift key) was active in the previous frame
-    previous_sustain_active: bool,
+    /// Whether the shift key was active in the previous frame
+    previous_shift_active: bool,
 
-    /// Whether the sustain pedal is currently active
+    /// Whether external MIDI sustain is currently active
+    external_sustain_active: bool,
+
+    /// Whether the sustain pedal is currently active (from any source: shift or MIDI)
     current_sustain_active: bool,
 }
 
@@ -193,7 +196,8 @@ impl PianoGui {
             pointers_holding_key: HashMap::new(),
             previous_pointer_keys: Default::default(),
             octave: DEFAULT_OCTAVE, // Default to 4th octave (C4-B4)
-            previous_sustain_active: false,
+            previous_shift_active: false,
+            external_sustain_active: false,
             current_sustain_active: false,
         }
     }
@@ -217,6 +221,20 @@ impl PianoGui {
             // Normal note off - turn off the key immediately
             self.external_keys.set(note_value, false);
         }
+    }
+
+    /// Set external sustain pedal state (from MIDI input)
+    pub fn set_external_sustain(&mut self, active: bool) {
+        self.external_sustain_active = active;
+        if !active {
+            // When sustain is released, clear all sustained external keys
+            self.handle_sustain_release_for_external_keys();
+        }
+    }
+
+    /// Check if sustain is currently active (either from Shift key or MIDI)
+    pub fn is_sustain_active(&self) -> bool {
+        self.current_sustain_active
     }
 
     pub fn show(&mut self, ui: &mut Ui) -> (Vec<Action>, Rect) {
@@ -278,16 +296,16 @@ impl PianoGui {
             }
         }
 
-        // Update current sustain state
-        self.current_sustain_active = shift_pressed;
+        // Update current sustain state to combine shift key and external MIDI sustain
+        self.current_sustain_active = shift_pressed || self.external_sustain_active;
 
         // Generate actions based on key state changes
-        self.generate_actions_for_all_keys(&mut actions, shift_pressed);
+        self.generate_actions_for_all_keys(&mut actions, self.current_sustain_active);
 
-        // Check for sustain pedal state change
-        if shift_pressed != self.previous_sustain_active {
+        // Check for shift key state change specifically
+        if shift_pressed != self.previous_shift_active {
             actions.push(Action::SustainPedal(shift_pressed));
-            self.previous_sustain_active = shift_pressed;
+            self.previous_shift_active = shift_pressed;
 
             if !shift_pressed {
                 // Handle sustain pedal release for external keys
@@ -433,7 +451,7 @@ impl PianoGui {
 
         // Handle sustain pedal release - when shift is released, clear all sustained selections
         // except for keys that are currently being actively pressed
-        if !sustain_active && self.previous_sustain_active {
+        if !self.current_sustain_active && self.previous_shift_active {
             for semitone in Semitone::iter() {
                 let note = semitone.to_note_in_octave(self.octave);
                 let is_currently_pressed = self

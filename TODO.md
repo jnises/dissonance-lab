@@ -17,7 +17,7 @@
   - [x] Figure out why the piano gui behaves as if the sustain pedal is always active. except for when you release shift
     - Fixed by modifying the key selection logic: keys are now only added to selected_keys when sustain is active, and removed immediately when released if sustain is not active. Visual rendering was updated to show actively pressed keys even when not sustained.
   - [x] change piano_gui to not toggle the keys anymore. they should be pressed as long as the mouse/touch is pressed, unless sustain pedal/shift is active in which case they should remain pressed until it is released.
-  - [ ] update midi input to send sustain pedal input to the gui and the synth. in the gui show an indication that sustain pedal is active. this indication should replace the "shift for multi select" label and say "⬆ sustain". Change the colors of the label to indicate that it is active.
+  - [x] update midi input to send sustain pedal input to the gui and the synth. in the gui show an indication that sustain pedal is active. this indication should replace the "shift for multi select" label and say "⬆ sustain". Change the colors of the label to indicate that it is active.
 - [ ] Force dark mode for the theme, even if the user has a light mode os
 - [ ] Make pressed, sustained, external, and external sustained keys have slightly different colors in piano_gui
 - [ ] Figure out why the synth distorts so much
@@ -34,7 +34,7 @@
 - [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
 - [ ] model piano string stiffness inharmonicity
 - [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
-- [ ] Calculate dissonances using critical bands theory instead.
+- [ ] Calculate dissonances using critical bands theory (plomp levelt) instead.
     - This would allow us to calculate the dissonance of entire chords
     - how do we handle the fact that we only show a single octave? just force the calculation to happen on a single central octave?
     - can critical bands theory be made octave normalized?
