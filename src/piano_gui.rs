@@ -398,9 +398,9 @@ impl PianoGui {
         ui.allocate_rect(key_rect, Sense::click_and_drag());
 
         let is_pressed = self
-                .pointers_holding_key
-                .get(&note)
-                .is_some_and(|pointers| !pointers.is_empty());
+            .pointers_holding_key
+            .get(&note)
+            .is_some_and(|pointers| !pointers.is_empty());
         let selected = self.selected_keys[semitone.as_index()];
         let combined_selected = pressed_keys[semitone.as_index()];
 
