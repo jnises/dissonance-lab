@@ -17,6 +17,7 @@
   - [ ] update midi input to send sustain pedal input to the gui and the synth. in the gui show an indication that sustain pedal is active. this indication should replace the "shift for multi select" label and say "⬆ sustain". Change the colors of the label to indicate that it is active.
   - [ ] change piano_gui to not toggle the keys anymore. they should be pressed as long as the mouse/touch is pressed, unless sustain pedal/shift is active in which case they should remain pressed until it is released.
 - [ ] Force dark mode for the them, even if the user has a light mode os
+- [ ] Figure out why the synth distorts so much
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
   - [ ] Modify PianoGui to track the chronological order of mouse key presses

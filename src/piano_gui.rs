@@ -106,6 +106,21 @@ impl Semitone {
     pub fn from_note(note: Note) -> Self {
         Self::new(u8::from(note) % 12)
     }
+
+    /// Create an iterator over all 12 semitones in chromatic order (C, C#, D, D#, E, F, F#, G, G#, A, A#, B)
+    pub fn iter() -> impl Iterator<Item = Semitone> {
+        (0..12).map(Semitone::new)
+    }
+
+    /// Create an iterator over white key semitones (C, D, E, F, G, A, B)
+    pub fn white_keys() -> impl Iterator<Item = Semitone> {
+        [0, 2, 4, 5, 7, 9, 11].into_iter().map(Semitone::new)
+    }
+
+    /// Create an iterator over black key semitones (C#, D#, F#, G#, A#)
+    pub fn black_keys() -> impl Iterator<Item = Semitone> {
+        [1, 3, 6, 8, 10].into_iter().map(Semitone::new)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -261,25 +276,13 @@ impl PianoGui {
         }
 
         // Render white keys first (so black keys appear on top)
-        for semitone in [0, 2, 4, 5, 7, 9, 11] {
-            self.render_key(
-                Semitone::new(semitone),
-                ui,
-                &painter,
-                keys_rect,
-                &pressed_keys,
-            );
+        for semitone in Semitone::white_keys() {
+            self.render_key(semitone, ui, &painter, keys_rect, &pressed_keys);
         }
 
         // Render black keys on top
-        for semitone in [1, 3, 6, 8, 10] {
-            self.render_key(
-                Semitone::new(semitone),
-                ui,
-                &painter,
-                keys_rect,
-                &pressed_keys,
-            );
+        for semitone in Semitone::black_keys() {
+            self.render_key(semitone, ui, &painter, keys_rect, &pressed_keys);
         }
 
         (actions, keys_rect)
@@ -355,8 +358,7 @@ impl PianoGui {
     /// This method checks each key for state changes (pressed/released) and generates
     /// the appropriate actions. It also handles key selection logic including sustain pedal behavior.
     fn generate_actions_for_all_keys(&mut self, actions: &mut Vec<Action>, sustain_active: bool) {
-        for semitone_value in 0..12 {
-            let semitone = Semitone::new(semitone_value);
+        for semitone in Semitone::iter() {
             let note = semitone.to_note_in_octave(self.octave);
 
             // Get active pointers for this key from our local state
@@ -377,8 +379,7 @@ impl PianoGui {
         // Handle sustain pedal release - when shift is released, clear all selections
         // except for keys that are currently being actively pressed
         if !sustain_active && self.previous_sustain_active {
-            for semitone_value in 0..12 {
-                let semitone = Semitone::new(semitone_value);
+            for semitone in Semitone::iter() {
                 let note = semitone.to_note_in_octave(self.octave);
                 let is_currently_pressed = self
                     .pointers_holding_key
@@ -451,8 +452,7 @@ impl PianoGui {
         );
 
         // Check black keys first (they're on top)
-        for semitone in [1, 3, 6, 8, 10] {
-            let semitone = Semitone::new(semitone);
+        for semitone in Semitone::black_keys() {
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
                 return Some(semitone.to_note_in_octave(self.octave));
@@ -460,8 +460,7 @@ impl PianoGui {
         }
 
         // If not on a black key, check white keys
-        for semitone in [0, 2, 4, 5, 7, 9, 11] {
-            let semitone = Semitone::new(semitone);
+        for semitone in Semitone::white_keys() {
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
                 return Some(semitone.to_note_in_octave(self.octave));
