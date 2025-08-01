@@ -136,14 +136,21 @@ pub type KeySet = BitArr!(for 12, in u16, Msb0);
 type ExternalKeySet = BitArr!(for 128, in u32, Msb0);
 
 pub struct PianoGui {
-    /// Keys that are persistently selected/toggled by user interaction.
-    /// These remain visually highlighted even when not actively pressed.
-    /// Toggled on/off each time a key is pressed (unless shift is held).
+    /// Keys that are currently being pressed via GUI interaction (regardless of sustain state).
+    /// This represents the actual keys being physically pressed by pointers/mouse.
     selected_keys: KeySet,
+
+    /// Keys that were pressed via GUI while sustain was active, but have since been released.
+    /// These keys will remain active until the sustain pedal is released.
+    sustained_selected_keys: KeySet,
 
     /// Keys that are currently pressed via external MIDI input.
     /// Tracks all 128 MIDI notes, not just the current octave.
     external_keys: ExternalKeySet,
+
+    /// Keys that are sustained due to sustain pedal being active when they were released.
+    /// These keys will remain active until the sustain pedal is released.
+    sustained_external_keys: ExternalKeySet,
 
     /// Maps each active pointer (mouse/touch) to the note it's currently pressing.
     /// Used for reverse lookup: given a pointer, what key is it on?
@@ -162,6 +169,9 @@ pub struct PianoGui {
 
     /// Whether the sustain pedal (shift key) was active in the previous frame
     previous_sustain_active: bool,
+
+    /// Whether the sustain pedal is currently active
+    current_sustain_active: bool,
 }
 
 pub enum Action {
@@ -176,12 +186,15 @@ impl PianoGui {
 
         Self {
             selected_keys: Default::default(),
+            sustained_selected_keys: Default::default(),
             external_keys: Default::default(),
+            sustained_external_keys: Default::default(),
             key_held_by_pointer: HashMap::new(),
             pointers_holding_key: HashMap::new(),
             previous_pointer_keys: Default::default(),
             octave: DEFAULT_OCTAVE, // Default to 4th octave (C4-B4)
             previous_sustain_active: false,
+            current_sustain_active: false,
         }
     }
 
@@ -189,16 +202,24 @@ impl PianoGui {
         let note_value = u8::from(note) as usize;
         debug_assert!(note_value < 128, "MIDI note value must be < 128");
         self.external_keys.set(note_value, true);
+        // If this note was sustained, remove it from sustained set since it's now actively pressed
+        self.sustained_external_keys.set(note_value, false);
     }
 
     pub fn external_note_off(&mut self, note: Note) {
         let note_value = u8::from(note) as usize;
         debug_assert!(note_value < 128, "MIDI note value must be < 128");
-        self.external_keys.set(note_value, false);
+
+        if self.current_sustain_active {
+            // If sustain is active, move the key to sustained set instead of turning it off
+            self.sustained_external_keys.set(note_value, true);
+        } else {
+            // Normal note off - turn off the key immediately
+            self.external_keys.set(note_value, false);
+        }
     }
 
     pub fn show(&mut self, ui: &mut Ui) -> (Vec<Action>, Rect) {
-        let pressed_keys = self.pressed_keys();
         let mut actions = Vec::new();
         let mut piano_size = vec2(PIANO_WIDTH, PIANO_HEIGHT);
         if piano_size.x > ui.available_width() {
@@ -257,13 +278,21 @@ impl PianoGui {
             }
         }
 
-        // Generate actions based on key state changes BEFORE rendering for immediate visual feedback
+        // Update current sustain state
+        self.current_sustain_active = shift_pressed;
+
+        // Generate actions based on key state changes
         self.generate_actions_for_all_keys(&mut actions, shift_pressed);
 
         // Check for sustain pedal state change
         if shift_pressed != self.previous_sustain_active {
             actions.push(Action::SustainPedal(shift_pressed));
             self.previous_sustain_active = shift_pressed;
+
+            if !shift_pressed {
+                // Handle sustain pedal release for external keys
+                self.handle_sustain_release_for_external_keys();
+            }
         }
 
         // Update previous pointer keys for the next frame
@@ -277,12 +306,12 @@ impl PianoGui {
 
         // Render white keys first (so black keys appear on top)
         for semitone in Semitone::white_keys() {
-            self.render_key(semitone, ui, &painter, keys_rect, &pressed_keys);
+            self.render_key(semitone, ui, &painter, keys_rect);
         }
 
         // Render black keys on top
         for semitone in Semitone::black_keys() {
-            self.render_key(semitone, ui, &painter, keys_rect, &pressed_keys);
+            self.render_key(semitone, ui, &painter, keys_rect);
         }
 
         (actions, keys_rect)
@@ -290,9 +319,22 @@ impl PianoGui {
 
     pub fn pressed_keys(&self) -> KeySet {
         let mut keys = self.selected_keys;
+
+        // Add sustained GUI keys
+        for sustained_key in self.sustained_selected_keys.iter_ones() {
+            keys.set(sustained_key, true);
+        }
+
+        // Add currently active external keys
         for external_key in self.external_keys.iter_ones() {
             keys.set(external_key % 12, true);
         }
+
+        // Add sustained external keys
+        for sustained_key in self.sustained_external_keys.iter_ones() {
+            keys.set(sustained_key % 12, true);
+        }
+
         keys
     }
 
@@ -370,13 +412,26 @@ impl PianoGui {
 
             if is_pressed && !was_pressed {
                 actions.push(Action::Pressed(note));
+                // Always add to selected_keys when pressed (regardless of sustain state)
                 self.selected_keys.set(semitone.as_index(), true);
-            } else if !is_pressed && was_pressed && !sustain_active {
-                actions.push(Action::Released(note));
+                // If this key was sustained, remove it from sustained set since it's now actively pressed
+                self.sustained_selected_keys.set(semitone.as_index(), false);
+            } else if !is_pressed && was_pressed {
+                // Always remove from selected_keys when released
+                self.selected_keys.set(semitone.as_index(), false);
+
+                if sustain_active {
+                    // If sustain is active, move to sustained but don't generate Action::Released
+                    self.sustained_selected_keys.set(semitone.as_index(), true);
+                } else {
+                    // If sustain is not active, generate release action and clear sustained
+                    actions.push(Action::Released(note));
+                    self.sustained_selected_keys.set(semitone.as_index(), false);
+                }
             }
         }
 
-        // Handle sustain pedal release - when shift is released, clear all selections
+        // Handle sustain pedal release - when shift is released, clear all sustained selections
         // except for keys that are currently being actively pressed
         if !sustain_active && self.previous_sustain_active {
             for semitone in Semitone::iter() {
@@ -386,9 +441,9 @@ impl PianoGui {
                     .get(&note)
                     .is_some_and(|pointers| !pointers.is_empty());
 
-                // Clear selection if key is not currently being pressed
-                if !is_currently_pressed && self.selected_keys[semitone.as_index()] {
-                    self.selected_keys.set(semitone.as_index(), false);
+                // Clear sustained selection if key is not currently being pressed
+                if !is_currently_pressed && self.sustained_selected_keys[semitone.as_index()] {
+                    self.sustained_selected_keys.set(semitone.as_index(), false);
                     actions.push(Action::Released(note));
                 }
             }
@@ -402,7 +457,6 @@ impl PianoGui {
         ui: &mut Ui,
         painter: &egui::Painter,
         keys_rect: Rect,
-        pressed_keys: &KeySet,
     ) {
         let note = semitone.to_note_in_octave(self.octave);
         let key_rect = key_rect_for_semitone(semitone, keys_rect);
@@ -415,12 +469,17 @@ impl PianoGui {
             .get(&note)
             .is_some_and(|pointers| !pointers.is_empty());
         let selected = self.selected_keys[semitone.as_index()];
-        let combined_selected = pressed_keys[semitone.as_index()];
+        let sustained_selected = self.sustained_selected_keys[semitone.as_index()];
+        let external_selected = self.external_keys[semitone.as_index() % 12];
+        let sustained_external = self.sustained_external_keys[semitone.as_index() % 12];
 
-        let key_fill = if selected {
+        let key_fill = if selected || sustained_selected {
             theme::selected_key()
-        } else if combined_selected {
+        } else if external_selected || sustained_external {
             theme::external_selected_key()
+        } else if is_pressed {
+            // Show actively pressed keys even when sustain is off
+            theme::selected_key()
         } else {
             ui.visuals().panel_fill
         };
@@ -537,6 +596,13 @@ impl PianoGui {
 
         // Add to new key
         self.add_pointer_to_key(pointer_id, new_note);
+    }
+
+    /// Handle sustain pedal release for external (MIDI) keys
+    /// Clear all sustained external keys when sustain is released
+    fn handle_sustain_release_for_external_keys(&mut self) {
+        // Clear all sustained external keys - they should no longer be sustained
+        self.sustained_external_keys.fill(false);
     }
 }
 

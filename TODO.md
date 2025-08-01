@@ -14,9 +14,12 @@
 - [x] Make `shift` behave like a sustain pedal. We want almost infinite sustain to allow the user to hear chord dissonances.
   - [x] Update the gui. pressing and holding shift when you are clicking on a piano key should keep the keys selected. untill you release shift.
   - [x] update the synth to accept sustain pedal input
+  - [x] Figure out why the piano gui behaves as if the sustain pedal is always active. except for when you release shift
+    - Fixed by modifying the key selection logic: keys are now only added to selected_keys when sustain is active, and removed immediately when released if sustain is not active. Visual rendering was updated to show actively pressed keys even when not sustained.
+  - [x] change piano_gui to not toggle the keys anymore. they should be pressed as long as the mouse/touch is pressed, unless sustain pedal/shift is active in which case they should remain pressed until it is released.
   - [ ] update midi input to send sustain pedal input to the gui and the synth. in the gui show an indication that sustain pedal is active. this indication should replace the "shift for multi select" label and say "⬆ sustain". Change the colors of the label to indicate that it is active.
-  - [ ] change piano_gui to not toggle the keys anymore. they should be pressed as long as the mouse/touch is pressed, unless sustain pedal/shift is active in which case they should remain pressed until it is released.
-- [ ] Force dark mode for the them, even if the user has a light mode os
+- [ ] Force dark mode for the theme, even if the user has a light mode os
+- [ ] Make pressed, sustained, external, and external sustained keys have slightly different colors in piano_gui
 - [ ] Figure out why the synth distorts so much
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
