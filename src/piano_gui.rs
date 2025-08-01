@@ -488,8 +488,23 @@ impl PianoGui {
             .is_some_and(|pointers| !pointers.is_empty());
         let selected = self.selected_keys[semitone.as_index()];
         let sustained_selected = self.sustained_selected_keys[semitone.as_index()];
-        let external_selected = self.external_keys[semitone.as_index() % 12];
-        let sustained_external = self.sustained_external_keys[semitone.as_index() % 12];
+        // Check all octaves for this semitone in external key sets
+        let mut external_selected = false;
+        let mut sustained_external = false;
+        let semitone_index = semitone.as_index();
+        // MIDI notes range from 0 to 127
+        for midi_note in (semitone_index..128).step_by(12) {
+            if self.external_keys[midi_note] {
+                external_selected = true;
+            }
+            if self.sustained_external_keys[midi_note] {
+                sustained_external = true;
+            }
+            // Early exit if both are true
+            if external_selected && sustained_external {
+                break;
+            }
+        }
 
         let key_fill = if selected {
             // Currently pressed via GUI
