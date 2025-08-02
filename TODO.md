@@ -1,29 +1,13 @@
-- [x] piano_gui.rs: Multi-touch support and refactoring
-  - [x] Researched egui's multi-touch APIs and event handling
-  - [x] Analyzed and documented current single-touch limitations
-  - [x] Designed and implemented data structures for tracking multiple pointers per key
-  - [x] Updated press/release logic for multi-touch and mouse compatibility
-  - [x] Switched from usize to wmidi::Note for key representation
-  - [x] Introduced a Semitone type for type safety and clarity
-  - [x] Added debug_asserts for key invariants and state consistency
-  - [x] Refactored semitone-related functions into Semitone methods
-  - [x] Centralized pointer/key state updates with helper methods
-  - [x] Simplified and cleaned up old code, extracted rendering logic
-  - [x] Separated action generation from rendering in render_key
-  - [x] Verified interval_display.rs works with multitouch by design
-- [x] Make `shift` behave like a sustain pedal. We want almost infinite sustain to allow the user to hear chord dissonances.
-  - [x] Update the gui. pressing and holding shift when you are clicking on a piano key should keep the keys selected. untill you release shift.
-  - [x] update the synth to accept sustain pedal input
-  - [x] Figure out why the piano gui behaves as if the sustain pedal is always active. except for when you release shift
-    - Fixed by modifying the key selection logic: keys are now only added to selected_keys when sustain is active, and removed immediately when released if sustain is not active. Visual rendering was updated to show actively pressed keys even when not sustained.
-  - [x] change piano_gui to not toggle the keys anymore. they should be pressed as long as the mouse/touch is pressed, unless sustain pedal/shift is active in which case they should remain pressed until it is released.
-  - [x] update midi input to send sustain pedal input to the gui and the synth. in the gui show an indication that sustain pedal is active. this indication should replace the "shift for multi select" label and say "⬆ sustain". Change the colors of the label to indicate that it is active.
-- [x] Force dark mode for the theme, even if the user has a light mode os
-  - Modified theme.rs to explicitly set dark_mode = true and added a check in app.rs update loop to ensure dark mode remains enforced
-- [x] Make pressed, sustained, external, and external sustained keys have slightly different colors in piano_gui
-  - Added four distinct color functions: `pressed_key()`, `sustained_key()`, `external_key()`, and `external_sustained_key()` to provide visual differentiation between key states. Updated the render_key logic to use these colors appropriately based on the key's current state.
-- [x] Make the synth sustain for a very long time. we want to allow users to really hear how multiple notes sound together
-  - Reduced sustain decay rate from 0.00001 to 0.000001 to make notes sustain much longer during the sustain phase (when keys are held or sustain pedal is active)
+- [x] Add multi-touch support and refactor piano_gui.rs
+  - Implemented multi-pointer tracking, updated press/release logic, switched to `wmidi::Note` and `Semitone` types, added debug assertions, refactored state and rendering logic, and verified interval display compatibility.
+- [x] Make `shift` act as a sustain pedal
+  - Updated GUI and synth to support sustain via shift, fixed sustain logic, changed key press behavior, and improved sustain pedal indication in the GUI.
+- [x] Enforce dark mode theme
+  - Forced dark mode in theme and app logic.
+- [x] Differentiate key states visually in piano_gui
+  - Added distinct colors for pressed, sustained, external, and external sustained keys.
+- [x] Extend synth sustain duration
+  - Reduced decay rate for longer note sustain.
 - [x] Refactor piano_gui::Semitone, PointerId, KeySet, and EternalKeySet into a separate file
   - Created `src/piano_types.rs` to house the shared piano-related types: `Semitone`, `PointerId`, `KeySet`, and `ExternalKeySet`. Updated piano_gui.rs to import these types from the new module, removing code duplication and improving modularity.
 - [ ] Refactor out non-gui-specific parts of PianoGui into separate type and file so it can be tested properly. I want to be able to test things like what actions are generated when sustain is held in different ways and keys are pressed in different ways, from gui or externally.
