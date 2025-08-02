@@ -170,11 +170,11 @@ pub struct PianoGui {
     /// Whether the shift key was active in the previous frame
     previous_shift_active: bool,
 
+    /// Whether the shift key is currently active
+    current_shift_active: bool,
+
     /// Whether external MIDI sustain is currently active
     external_sustain_active: bool,
-
-    /// Whether the sustain pedal is currently active (from any source: shift or MIDI)
-    current_sustain_active: bool,
 }
 
 pub enum Action {
@@ -197,8 +197,8 @@ impl PianoGui {
             previous_pointer_keys: Default::default(),
             octave: DEFAULT_OCTAVE, // Default to 4th octave (C4-B4)
             previous_shift_active: false,
+            current_shift_active: false,
             external_sustain_active: false,
-            current_sustain_active: false,
         }
     }
 
@@ -214,7 +214,7 @@ impl PianoGui {
         let note_value = u8::from(note) as usize;
         debug_assert!(note_value < 128, "MIDI note value must be < 128");
 
-        if self.current_sustain_active {
+        if self.is_sustain_active() {
             // If sustain is active, move the key to sustained set instead of turning it off
             self.sustained_external_keys.set(note_value, true);
         } else {
@@ -233,8 +233,9 @@ impl PianoGui {
     }
 
     /// Check if sustain is currently active (either from Shift key or MIDI)
+    /// Check if sustain is currently active (either from Shift key or MIDI)
     pub fn is_sustain_active(&self) -> bool {
-        self.current_sustain_active
+        self.current_shift_active || self.external_sustain_active
     }
 
     pub fn show(&mut self, ui: &mut Ui) -> (Vec<Action>, Rect) {
@@ -296,11 +297,12 @@ impl PianoGui {
             }
         }
 
-        // Update current sustain state to combine shift key and external MIDI sustain
-        self.current_sustain_active = shift_pressed || self.external_sustain_active;
+
+        // Update current shift state
+        self.current_shift_active = shift_pressed;
 
         // Generate actions based on key state changes
-        self.generate_actions_for_all_keys(&mut actions, self.current_sustain_active);
+        self.generate_actions_for_all_keys(&mut actions);
 
         // Check for shift key state change specifically
         if shift_pressed != self.previous_shift_active {
@@ -338,6 +340,7 @@ impl PianoGui {
     pub fn pressed_keys(&self) -> KeySet {
         let mut keys = self.selected_keys;
 
+        // TODO: is all this iterating expensive? should we cache?
         // Add sustained GUI keys
         for sustained_key in self.sustained_selected_keys.iter_ones() {
             keys.set(sustained_key, true);
@@ -417,7 +420,7 @@ impl PianoGui {
     ///
     /// This method checks each key for state changes (pressed/released) and generates
     /// the appropriate actions. It also handles key selection logic including sustain pedal behavior.
-    fn generate_actions_for_all_keys(&mut self, actions: &mut Vec<Action>, sustain_active: bool) {
+    fn generate_actions_for_all_keys(&mut self, actions: &mut Vec<Action>) {
         for semitone in Semitone::iter() {
             let note = semitone.to_note_in_octave(self.octave);
 
@@ -438,7 +441,7 @@ impl PianoGui {
                 // Always remove from selected_keys when released
                 self.selected_keys.set(semitone.as_index(), false);
 
-                if sustain_active {
+                if self.is_sustain_active() {
                     // If sustain is active, move to sustained but don't generate Action::Released
                     self.sustained_selected_keys.set(semitone.as_index(), true);
                 } else {
@@ -449,9 +452,7 @@ impl PianoGui {
             }
         }
 
-        // Handle sustain pedal release - when shift is released, clear all sustained selections
-        // except for keys that are currently being actively pressed
-        if !self.current_sustain_active && self.previous_shift_active {
+        if !self.current_shift_active && self.previous_shift_active {
             for semitone in Semitone::iter() {
                 let note = semitone.to_note_in_octave(self.octave);
                 let is_currently_pressed = self
