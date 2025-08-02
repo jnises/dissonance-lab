@@ -8,7 +8,7 @@ The project it split into multiple crates. All in the same cargo workspace.
 - `shared-types` containing types shared between the other crates.
 
 # Code Style
-- Don't use `modulename/mod.rs` to define a module, instead use `modulename.rs`
+- Don't use `modulename/mod.rs` to define a module, instead use `modulename.rs`. However, submodules within a module directory (like `modulename/submodule.rs`) are perfectly fine for organizing related code.
 - Use `debug_assert` to check any assumptions you make.
 - Prefer panicking over logging of severe or unrecoverable errors.
 - Don't try to handle logic or programmer errors. These should result in a panic.
@@ -21,6 +21,7 @@ The project it split into multiple crates. All in the same cargo workspace.
 - Avoid wildcard imports (`use x::*;`) unless explicitly recommended for a specific case, such as importing a crate's prelude. Prefer listing only the items you need to improve code clarity and maintainability.
 - Place comments on the line above the code they reference, rather than as trailing comments on the same line.
 - If you decide to solve a warning by using `#[allow(...)]`, write a comment about why you think it is ok. And think a second time about whether it really is ok..
+- Minimize redundant mutable state as much as possible. Strongly prefer computing dependent values on demand. Use caching only when necessary for performance. If you determine that redundant mutable state is truly required, add comments explaining the rationale.
 
 # Conventions
 - Use rust edition 2024

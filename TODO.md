@@ -23,9 +23,15 @@
 - [x] Make pressed, sustained, external, and external sustained keys have slightly different colors in piano_gui
   - Added four distinct color functions: `pressed_key()`, `sustained_key()`, `external_key()`, and `external_sustained_key()` to provide visual differentiation between key states. Updated the render_key logic to use these colors appropriately based on the key's current state.
 - [x] Make the synth sustain for a very long time. we want to allow users to really hear how multiple notes sound together
-- [ ] Refactor piano_gui::Semitone, PointerId, KeySet, and EternalKeySet into a separate file
-- [ ] Refactor out non-gui-specific parts of PianoGui into separate type and file so it can be tested properly. I want to be able to test things like what actions are generated when sustain is held in different ways and keys are pressed in different ways, from gui or externally.
   - Reduced sustain decay rate from 0.00001 to 0.000001 to make notes sustain much longer during the sustain phase (when keys are held or sustain pedal is active)
+- [x] Refactor piano_gui::Semitone, PointerId, KeySet, and EternalKeySet into a separate file
+  - Created `src/piano_types.rs` to house the shared piano-related types: `Semitone`, `PointerId`, `KeySet`, and `ExternalKeySet`. Updated piano_gui.rs to import these types from the new module, removing code duplication and improving modularity.
+- [ ] Refactor out non-gui-specific parts of PianoGui into separate type and file so it can be tested properly. I want to be able to test things like what actions are generated when sustain is held in different ways and keys are pressed in different ways, from gui or externally.
+- [ ] Keyboard input from the gui should show in the gui, and should result in actions being sent.
+- [ ] Keyboard input from midi should only result in keys being marked as pressed in the gui.
+- [ ] Sustain pedal activated by shift should result in action to send pedal input to synth.
+- [ ] If a keyboard key in the gui is pressed when it is already sustaining due to sustain pedal, noteoff followed by noteon should be sent.
+- [ ] sustain action being triggered by shift should be combined with midi sustain in app.rs to make sure that we send sustain pedal message to the synth when either sustain source is pressed, and send stop sustain pedal message to the synth when both sources are released.
 - [ ] Figure out why the synth distorts so much (on mobile at least..)
 - [ ] Try increasing the reverb to hear how it sounds
 - [ ] model piano string stiffness inharmonicity
