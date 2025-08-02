@@ -5,8 +5,9 @@ model: Claude Sonnet 4
 
 Find the first unchecked (sub?)item in TODO.md and act on it.
 Start by checking if it is still applicable.
-If it looks like a bigger task first split it up into subtasks and add add those as subtasks to TODO.md, then ask the user for feedback on the subtasks before continuing.
+If the task appears to be larger or more complex, break it down into smaller, actionable subtasks and add these as subtasks to TODO.md. Then, ask the user for feedback on the proposed subtasks before proceeding. Be sure to incorporate the user's feedback by updating the subtasks as needed, rather than starting work immediately.
 If it looks like a small task just do it.
 Stop after you've completed the item, unless it was a small change the next item looks directly related and also looks small.
 If your solution to the task differs from the original description in the todo, add a brief comment to the task explaining how you addressed it.
 Before marking the task as complete, verify that you have followed all instructions from your instructions file.
+

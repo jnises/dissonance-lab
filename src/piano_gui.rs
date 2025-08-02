@@ -242,60 +242,7 @@ impl PianoGui {
     }
 
     pub fn selected_chord_name(&self) -> Option<String> {
-        // AI generated. But seems mostly sensible
-        let mut selected_semitones: Vec<usize> = self.held_keys().iter_ones().collect();
-        if selected_semitones.is_empty() {
-            return None;
-        }
-
-        // Sort semitones to normalize chord representation
-        selected_semitones.sort();
-
-        // Try all rotations of the chord (all possible roots)
-        for rotation in 0..selected_semitones.len() {
-            let root_semitone = selected_semitones[rotation];
-            let root = Semitone::from_usize(root_semitone).name();
-
-            let mut intervals: Vec<usize> = Vec::new();
-            for &semitone in selected_semitones.iter() {
-                if semitone != root_semitone {
-                    intervals
-                        .push((semitone as i32 - root_semitone as i32).rem_euclid(12) as usize);
-                }
-            }
-            intervals.sort();
-
-            let chord_type = match (intervals.as_slice(), selected_semitones.len()) {
-                ([4, 7], 3) => "maj",      // Major triad
-                ([3, 7], 3) => "min",      // Minor triad
-                ([3, 6], 3) => "dim",      // Diminished triad
-                ([4, 8], 3) => "aug",      // Augmented triad
-                ([4, 7, 11], 4) => "maj7", // Major seventh
-                ([3, 7, 10], 4) => "min7", // Minor seventh
-                ([4, 7, 10], 4) => "7",    // Dominant seventh
-                ([3, 6, 9], 4) => "dim7",  // Diminished seventh
-                ([3, 6, 10], 4) => "m7b5", // Half-diminished seventh
-                _ => "",                   // Unknown chord type
-            };
-
-            if !chord_type.is_empty() {
-                return Some(format!("{root}{chord_type}"));
-            }
-        }
-
-        if selected_semitones.len() == 1 {
-            Some(
-                Semitone::from_usize(selected_semitones[0])
-                    .name()
-                    .to_string(),
-            )
-        } else {
-            let notes: Vec<String> = selected_semitones
-                .iter()
-                .map(|&semitone| Semitone::from_usize(semitone).name().to_string())
-                .collect();
-            Some(notes.join("/"))
-        }
+        selected_chord_name(&self.held_keys())
     }
 
     /// Generate actions for all keys based on state changes.
@@ -578,5 +525,64 @@ fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
             ),
             key_size,
         )
+    }
+}
+
+/// Determine the chord name for a given set of held keys
+/// Returns the chord name if recognizable, otherwise returns individual note names
+pub fn selected_chord_name(held_keys: &KeySet) -> Option<String> {
+    // AI generated. But seems mostly sensible
+    let mut selected_semitones: Vec<usize> = held_keys.iter_ones().collect();
+    if selected_semitones.is_empty() {
+        return None;
+    }
+
+    // Sort semitones to normalize chord representation
+    selected_semitones.sort();
+
+    // Try all rotations of the chord (all possible roots)
+    for rotation in 0..selected_semitones.len() {
+        let root_semitone = selected_semitones[rotation];
+        let root = Semitone::from_usize(root_semitone).name();
+
+        let mut intervals: Vec<usize> = Vec::new();
+        for &semitone in selected_semitones.iter() {
+            if semitone != root_semitone {
+                intervals
+                    .push((semitone as i32 - root_semitone as i32).rem_euclid(12) as usize);
+            }
+        }
+        intervals.sort();
+
+        let chord_type = match (intervals.as_slice(), selected_semitones.len()) {
+            ([4, 7], 3) => "maj",      // Major triad
+            ([3, 7], 3) => "min",      // Minor triad
+            ([3, 6], 3) => "dim",      // Diminished triad
+            ([4, 8], 3) => "aug",      // Augmented triad
+            ([4, 7, 11], 4) => "maj7", // Major seventh
+            ([3, 7, 10], 4) => "min7", // Minor seventh
+            ([4, 7, 10], 4) => "7",    // Dominant seventh
+            ([3, 6, 9], 4) => "dim7",  // Diminished seventh
+            ([3, 6, 10], 4) => "m7b5", // Half-diminished seventh
+            _ => "",                   // Unknown chord type
+        };
+
+        if !chord_type.is_empty() {
+            return Some(format!("{root}{chord_type}"));
+        }
+    }
+
+    if selected_semitones.len() == 1 {
+        Some(
+            Semitone::from_usize(selected_semitones[0])
+                .name()
+                .to_string(),
+        )
+    } else {
+        let notes: Vec<String> = selected_semitones
+            .iter()
+            .map(|&semitone| Semitone::from_usize(semitone).name().to_string())
+            .collect();
+        Some(notes.join("/"))
     }
 }

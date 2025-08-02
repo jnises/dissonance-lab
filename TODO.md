@@ -27,6 +27,17 @@
 - [x] Refactor piano_gui::Semitone, PointerId, KeySet, and EternalKeySet into a separate file
   - Created `src/piano_types.rs` to house the shared piano-related types: `Semitone`, `PointerId`, `KeySet`, and `ExternalKeySet`. Updated piano_gui.rs to import these types from the new module, removing code duplication and improving modularity.
 - [ ] Refactor out non-gui-specific parts of PianoGui into separate type and file so it can be tested properly. I want to be able to test things like what actions are generated when sustain is held in different ways and keys are pressed in different ways, from gui or externally.
+  - [x] Refactor `selected_chord_name` from a method to a free function taking `KeySet` - this makes it more testable and doesn't require the full PianoGui instance
+  - [ ] Create a new `PianoState` struct in `src/piano_state.rs` to handle key state management, sustain logic, and action generation (the non-GUI business logic)
+  - [ ] Move key state fields (`previous_pressed_keys`, `sustained_keys`, `external_pressed_keys`, `external_sustained_keys`, `shift_sustain_active`, `external_sustain_active`) from `PianoGui` to `PianoState`
+  - [ ] Separate GUI state from business logic state: `pointers_holding_key` stays in `PianoGui` (GUI state), but add `current_gui_pressed_keys: KeySet` field to `PianoState` to track which keys are currently pressed via GUI input
+  - [ ] Move action generation logic (`generate_actions_for_all_keys`, `Action` enum) from `PianoGui` to `PianoState`
+  - [ ] Move external key management methods (`external_note_on`, `external_note_off`, `set_external_sustain`, `handle_sustain_release_for_external_keys`) from `PianoGui` to `PianoState`
+  - [ ] Move business logic methods (`held_keys`, `is_sustain_active`) from `PianoGui` to `PianoState`
+  - [ ] Update `PianoGui` to contain a `PianoState` instance and delegate business logic calls to it
+  - [ ] Keep GUI-specific logic (pointer tracking, rendering, input handling, layout calculations) in `PianoGui`
+  - [ ] Update `PianoGui::show` method to coordinate between GUI events and the underlying `PianoState`
+  - [ ] Add unit tests for `PianoState` to verify sustain behavior, action generation, and state transitions work correctly without GUI dependencies
 - [ ] Keyboard input from the gui should show in the gui, and should result in actions being sent.
 - [ ] Keyboard input from midi should only result in keys being marked as pressed in the gui.
 - [ ] Sustain pedal activated by shift should result in action to send pedal input to synth.
