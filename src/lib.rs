@@ -6,6 +6,8 @@ mod interval;
 mod interval_display;
 mod midi;
 mod piano_gui;
+mod piano_state;
+mod piano_types;
 mod theme;
 mod utils;
 pub mod webaudio;
