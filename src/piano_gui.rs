@@ -297,7 +297,6 @@ impl PianoGui {
             }
         }
 
-
         // Update current shift state
         self.current_shift_active = shift_pressed;
 
