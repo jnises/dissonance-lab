@@ -326,7 +326,7 @@ impl eframe::App for DissonanceLabApp {
                             FontId::proportional(STATUS_FONT_SIZE),
                             theme::KEYBOARD_LABEL,
                         );
-                        if self.piano_gui.pressed_keys().count_ones() <= 1 {
+                        if self.piano_gui.held_keys().count_ones() <= 1 {
                             // Hide sustain label on narrow screens (mobile/phone)
                             if ui.available_width() >= MOBILE_BREAKPOINT_WIDTH {
                                 let sustain_active = self.piano_gui.is_sustain_active();

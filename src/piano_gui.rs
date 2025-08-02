@@ -337,7 +337,8 @@ impl PianoGui {
         (actions, keys_rect)
     }
 
-    pub fn pressed_keys(&self) -> KeySet {
+    /// All keys currently held in some way, from gui or from midi, actively pressed or sustained
+    pub fn held_keys(&self) -> KeySet {
         let mut keys = self.pressed_keys;
 
         // TODO: is all this iterating expensive? should we cache?
@@ -361,7 +362,7 @@ impl PianoGui {
 
     pub fn selected_chord_name(&self) -> Option<String> {
         // AI generated. But seems mostly sensible
-        let mut selected_semitones: Vec<usize> = self.pressed_keys().iter_ones().collect();
+        let mut selected_semitones: Vec<usize> = self.held_keys().iter_ones().collect();
         if selected_semitones.is_empty() {
             return None;
         }
