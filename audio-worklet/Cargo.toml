@@ -18,5 +18,6 @@ serde.workspace = true
 serde-wasm-bindgen.workspace = true
 log.workspace = true
 console_log.workspace = true
+bitvec.workspace = true
 shared-types = { path = "../shared-types" }
 web-sys.workspace = true

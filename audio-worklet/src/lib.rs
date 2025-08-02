@@ -70,6 +70,10 @@ impl DissonanceProcessor {
                 let midi_note = wmidi::Note::try_from(note).expect("Invalid MIDI note value");
                 self.synth.note_off(midi_note);
             }
+            ToWorkletMessage::SustainPedal { active } => {
+                log::debug!("SustainPedal: active={active}");
+                self.synth.set_sustain_pedal(active);
+            }
         }
     }
 

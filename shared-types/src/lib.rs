@@ -6,6 +6,7 @@ use wasm_bindgen::prelude::*;
 pub enum ToWorkletMessage {
     NoteOn { note: u8, velocity: u8 },
     NoteOff { note: u8 },
+    SustainPedal { active: bool },
 }
 
 impl From<ToWorkletMessage> for JsValue {
