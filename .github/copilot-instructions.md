@@ -1,6 +1,8 @@
 Dissonance Lab is a single page web application implemented using rust that shows note interval dissonance graphically.
 It also allows you to play and hear the notes using a built in piano-like synthesizer.
 
+This is a prototype toy project. No need to keep backwards compatibility.
+
 # Code structure
 The project it split into multiple crates. All in the same cargo workspace.
 - The main `dissonance-lab` crate in the root.
