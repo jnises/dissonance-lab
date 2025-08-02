@@ -2,9 +2,9 @@ use egui::{Event, Rect, Sense, TouchPhase, Ui, pos2, vec2};
 use std::collections::{HashMap, HashSet};
 use wmidi::Note;
 
-use crate::theme;
+use crate::piano_state::PianoState;
 use crate::piano_types::{KeySet, PointerId, Semitone};
-use crate::piano_state::{PianoState};
+use crate::theme;
 
 // Re-export Action for backward compatibility
 pub use crate::piano_state::Action;
@@ -118,7 +118,7 @@ impl PianoGui {
 
         // Convert current pointer state to key state
         let current_gui_keys = self.pressed_keys();
-        
+
         // Update PianoState with current GUI key state and get actions
         let gui_actions = self.state.update_gui_keys(current_gui_keys);
         actions.extend(gui_actions);
@@ -176,11 +176,11 @@ impl PianoGui {
             .get(&note)
             .is_some_and(|pointers| !pointers.is_empty());
         let selected = is_pressed; // pressed_keys is now computed from pointers_holding_key
-        
+
         // Get state information from PianoState
         let held_keys = self.state.held_keys();
         let sustained_selected = held_keys[semitone.as_index()] && !is_pressed;
-        
+
         // For now, treat any held key that's not currently pressed as external
         // This is a simplification - in a full implementation we'd need more detailed state queries
         let external_selected = held_keys[semitone.as_index()] && !is_pressed;
@@ -396,8 +396,7 @@ pub fn selected_chord_name(held_keys: &KeySet) -> Option<String> {
         let mut intervals: Vec<usize> = Vec::new();
         for &semitone in selected_semitones.iter() {
             if semitone != root_semitone {
-                intervals
-                    .push((semitone as i32 - root_semitone as i32).rem_euclid(12) as usize);
+                intervals.push((semitone as i32 - root_semitone as i32).rem_euclid(12) as usize);
             }
         }
         intervals.sort();

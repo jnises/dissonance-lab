@@ -76,7 +76,7 @@ impl PianoState {
     /// Update the shift sustain state and generate appropriate actions
     pub fn update_shift_sustain(&mut self, active: bool) -> Vec<Action> {
         let mut actions = Vec::new();
-        
+
         self.shift_sustain_active = active;
 
         // Generate sustain pedal action if state changed
@@ -87,7 +87,7 @@ impl PianoState {
             if !active {
                 // Handle sustain pedal release for external keys
                 self.handle_sustain_release_for_external_keys();
-                
+
                 // Handle sustain release for GUI keys
                 actions.extend(self.handle_shift_sustain_release());
             }
@@ -241,20 +241,20 @@ mod tests {
     #[test]
     fn test_gui_key_press_and_release() {
         let mut state = PianoState::new();
-        
+
         // Press C key (semitone 0)
         let mut pressed_keys = KeySet::default();
         pressed_keys.set(0, true);
         let actions = state.update_gui_keys(pressed_keys);
-        
+
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::Pressed(_)));
         assert!(state.held_keys()[0]);
-        
+
         // Release C key
         let pressed_keys = KeySet::default();
         let actions = state.update_gui_keys(pressed_keys);
-        
+
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::Released(_)));
         assert!(!state.held_keys()[0]);
@@ -263,26 +263,26 @@ mod tests {
     #[test]
     fn test_sustain_behavior() {
         let mut state = PianoState::new();
-        
+
         // Activate sustain
         let actions = state.update_shift_sustain(true);
         assert_eq!(actions.len(), 1);
         assert_eq!(actions[0], Action::SustainPedal(true));
         assert!(state.is_sustain_active());
-        
+
         // Press and release C key while sustain is active
         let mut pressed_keys = KeySet::default();
         pressed_keys.set(0, true);
         let actions = state.update_gui_keys(pressed_keys);
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::Pressed(_)));
-        
+
         // Release key while sustain is active - should not generate release action
         let pressed_keys = KeySet::default();
         let actions = state.update_gui_keys(pressed_keys);
         assert!(actions.is_empty());
         assert!(state.held_keys()[0]); // Key should still be held due to sustain
-        
+
         // Release sustain - should generate release action
         let actions = state.update_shift_sustain(false);
         assert_eq!(actions.len(), 2);
@@ -294,12 +294,12 @@ mod tests {
     #[test]
     fn test_external_midi_notes() {
         let mut state = PianoState::new();
-        
+
         // Add external note
         let note = Note::try_from(60).unwrap(); // C4
         state.external_note_on(note);
         assert!(state.held_keys()[0]); // C semitone should be held
-        
+
         // Release external note
         state.external_note_off(note);
         assert!(!state.held_keys()[0]); // Should no longer be held
@@ -308,19 +308,19 @@ mod tests {
     #[test]
     fn test_external_sustain() {
         let mut state = PianoState::new();
-        
+
         // Set external sustain active
         state.set_external_sustain(true);
         assert!(state.is_sustain_active());
-        
+
         // Add and release external note while sustain is active
         let note = Note::try_from(60).unwrap(); // C4
         state.external_note_on(note);
         assert!(state.held_keys()[0]);
-        
+
         state.external_note_off(note);
         assert!(state.held_keys()[0]); // Should still be held due to sustain
-        
+
         // Release external sustain
         state.set_external_sustain(false);
         assert!(!state.is_sustain_active());
@@ -330,16 +330,16 @@ mod tests {
     #[test]
     fn test_mixed_sustain_sources() {
         let mut state = PianoState::new();
-        
+
         // Activate both shift and external sustain
         state.update_shift_sustain(true);
         state.set_external_sustain(true);
         assert!(state.is_sustain_active());
-        
+
         // Release shift sustain - should still be active due to external
         state.update_shift_sustain(false);
         assert!(state.is_sustain_active());
-        
+
         // Release external sustain - should no longer be active
         state.set_external_sustain(false);
         assert!(!state.is_sustain_active());
