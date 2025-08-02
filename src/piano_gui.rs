@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use wmidi::Note;
 
 mod types;
-use types::{Semitone, PointerId, KeySet, ExternalKeySet};
 use crate::theme;
+use types::{ExternalKeySet, KeySet, PointerId, Semitone};
 
 pub const PIANO_WIDTH: f32 = 600.0;
 pub const PIANO_HEIGHT: f32 = 200.0;
