@@ -42,6 +42,7 @@
   - Added `test_shift_sustain_generates_sustain_pedal_actions` test that specifically verifies activating/deactivating shift sustain generates `Action::SustainPedal(true/false)` actions to be sent to the synth.
 - [x] Make sure there is a test that checks that if a keyboard key in the gui is pressed when it is already sustaining due to sustain pedal, noteoff followed by noteon should be sent.
   - Added `test_pressing_sustained_key_generates_only_pressed_action` test that verifies when pressing a key that's already sustained via sustain pedal, only a single `Action::Pressed` is generated (no retriggering with noteoff/noteon sequence). This provides the simpler, more predictable behavior.
+- [ ] External midi notes should show in the piano gui no matter what octave they are in. A C2 should should on the C key in the gui piano for example.
 - [ ] sustain action being triggered by shift should be combined with midi sustain in app.rs to make sure that we send sustain pedal message to the synth when either sustain source is pressed, and send stop sustain pedal message to the synth when both sources are released.
 - [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm    
 - [ ] Figure out why the synth distorts so much (on mobile at least..)
