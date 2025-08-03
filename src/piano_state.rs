@@ -159,16 +159,28 @@ impl PianoState {
         &self.sustained_keys
     }
 
-    /// Check if a specific semitone is pressed via external MIDI in the current octave
+    /// Check if a specific semitone is pressed via external MIDI in any octave
     pub fn is_external_pressed(&self, semitone: Semitone) -> bool {
-        let note_value = u8::from(semitone.to_note_in_octave(self.octave)) as usize;
-        self.external_pressed_keys[note_value]
+        let target_semitone = semitone.as_index();
+        // Check all octaves for this semitone
+        for note_value in self.external_pressed_keys.iter_ones() {
+            if note_value % 12 == target_semitone {
+                return true;
+            }
+        }
+        false
     }
 
-    /// Check if a specific semitone is sustained via external MIDI in the current octave
+    /// Check if a specific semitone is sustained via external MIDI in any octave
     pub fn is_external_sustained(&self, semitone: Semitone) -> bool {
-        let note_value = u8::from(semitone.to_note_in_octave(self.octave)) as usize;
-        self.external_sustained_keys[note_value]
+        let target_semitone = semitone.as_index();
+        // Check all octaves for this semitone
+        for note_value in self.external_sustained_keys.iter_ones() {
+            if note_value % 12 == target_semitone {
+                return true;
+            }
+        }
+        false
     }
 
     /// Generate actions for GUI key state changes
@@ -467,5 +479,154 @@ mod tests {
         // Release external sustain - should no longer be active
         state.set_external_sustain(false);
         assert!(!state.is_sustain_active());
+    }
+
+    #[test]
+    fn test_external_notes_show_in_gui_regardless_of_octave() {
+        let mut state = PianoState::new();
+
+        // Test C notes from different octaves - they should all show as C in the GUI
+        let c2 = Note::C2; // MIDI note 36
+        let c4 = Note::C4; // MIDI note 60 (default octave)
+        let c6 = Note::C6; // MIDI note 84
+
+        // Press C2 - should show as C in GUI
+        state.external_note_on(c2);
+        let held_keys = state.held_keys();
+        assert!(
+            held_keys[Semitone::C.as_index()],
+            "C2 should show as C in GUI"
+        );
+
+        // Press C4 - should also show as C in GUI (no change since C is already held)
+        state.external_note_on(c4);
+        let held_keys = state.held_keys();
+        assert!(
+            held_keys[Semitone::C.as_index()],
+            "C4 should show as C in GUI"
+        );
+
+        // Press C6 - should also show as C in GUI
+        state.external_note_on(c6);
+        let held_keys = state.held_keys();
+        assert!(
+            held_keys[Semitone::C.as_index()],
+            "C6 should show as C in GUI"
+        );
+
+        // Release C2 - C should still be held due to C4 and C6
+        state.external_note_off(c2);
+        let held_keys = state.held_keys();
+        assert!(
+            held_keys[Semitone::C.as_index()],
+            "C should still be held after releasing C2"
+        );
+
+        // Release C4 - C should still be held due to C6
+        state.external_note_off(c4);
+        let held_keys = state.held_keys();
+        assert!(
+            held_keys[Semitone::C.as_index()],
+            "C should still be held after releasing C4"
+        );
+
+        // Release C6 - C should no longer be held
+        state.external_note_off(c6);
+        let held_keys = state.held_keys();
+        assert!(
+            !held_keys[Semitone::C.as_index()],
+            "C should not be held after releasing all C notes"
+        );
+
+        // Test with different notes from different octaves
+        let f_sharp_1 = Note::FSharp1; // MIDI note 30
+        let f_sharp_5 = Note::FSharp5; // MIDI note 78
+
+        state.external_note_on(f_sharp_1);
+        state.external_note_on(f_sharp_5);
+        let held_keys = state.held_keys();
+        assert!(
+            held_keys[Semitone::F_SHARP.as_index()],
+            "F# from different octaves should show as F# in GUI"
+        );
+
+        // Release one F# - should still be held
+        state.external_note_off(f_sharp_1);
+        let held_keys = state.held_keys();
+        assert!(
+            held_keys[Semitone::F_SHARP.as_index()],
+            "F# should still be held after releasing F#1"
+        );
+
+        // Release the other F# - should no longer be held
+        state.external_note_off(f_sharp_5);
+        let held_keys = state.held_keys();
+        assert!(
+            !held_keys[Semitone::F_SHARP.as_index()],
+            "F# should not be held after releasing all F# notes"
+        );
+    }
+
+    #[test]
+    fn test_is_external_pressed_and_sustained_across_octaves() {
+        let mut state = PianoState::new();
+
+        // Test that is_external_pressed works across octaves
+        let c2 = Note::C2; // MIDI note 36
+        let c6 = Note::C6; // MIDI note 84
+
+        // Press C2 - should be detected as C pressed
+        state.external_note_on(c2);
+        assert!(
+            state.is_external_pressed(Semitone::C),
+            "C2 should be detected as C pressed"
+        );
+
+        // Press C6 as well
+        state.external_note_on(c6);
+        assert!(
+            state.is_external_pressed(Semitone::C),
+            "C should still be detected as pressed with both C2 and C6"
+        );
+
+        // Release C2, C should still be pressed due to C6
+        state.external_note_off(c2);
+        assert!(
+            state.is_external_pressed(Semitone::C),
+            "C should still be pressed after releasing C2"
+        );
+
+        // Release C6, C should no longer be pressed
+        state.external_note_off(c6);
+        assert!(
+            !state.is_external_pressed(Semitone::C),
+            "C should not be pressed after releasing all C notes"
+        );
+
+        // Test sustain across octaves
+        state.set_external_sustain(true);
+
+        // Press and release C2 while sustain is active
+        state.external_note_on(c2);
+        state.external_note_off(c2);
+        assert!(
+            state.is_external_sustained(Semitone::C),
+            "C should be sustained after releasing C2 with sustain active"
+        );
+
+        // Press and release C6 while sustain is active
+        state.external_note_on(c6);
+        state.external_note_off(c6);
+        assert!(
+            state.is_external_sustained(Semitone::C),
+            "C should still be sustained with both C2 and C6 sustained"
+        );
+
+        // Release sustain
+        state.set_external_sustain(false);
+        assert!(
+            !state.is_external_sustained(Semitone::C),
+            "C should not be sustained after releasing sustain"
+        );
     }
 }
