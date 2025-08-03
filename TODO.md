@@ -34,7 +34,8 @@
     - This was already completed. Comprehensive unit tests exist covering state initialization, GUI key behavior, sustain behavior, external MIDI handling, and mixed sustain sources.
   - [x] Take `action` as a `&mut` rather than returning a vec of actions in piano_state.rs. This should avoid some allocations.
     - Refactored `update_gui_keys`, `update_shift_sustain`, and private helper methods to take `&mut Vec<Action>` instead of returning `Vec<Action>`. This eliminates intermediate vector allocations by allowing direct appending to the caller's action vector. Updated all test cases and callers in `piano_gui.rs` accordingly.
-- [ ] Make sure there is a test that checks that piano input from the gui should show in the gui, and should result in actions being sent.
+- [x] Make sure there is a test that checks that piano input from the gui should show in the gui, and should result in actions being sent.
+  - Added `test_gui_input_shows_in_gui_and_generates_actions` test that verifies GUI key presses both generate appropriate actions and appear in `held_keys()` (which represents what shows in the GUI).
 - [ ] Make sure there is a test that checks that piano input from midi should only result in keys being marked as pressed in the gui.
 - [ ] Make sure there is a test that checks that sustain pedal activated by shift should result in action to send pedal input to synth.
 - [ ] Make sure there is a test that checks that if a keyboard key in the gui is pressed when it is already sustaining due to sustain pedal, noteoff followed by noteon should be sent.

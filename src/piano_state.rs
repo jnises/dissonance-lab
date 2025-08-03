@@ -265,6 +265,48 @@ mod tests {
     }
 
     #[test]
+    fn test_gui_input_shows_in_gui_and_generates_actions() {
+        let mut state = PianoState::new();
+
+        // Test pressing multiple keys via GUI
+        let mut pressed_keys = KeySet::default();
+        pressed_keys.set(0, true); // C
+        pressed_keys.set(4, true); // E
+        pressed_keys.set(7, true); // G
+        let mut actions = Vec::new();
+        state.update_gui_keys(pressed_keys, &mut actions);
+
+        // Should generate one Pressed action for each key
+        assert_eq!(actions.len(), 3);
+        assert!(actions.iter().all(|action| matches!(action, Action::Pressed(_))));
+
+        // All pressed keys should show up in held_keys (what appears in GUI)
+        let held = state.held_keys();
+        assert!(held[0]); // C
+        assert!(held[4]); // E
+        assert!(held[7]); // G
+        assert!(!held[1]); // D should not be held
+
+        // Release one key via GUI
+        let mut pressed_keys = KeySet::default();
+        pressed_keys.set(0, true); // C still pressed
+        pressed_keys.set(7, true); // G still pressed
+        // E (index 4) is released
+        let mut actions = Vec::new();
+        state.update_gui_keys(pressed_keys, &mut actions);
+
+        // Should generate one Released action for E
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], Action::Released(_)));
+
+        // Only C and G should show up in held_keys now
+        let held = state.held_keys();
+        assert!(held[0]); // C
+        assert!(!held[4]); // E should no longer be held
+        assert!(held[7]); // G
+    }
+
+    #[test]
     fn test_sustain_behavior() {
         let mut state = PianoState::new();
 
