@@ -39,6 +39,7 @@
 - [ ] Sustain pedal activated by shift should result in action to send pedal input to synth.
 - [ ] If a keyboard key in the gui is pressed when it is already sustaining due to sustain pedal, noteoff followed by noteon should be sent.
 - [ ] sustain action being triggered by shift should be combined with midi sustain in app.rs to make sure that we send sustain pedal message to the synth when either sustain source is pressed, and send stop sustain pedal message to the synth when both sources are released.
+- [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm    
 - [ ] Figure out why the synth distorts so much (on mobile at least..)
 - [ ] Try increasing the reverb to hear how it sounds
 - [ ] model piano string stiffness inharmonicity
@@ -52,7 +53,6 @@
   - [ ] Test the new ordering behavior with both mouse and MIDI input
 - [ ] Make the console output from the audio worklet also forward back to the dev server. perhaps we need to have the audio worklet log using a message instead of straight to console
 - [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
-- [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
 - [ ] Calculate dissonances using critical bands theory (plomp levelt) instead.
     - This would allow us to calculate the dissonance of entire chords
     - how do we handle the fact that we only show a single octave? just force the calculation to happen on a single central octave?
@@ -62,3 +62,5 @@
 - [ ] We only need one row of dissonances that shows what dissonance a new note would result in.
     - for the second note we show the same as we currently do
     - for more notes we show what chord they would result in
+- [ ] Replace `#[allow(...)]` with `#[expect(...)]` wherever that makes sense
+- [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
