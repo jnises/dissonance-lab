@@ -425,18 +425,29 @@ impl eframe::App for DissonanceLabApp {
 
                                 // Process the sustain actions
                                 for action in sustain_actions {
-                                    if let piano_gui::Action::SustainPedal(active) = action {
-                                        if let AudioState::Playing(web_audio) =
-                                            &*self.audio.lock().unwrap()
-                                        {
-                                            web_audio.send_message(
-                                                ToWorkletMessage::SustainPedal { active },
-                                            );
+                                    match action {
+                                        piano_gui::Action::SustainPedal(active) => {
+                                            if let AudioState::Playing(web_audio) =
+                                                &*self.audio.lock().unwrap()
+                                            {
+                                                web_audio.send_message(
+                                                    ToWorkletMessage::SustainPedal { active },
+                                                );
+                                            }
+                                            // Request immediate repaint to update the sustain label color
+                                            ctx.request_repaint();
                                         }
-                                        // Request immediate repaint to update the sustain label color
-                                        ctx.request_repaint();
+                                        piano_gui::Action::Released(note) => {
+                                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                                web_audio.send_message(ToWorkletMessage::NoteOff {
+                                                    note: u8::from(note),
+                                                });
+                                            }
+                                        }
+                                        _ => {
+                                            debug_assert!(false, "Unexpected action from set_external_sustain: {action:?}");
+                                        }
                                     }
-                                    // Other actions not expected from sustain changes
                                 }
                             }
                         }
