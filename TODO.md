@@ -34,10 +34,10 @@
     - This was already completed. Comprehensive unit tests exist covering state initialization, GUI key behavior, sustain behavior, external MIDI handling, and mixed sustain sources.
   - [x] Take `action` as a `&mut` rather than returning a vec of actions in piano_state.rs. This should avoid some allocations.
     - Refactored `update_gui_keys`, `update_shift_sustain`, and private helper methods to take `&mut Vec<Action>` instead of returning `Vec<Action>`. This eliminates intermediate vector allocations by allowing direct appending to the caller's action vector. Updated all test cases and callers in `piano_gui.rs` accordingly.
-- [ ] Piano input from the gui should show in the gui, and should result in actions being sent.
-- [ ] Piano input from midi should only result in keys being marked as pressed in the gui.
-- [ ] Sustain pedal activated by shift should result in action to send pedal input to synth.
-- [ ] If a keyboard key in the gui is pressed when it is already sustaining due to sustain pedal, noteoff followed by noteon should be sent.
+- [ ] Make sure there is a test that checks that piano input from the gui should show in the gui, and should result in actions being sent.
+- [ ] Make sure there is a test that checks that piano input from midi should only result in keys being marked as pressed in the gui.
+- [ ] Make sure there is a test that checks that sustain pedal activated by shift should result in action to send pedal input to synth.
+- [ ] Make sure there is a test that checks that if a keyboard key in the gui is pressed when it is already sustaining due to sustain pedal, noteoff followed by noteon should be sent.
 - [ ] sustain action being triggered by shift should be combined with midi sustain in app.rs to make sure that we send sustain pedal message to the synth when either sustain source is pressed, and send stop sustain pedal message to the synth when both sources are released.
 - [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm    
 - [ ] Figure out why the synth distorts so much (on mobile at least..)
