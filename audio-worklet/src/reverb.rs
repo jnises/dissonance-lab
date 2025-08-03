@@ -203,7 +203,7 @@ mod tests {
         let impulse_response = reverb.process(1.0);
 
         // The impulse response should contain both dry and wet signal
-        // With default settings (dry=0.3, wet=0.6), we expect some immediate output
+        // With default settings (dry=0.4, wet=0.5), we expect some immediate output
         assert!(
             impulse_response.abs() > 0.0,
             "Impulse should produce immediate output"
