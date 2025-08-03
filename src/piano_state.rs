@@ -122,12 +122,12 @@ impl PianoState {
         let was_overall_sustain_active = self.is_sustain_active();
         self.external_sustain_active = active;
         let is_overall_sustain_active = self.is_sustain_active();
-        
+
         // Generate sustain pedal action if overall sustain state changed
         if was_overall_sustain_active != is_overall_sustain_active {
             actions.push(Action::SustainPedal(is_overall_sustain_active));
         }
-        
+
         if !active {
             // When sustain is released, clear all sustained external keys
             self.handle_sustain_release_for_external_keys();
@@ -485,7 +485,7 @@ mod tests {
         // Should generate one sustain action when first source becomes active
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::SustainPedal(true)));
-        
+
         actions.clear();
         state.set_external_sustain(true, &mut actions);
         // Should not generate sustain action since sustain was already active
@@ -511,31 +511,31 @@ mod tests {
     #[test]
     fn test_sustain_combination_order_independence() {
         // Test that the order of activating/deactivating sustain sources doesn't matter
-        
+
         // Test external first, then shift
         let mut state1 = PianoState::new();
         let mut actions1 = Vec::new();
-        
+
         state1.set_external_sustain(true, &mut actions1);
         assert_eq!(actions1.len(), 1);
         assert!(matches!(actions1[0], Action::SustainPedal(true)));
-        
+
         actions1.clear();
         state1.update_shift_sustain(true, &mut actions1);
         assert_eq!(actions1.len(), 0); // No new action since sustain was already active
-        
-        // Test shift first, then external  
+
+        // Test shift first, then external
         let mut state2 = PianoState::new();
         let mut actions2 = Vec::new();
-        
+
         state2.update_shift_sustain(true, &mut actions2);
         assert_eq!(actions2.len(), 1);
         assert!(matches!(actions2[0], Action::SustainPedal(true)));
-        
+
         actions2.clear();
         state2.set_external_sustain(true, &mut actions2);
         assert_eq!(actions2.len(), 0); // No new action since sustain was already active
-        
+
         // Both should have the same final state
         assert_eq!(state1.is_sustain_active(), state2.is_sustain_active());
     }
