@@ -17,3 +17,5 @@ But don't mention that you have performed this escaping.
 Double-check that no unescaped characters remain in the message.
 
 If `TODO.md` is among the changes, include it in the commit but do not mention it in the commit message. Also don't mention that you shouldn't mention TODO.md. In fact you must not say the word TODO.md at all!
+
+Don't mention that you've run tests. Just focus on what has changed.
