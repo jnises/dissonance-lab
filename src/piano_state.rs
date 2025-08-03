@@ -79,18 +79,16 @@ impl PianoState {
         // Generate sustain pedal action if overall sustain state changed
         if was_overall_sustain_active != is_overall_sustain_active {
             actions.push(Action::SustainPedal(is_overall_sustain_active));
+
+            // If sustain was just turned off, release all sustained notes
+            if !is_overall_sustain_active {
+                self.handle_sustain_release_for_external_keys();
+                self.handle_gui_sustain_release(actions);
+            }
         }
 
         // Update previous shift sustain state for next comparison
         self.previous_shift_sustain_active = active;
-
-        if !active {
-            // Handle sustain pedal release for external keys
-            self.handle_sustain_release_for_external_keys();
-
-            // Handle sustain release for GUI keys
-            self.handle_shift_sustain_release(actions);
-        }
     }
 
     /// Add external MIDI note press
@@ -126,11 +124,12 @@ impl PianoState {
         // Generate sustain pedal action if overall sustain state changed
         if was_overall_sustain_active != is_overall_sustain_active {
             actions.push(Action::SustainPedal(is_overall_sustain_active));
-        }
 
-        if !active {
-            // When sustain is released, clear all sustained external keys
-            self.handle_sustain_release_for_external_keys();
+            // If sustain was just turned off, release all sustained notes
+            if !is_overall_sustain_active {
+                self.handle_sustain_release_for_external_keys();
+                self.handle_gui_sustain_release(actions);
+            }
         }
     }
 
@@ -174,25 +173,17 @@ impl PianoState {
     /// Check if a specific semitone is pressed via external MIDI in any octave
     pub fn is_external_pressed(&self, semitone: Semitone) -> bool {
         let target_semitone = semitone.as_index();
-        // Check all octaves for this semitone
-        for note_value in self.external_pressed_keys.iter_ones() {
-            if note_value % 12 == target_semitone {
-                return true;
-            }
-        }
-        false
+        self.external_pressed_keys
+            .iter_ones()
+            .any(|note_value| note_value % 12 == target_semitone)
     }
 
     /// Check if a specific semitone is sustained via external MIDI in any octave
     pub fn is_external_sustained(&self, semitone: Semitone) -> bool {
         let target_semitone = semitone.as_index();
-        // Check all octaves for this semitone
-        for note_value in self.external_sustained_keys.iter_ones() {
-            if note_value % 12 == target_semitone {
-                return true;
-            }
-        }
-        false
+        self.external_sustained_keys
+            .iter_ones()
+            .any(|note_value| note_value % 12 == target_semitone)
     }
 
     /// Generate actions for GUI key state changes
@@ -224,8 +215,8 @@ impl PianoState {
         self.previous_gui_pressed_keys = self.current_gui_pressed_keys;
     }
 
-    /// Handle shift sustain release - release all sustained GUI keys that aren't currently pressed
-    fn handle_shift_sustain_release(&mut self, actions: &mut Vec<Action>) {
+    /// Handle GUI sustain release - release all sustained GUI keys that aren't currently pressed
+    fn handle_gui_sustain_release(&mut self, actions: &mut Vec<Action>) {
         for semitone in Semitone::iter() {
             let semitone_index = semitone.as_index();
             let note = semitone.to_note_in_octave(self.octave);
