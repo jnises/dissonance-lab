@@ -48,7 +48,6 @@ impl PianoGui {
     }
 
     /// Check if sustain is currently active (either from Shift key or MIDI)
-    /// Check if sustain is currently active (either from Shift key or MIDI)
     pub fn is_sustain_active(&self) -> bool {
         self.state.is_sustain_active()
     }
@@ -178,13 +177,9 @@ impl PianoGui {
         let selected = is_pressed; // pressed_keys is now computed from pointers_holding_key
 
         // Get state information from PianoState
-        let held_keys = self.state.held_keys();
-        let sustained_selected = held_keys[semitone.as_index()] && !is_pressed;
-
-        // For now, treat any held key that's not currently pressed as external
-        // This is a simplification - in a full implementation we'd need more detailed state queries
-        let external_selected = held_keys[semitone.as_index()] && !is_pressed;
-        let sustained_external = false; // Placeholder - would need more detailed state access
+        let sustained_selected = self.state.gui_sustained_keys()[semitone.as_index()];
+        let external_selected = self.state.is_external_pressed(semitone);
+        let sustained_external = self.state.is_external_sustained(semitone);
 
         let key_fill = if selected {
             // Currently pressed via GUI
