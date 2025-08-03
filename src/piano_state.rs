@@ -473,12 +473,12 @@ mod tests {
 
         // Test with typical MIDI sustain pedal values according to MIDI spec
         // Values 0-63 should be "off", values 64-127 should be "on"
-        
+
         // Test with value 0 (common for sustain off)
         let sustain_active_0 = 0 >= 64;
         state.set_external_sustain(sustain_active_0, &mut actions);
         assert!(!state.is_sustain_active());
-        
+
         actions.clear();
         // Test with value 127 (common for sustain on)
         let sustain_active_127 = 127 >= 64;
@@ -486,7 +486,7 @@ mod tests {
         assert!(state.is_sustain_active());
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::SustainPedal(true)));
-        
+
         actions.clear();
         // Test with value 63 (max value for off)
         let sustain_active_63 = 63 >= 64;
@@ -494,7 +494,7 @@ mod tests {
         assert!(!state.is_sustain_active());
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::SustainPedal(false)));
-        
+
         actions.clear();
         // Test with value 64 (min value for on)
         let sustain_active_64 = 64 >= 64;

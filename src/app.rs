@@ -59,7 +59,7 @@ impl DissonanceLabApp {
 
         // Setup custom theme instead of default dark theme
         theme::setup_custom_theme(&cc.egui_ctx);
-        
+
         let mut app = Self::default();
         // Load sustain pedal polarity setting from local storage
         app.load_sustain_pedal_setting(cc);
@@ -76,7 +76,10 @@ impl DissonanceLabApp {
 
     fn save_sustain_pedal_setting(&self, frame: &mut eframe::Frame) {
         if let Some(storage) = frame.storage_mut() {
-            storage.set_string("invert_sustain_pedal", self.invert_sustain_pedal.to_string());
+            storage.set_string(
+                "invert_sustain_pedal",
+                self.invert_sustain_pedal.to_string(),
+            );
         }
     }
 
@@ -348,7 +351,7 @@ impl eframe::App for DissonanceLabApp {
                                 let toggle_button = ui.small_button(
                                     RichText::new(polarity_icon)
                                         .size(TOGGLE_FONT_SIZE)
-                                        .color(ui.visuals().weak_text_color())
+                                        .color(ui.visuals().weak_text_color()),
                                 );
                                 if toggle_button.clicked() {
                                     self.invert_sustain_pedal = !self.invert_sustain_pedal;
