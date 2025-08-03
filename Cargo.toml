@@ -41,7 +41,7 @@ tracing-appender = "0.2"
 clap = { version = "4.0", features = ["derive"] }
 which = "8.0"
 ctrlc = { version = "3.4", features = ["termination"] }
-cargo_metadata = "0.19"
+cargo_metadata = "0.21"
 web-sys = { version = "0.3.70", features = [
     "AudioContext",
     "AudioWorklet",
@@ -64,7 +64,7 @@ web-sys = { version = "0.3.70", features = [
 
 [package]
 name = "dissonance-lab"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Joel Nises <joel.nises@gmail.com>"]
 edition = "2024"
 include = ["LICENSE", "**/*.rs", "Cargo.toml"]

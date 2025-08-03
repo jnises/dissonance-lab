@@ -29,7 +29,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Vec<piano_gui::Acti
     const PIANO_WIDTH_ADJUSTMENT: f32 = 4.0;
     let font_scale = interval_rect.width() / (PIANO_WIDTH - PIANO_WIDTH_ADJUSTMENT);
     for (row, selected_semi) in piano
-        .pressed_keys()
+        .held_keys()
         .iter_ones()
         .map(|i| i8::try_from(i).unwrap())
         .enumerate()

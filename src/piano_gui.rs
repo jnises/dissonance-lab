@@ -1,134 +1,20 @@
-use bitvec::{BitArr, order::Msb0};
 use egui::{Event, Rect, Sense, TouchPhase, Ui, pos2, vec2};
 use std::collections::{HashMap, HashSet};
 use wmidi::Note;
 
+use crate::piano_state::PianoState;
+use crate::piano_types::{KeySet, PointerId, Semitone};
 use crate::theme;
 
-/// A semitone value within an octave (0-11)
-/// Represents the 12 chromatic pitches: C, C#, D, D#, E, F, F#, G, G#, A, A#, B
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Semitone(u8);
-
-impl Semitone {
-    /// Create a new Semitone from a u8 value (0-11)
-    pub const fn new(value: u8) -> Self {
-        debug_assert!(value < 12, "Semitone value must be in range 0-11");
-        Self(value)
-    }
-
-    /// Create a new Semitone from a usize value (0-11)
-    pub const fn from_usize(value: usize) -> Self {
-        debug_assert!(value < 12, "Semitone value must be in range 0-11");
-        Self(value as u8)
-    }
-
-    /// Get the value as usize for compatibility with existing code
-    pub const fn as_usize(self) -> usize {
-        self.0 as usize
-    }
-
-    /// Convert to an array index (same as as_usize but more explicit about intent)
-    pub const fn as_index(self) -> usize {
-        self.0 as usize
-    }
-
-    /// Check if this semitone represents a black key on a piano
-    pub const fn is_black_key(self) -> bool {
-        matches!(self.0, 1 | 3 | 6 | 8 | 10)
-    }
-
-    /// Get the white key index (0-6) for this semitone
-    /// Panics if this is not a white key semitone
-    pub fn white_key_index(self) -> usize {
-        debug_assert!(!self.is_black_key(), "Semitone must be a white key");
-        match self.0 {
-            0 => 0,  // C
-            2 => 1,  // D
-            4 => 2,  // E
-            5 => 3,  // F
-            7 => 4,  // G
-            9 => 5,  // A
-            11 => 6, // B
-            _ => panic!("Invalid white key semitone: {}", self.0),
-        }
-    }
-
-    /// Get the black key index (0-4) for this semitone
-    /// Panics if this is not a black key semitone
-    pub fn black_key_index(self) -> usize {
-        debug_assert!(self.is_black_key(), "Semitone must be a black key");
-        match self.0 {
-            1 => 0,  // C#
-            3 => 1,  // D#
-            6 => 2,  // F#
-            8 => 3,  // G#
-            10 => 4, // A#
-            _ => panic!("Invalid black key semitone: {}", self.0),
-        }
-    }
-
-    /// Get the note name for this semitone
-    pub const fn name(self) -> &'static str {
-        match self.0 {
-            0 => "C",
-            1 => "C#",
-            2 => "D",
-            3 => "D#",
-            4 => "E",
-            5 => "F",
-            6 => "F#",
-            7 => "G",
-            8 => "G#",
-            9 => "A",
-            10 => "A#",
-            11 => "B",
-            _ => panic!("Invalid semitone"),
-        }
-    }
-
-    /// Convert this semitone to a Note in the specified octave
-    pub fn to_note_in_octave(self, octave: u8) -> Note {
-        debug_assert!(
-            octave <= 9,
-            "Octave must be in range 0-9 for valid MIDI notes"
-        );
-
-        // Calculate the MIDI note number: (octave + 1) * 12 + semitone
-        // The +1 is because MIDI octave numbering starts at -1, so C4 = 60
-        let midi_note = (octave as usize + 1) * 12 + self.as_usize();
-        debug_assert!(midi_note <= 127, "MIDI note number must be <= 127");
-
-        Note::try_from(midi_note as u8).unwrap()
-    }
-
-    /// Convert a Note to its semitone representation (0-11) within its octave
-    pub fn from_note(note: Note) -> Self {
-        Self::new(u8::from(note) % 12)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum PointerId {
-    Mouse,
-    Touch(u64),
-}
+// Re-export Action for backward compatibility
+pub use crate::piano_state::Action;
 
 pub const PIANO_WIDTH: f32 = 600.0;
 pub const PIANO_HEIGHT: f32 = 200.0;
 
-pub type KeySet = BitArr!(for 12, in u16, Msb0);
-type ExternalKeySet = BitArr!(for 128, in u32, Msb0);
-
 pub struct PianoGui {
-    /// Keys that are persistently selected/toggled by user interaction.
-    /// These remain visually highlighted even when not actively pressed.
-    /// Toggled on/off each time a key is pressed (unless shift is held).
-    selected_keys: KeySet,
-
-    /// Keys that are currently pressed via external MIDI input.
-    /// Tracks all 128 MIDI notes, not just the current octave.
-    external_keys: ExternalKeySet,
+    /// The core business logic state for piano key management
+    state: PianoState,
 
     /// Maps each active pointer (mouse/touch) to the note it's currently pressing.
     /// Used for reverse lookup: given a pointer, what key is it on?
@@ -137,48 +23,36 @@ pub struct PianoGui {
     /// Maps each note to the set of pointers currently pressing it.
     /// Enables multi-touch: multiple fingers can press the same key simultaneously.
     pointers_holding_key: HashMap<wmidi::Note, HashSet<PointerId>>,
-
-    /// Keys that had active pointers in the previous frame.
-    /// Used to detect press/release transitions for action generation.
-    previous_pointer_keys: KeySet,
-
-    /// The octave that this piano GUI displays (default: 4, meaning C4-B4)
-    octave: u8,
-}
-
-pub enum Action {
-    Pressed(wmidi::Note),
-    Released(wmidi::Note),
 }
 
 impl PianoGui {
     pub fn new() -> Self {
-        const DEFAULT_OCTAVE: u8 = 4;
-
         Self {
-            selected_keys: Default::default(),
-            external_keys: Default::default(),
+            state: PianoState::new(),
             key_held_by_pointer: HashMap::new(),
             pointers_holding_key: HashMap::new(),
-            previous_pointer_keys: Default::default(),
-            octave: DEFAULT_OCTAVE, // Default to 4th octave (C4-B4)
         }
     }
 
     pub fn external_note_on(&mut self, note: Note) {
-        let note_value = u8::from(note) as usize;
-        debug_assert!(note_value < 128, "MIDI note value must be < 128");
-        self.external_keys.set(note_value, true);
+        self.state.external_note_on(note);
     }
 
     pub fn external_note_off(&mut self, note: Note) {
-        let note_value = u8::from(note) as usize;
-        debug_assert!(note_value < 128, "MIDI note value must be < 128");
-        self.external_keys.set(note_value, false);
+        self.state.external_note_off(note);
+    }
+
+    /// Set external sustain pedal state (from MIDI input)
+    pub fn set_external_sustain(&mut self, active: bool, actions: &mut Vec<Action>) {
+        self.state.set_external_sustain(active, actions);
+    }
+
+    /// Check if sustain is currently active (either from Shift key or MIDI)
+    pub fn is_sustain_active(&self) -> bool {
+        self.state.is_sustain_active()
     }
 
     pub fn show(&mut self, ui: &mut Ui) -> (Vec<Action>, Rect) {
-        let pressed_keys = self.pressed_keys();
         let mut actions = Vec::new();
         let mut piano_size = vec2(PIANO_WIDTH, PIANO_HEIGHT);
         if piano_size.x > ui.available_width() {
@@ -237,149 +111,47 @@ impl PianoGui {
             }
         }
 
-        // Generate actions based on key state changes BEFORE rendering for immediate visual feedback
-        self.generate_actions_for_all_keys(&mut actions, shift_pressed);
+        // Update current shift state and get actions
+        self.state.update_shift_sustain(shift_pressed, &mut actions);
 
-        // Update previous pointer keys for the next frame
-        self.previous_pointer_keys.fill(false);
-        for &note in self.pointers_holding_key.keys() {
-            if !self.pointers_holding_key[&note].is_empty() {
-                let semitone = Semitone::from_note(note);
-                self.previous_pointer_keys.set(semitone.as_index(), true);
-            }
-        }
+        // Convert current pointer state to key state
+        let current_gui_keys = self.pressed_keys();
+
+        // Update PianoState with current GUI key state and get actions
+        self.state.update_gui_keys(current_gui_keys, &mut actions);
 
         // Render white keys first (so black keys appear on top)
-        for semitone in [0, 2, 4, 5, 7, 9, 11] {
-            self.render_key(
-                Semitone::new(semitone),
-                ui,
-                &painter,
-                keys_rect,
-                &pressed_keys,
-            );
+        for semitone in Semitone::white_keys() {
+            self.render_key(semitone, ui, &painter, keys_rect);
         }
 
         // Render black keys on top
-        for semitone in [1, 3, 6, 8, 10] {
-            self.render_key(
-                Semitone::new(semitone),
-                ui,
-                &painter,
-                keys_rect,
-                &pressed_keys,
-            );
+        for semitone in Semitone::black_keys() {
+            self.render_key(semitone, ui, &painter, keys_rect);
         }
 
         (actions, keys_rect)
     }
 
-    pub fn pressed_keys(&self) -> KeySet {
-        let mut keys = self.selected_keys;
-        for external_key in self.external_keys.iter_ones() {
-            keys.set(external_key % 12, true);
+    /// All keys currently held in some way, from gui or from midi, actively pressed or sustained
+    pub fn held_keys(&self) -> KeySet {
+        self.state.held_keys()
+    }
+
+    /// Get keys currently pressed via GUI pointers (computed from pointers_holding_key)
+    fn pressed_keys(&self) -> KeySet {
+        let mut keys = KeySet::default();
+        for (&note, pointers) in &self.pointers_holding_key {
+            if !pointers.is_empty() {
+                let semitone = Semitone::from_note(note);
+                keys.set(semitone.as_index(), true);
+            }
         }
         keys
     }
 
     pub fn selected_chord_name(&self) -> Option<String> {
-        // AI generated. But seems mostly sensible
-        let mut selected_semitones: Vec<usize> = self.pressed_keys().iter_ones().collect();
-        if selected_semitones.is_empty() {
-            return None;
-        }
-
-        // Sort semitones to normalize chord representation
-        selected_semitones.sort();
-
-        // Try all rotations of the chord (all possible roots)
-        for rotation in 0..selected_semitones.len() {
-            let root_semitone = selected_semitones[rotation];
-            let root = Semitone::from_usize(root_semitone).name();
-
-            let mut intervals: Vec<usize> = Vec::new();
-            for &semitone in selected_semitones.iter() {
-                if semitone != root_semitone {
-                    intervals
-                        .push((semitone as i32 - root_semitone as i32).rem_euclid(12) as usize);
-                }
-            }
-            intervals.sort();
-
-            let chord_type = match (intervals.as_slice(), selected_semitones.len()) {
-                ([4, 7], 3) => "maj",      // Major triad
-                ([3, 7], 3) => "min",      // Minor triad
-                ([3, 6], 3) => "dim",      // Diminished triad
-                ([4, 8], 3) => "aug",      // Augmented triad
-                ([4, 7, 11], 4) => "maj7", // Major seventh
-                ([3, 7, 10], 4) => "min7", // Minor seventh
-                ([4, 7, 10], 4) => "7",    // Dominant seventh
-                ([3, 6, 9], 4) => "dim7",  // Diminished seventh
-                ([3, 6, 10], 4) => "m7b5", // Half-diminished seventh
-                _ => "",                   // Unknown chord type
-            };
-
-            if !chord_type.is_empty() {
-                return Some(format!("{root}{chord_type}"));
-            }
-        }
-
-        if selected_semitones.len() == 1 {
-            Some(
-                Semitone::from_usize(selected_semitones[0])
-                    .name()
-                    .to_string(),
-            )
-        } else {
-            let notes: Vec<String> = selected_semitones
-                .iter()
-                .map(|&semitone| Semitone::from_usize(semitone).name().to_string())
-                .collect();
-            Some(notes.join("/"))
-        }
-    }
-
-    /// Generate actions for all keys based on state changes.
-    ///
-    /// This method checks each key for state changes (pressed/released) and generates
-    /// the appropriate actions. It also handles key selection logic when shift is not pressed.
-    fn generate_actions_for_all_keys(&mut self, actions: &mut Vec<Action>, shift_pressed: bool) {
-        for semitone_value in 0..12 {
-            let semitone = Semitone::new(semitone_value);
-            let note = semitone.to_note_in_octave(self.octave);
-
-            // Get active pointers for this key from our local state
-            let is_pressed = self
-                .pointers_holding_key
-                .get(&note)
-                .is_some_and(|pointers| !pointers.is_empty());
-            let was_pressed = self.previous_pointer_keys[semitone.as_index()];
-
-            if is_pressed && !was_pressed {
-                actions.push(Action::Pressed(note));
-                if !shift_pressed {
-                    // TODO: this is a bit weird. should be simplified once we change "shift" behavior to sustain
-                    // Only clear keys that are not currently being pressed by any pointer
-                    for clear_semitone_value in 0..12 {
-                        let clear_semitone = Semitone::new(clear_semitone_value);
-                        let clear_note = clear_semitone.to_note_in_octave(self.octave);
-                        let clear_pointers_empty = self
-                            .pointers_holding_key
-                            .get(&clear_note)
-                            .is_none_or(|p| p.is_empty());
-
-                        // Only clear selection if no pointers are currently pressing this key
-                        if clear_pointers_empty {
-                            self.selected_keys.set(clear_semitone.as_index(), false);
-                        }
-                    }
-                }
-                let key_selected = self.selected_keys[semitone.as_index()];
-                self.selected_keys.set(semitone.as_index(), !key_selected);
-            } else if !is_pressed && was_pressed {
-                actions.push(Action::Released(note));
-            }
-        }
+        selected_chord_name(&self.held_keys())
     }
 
     /// Render a single piano key (pure rendering, no action generation).
@@ -389,9 +161,8 @@ impl PianoGui {
         ui: &mut Ui,
         painter: &egui::Painter,
         keys_rect: Rect,
-        pressed_keys: &KeySet,
     ) {
-        let note = semitone.to_note_in_octave(self.octave);
+        let note = semitone.to_note_in_octave(self.state.octave());
         let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
         // Allocate space for the key (needed for proper UI layout)
@@ -401,13 +172,24 @@ impl PianoGui {
             .pointers_holding_key
             .get(&note)
             .is_some_and(|pointers| !pointers.is_empty());
-        let selected = self.selected_keys[semitone.as_index()];
-        let combined_selected = pressed_keys[semitone.as_index()];
 
-        let key_fill = if selected {
-            theme::selected_key()
-        } else if combined_selected {
-            theme::external_selected_key()
+        // Get state information from PianoState
+        let sustained_selected = self.state.gui_sustained_keys()[semitone.as_index()];
+        let external_selected = self.state.is_external_pressed(semitone);
+        let sustained_external = self.state.is_external_sustained(semitone);
+
+        let key_fill = if is_pressed {
+            // Currently pressed via GUI
+            theme::pressed_key()
+        } else if sustained_selected {
+            // Sustained GUI keys (were pressed while sustain was active, now released)
+            theme::sustained_key()
+        } else if external_selected {
+            // Currently pressed via external MIDI
+            theme::external_key()
+        } else if sustained_external {
+            // Sustained external keys (were pressed via MIDI while sustain was active, now released)
+            theme::external_sustained_key()
         } else {
             ui.visuals().panel_fill
         };
@@ -425,7 +207,7 @@ impl PianoGui {
             painter.rect_stroke(
                 highlight_rect,
                 0.0,
-                egui::Stroke::new(2.0, theme::selected_key()),
+                egui::Stroke::new(2.0, theme::pressed_key()),
                 egui::StrokeKind::Middle,
             );
         }
@@ -439,20 +221,18 @@ impl PianoGui {
         );
 
         // Check black keys first (they're on top)
-        for semitone in [1, 3, 6, 8, 10] {
-            let semitone = Semitone::new(semitone);
+        for semitone in Semitone::black_keys() {
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
-                return Some(semitone.to_note_in_octave(self.octave));
+                return Some(semitone.to_note_in_octave(self.state.octave()));
             }
         }
 
         // If not on a black key, check white keys
-        for semitone in [0, 2, 4, 5, 7, 9, 11] {
-            let semitone = Semitone::new(semitone);
+        for semitone in Semitone::white_keys() {
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
-                return Some(semitone.to_note_in_octave(self.octave));
+                return Some(semitone.to_note_in_octave(self.state.octave()));
             }
         }
 
@@ -582,5 +362,63 @@ fn key_rect_for_semitone(semitone: Semitone, rect: Rect) -> Rect {
             ),
             key_size,
         )
+    }
+}
+
+/// Determine the chord name for a given set of held keys
+/// Returns the chord name if recognizable, otherwise returns individual note names
+pub fn selected_chord_name(held_keys: &KeySet) -> Option<String> {
+    // AI generated. But seems mostly sensible
+    let mut selected_semitones: Vec<usize> = held_keys.iter_ones().collect();
+    if selected_semitones.is_empty() {
+        return None;
+    }
+
+    // Sort semitones to normalize chord representation
+    selected_semitones.sort();
+
+    // Try all rotations of the chord (all possible roots)
+    for rotation in 0..selected_semitones.len() {
+        let root_semitone = selected_semitones[rotation];
+        let root = Semitone::from_usize(root_semitone).name();
+
+        let mut intervals: Vec<usize> = Vec::new();
+        for &semitone in selected_semitones.iter() {
+            if semitone != root_semitone {
+                intervals.push((semitone as i32 - root_semitone as i32).rem_euclid(12) as usize);
+            }
+        }
+        intervals.sort();
+
+        let chord_type = match (intervals.as_slice(), selected_semitones.len()) {
+            ([4, 7], 3) => "maj",      // Major triad
+            ([3, 7], 3) => "min",      // Minor triad
+            ([3, 6], 3) => "dim",      // Diminished triad
+            ([4, 8], 3) => "aug",      // Augmented triad
+            ([4, 7, 11], 4) => "maj7", // Major seventh
+            ([3, 7, 10], 4) => "min7", // Minor seventh
+            ([4, 7, 10], 4) => "7",    // Dominant seventh
+            ([3, 6, 9], 4) => "dim7",  // Diminished seventh
+            ([3, 6, 10], 4) => "m7b5", // Half-diminished seventh
+            _ => "",                   // Unknown chord type
+        };
+
+        if !chord_type.is_empty() {
+            return Some(format!("{root}{chord_type}"));
+        }
+    }
+
+    if selected_semitones.len() == 1 {
+        Some(
+            Semitone::from_usize(selected_semitones[0])
+                .name()
+                .to_string(),
+        )
+    } else {
+        let notes: Vec<String> = selected_semitones
+            .iter()
+            .map(|&semitone| Semitone::from_usize(semitone).name().to_string())
+            .collect();
+        Some(notes.join("/"))
     }
 }

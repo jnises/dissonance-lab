@@ -33,6 +33,7 @@ pub struct DissonanceLabApp {
     midi: MidiState,
     midi_to_piano_gui_rx: channel::Receiver<wmidi::MidiMessage<'static>>,
     midi_to_piano_gui_tx: channel::Sender<wmidi::MidiMessage<'static>>,
+    invert_sustain_pedal: bool,
 }
 
 impl Default for DissonanceLabApp {
@@ -44,6 +45,7 @@ impl Default for DissonanceLabApp {
             midi: MidiState::NotConnected { last_checked: None },
             midi_to_piano_gui_rx,
             midi_to_piano_gui_tx,
+            invert_sustain_pedal: false,
         }
     }
 }
@@ -57,7 +59,28 @@ impl DissonanceLabApp {
 
         // Setup custom theme instead of default dark theme
         theme::setup_custom_theme(&cc.egui_ctx);
-        Default::default()
+
+        let mut app = Self::default();
+        // Load sustain pedal polarity setting from local storage
+        app.load_sustain_pedal_setting(cc);
+        app
+    }
+
+    fn load_sustain_pedal_setting(&mut self, cc: &eframe::CreationContext<'_>) {
+        if let Some(storage) = cc.storage {
+            if let Some(invert_sustain) = storage.get_string("invert_sustain_pedal") {
+                self.invert_sustain_pedal = invert_sustain == "true";
+            }
+        }
+    }
+
+    fn save_sustain_pedal_setting(&self, frame: &mut eframe::Frame) {
+        if let Some(storage) = frame.storage_mut() {
+            storage.set_string(
+                "invert_sustain_pedal",
+                self.invert_sustain_pedal.to_string(),
+            );
+        }
     }
 
     fn setup_audio(&mut self) {
@@ -103,6 +126,14 @@ impl DissonanceLabApp {
                                     velocity: u8::from(*velocity),
                                 });
                             }
+                            wmidi::MidiMessage::ControlChange(_, control, _value) => {
+                                // Check for sustain pedal (control 64)
+                                if u8::from(*control) == 64 {
+                                    // MIDI sustain pedal - values >= 64 are "on", values < 64 are "off"
+                                    // Note: Do not send sustain message directly to synth here
+                                    // This will be handled in the main event loop to combine with shift sustain
+                                }
+                            }
                             _ => {}
                         }
                     }
@@ -132,9 +163,15 @@ impl DissonanceLabApp {
 }
 
 impl eframe::App for DissonanceLabApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // Ensure dark mode remains forced, reapply custom theme if needed
+        if !ctx.style().visuals.dark_mode {
+            theme::setup_custom_theme(ctx);
+        }
+
         self.ensure_midi(ctx);
         self.check_audio_status();
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 const STATUS_HEIGHT: f32 = 40.0;
@@ -302,6 +339,30 @@ impl eframe::App for DissonanceLabApp {
                                     midi_reader.get_name().to_string()
                                 }
                             });
+
+                            // Add discreet sustain pedal polarity toggle when MIDI is connected
+                            if is_connected {
+                                const TOGGLE_FONT_SIZE: f32 = 10.0;
+                                let polarity_icon = if self.invert_sustain_pedal {
+                                    "⤴" // Up-right arrow for inverted
+                                } else {
+                                    "⤵" // Down-right arrow for normal
+                                };
+                                let toggle_button = ui.small_button(
+                                    RichText::new(polarity_icon)
+                                        .size(TOGGLE_FONT_SIZE)
+                                        .color(ui.visuals().weak_text_color()),
+                                );
+                                if toggle_button.clicked() {
+                                    self.invert_sustain_pedal = !self.invert_sustain_pedal;
+                                    self.save_sustain_pedal_setting(frame);
+                                }
+                                toggle_button.on_hover_text(if self.invert_sustain_pedal {
+                                    "Sustain pedal: inverted (click to use normal polarity)"
+                                } else {
+                                    "Sustain pedal: normal (click to invert polarity)"
+                                });
+                            }
                         });
                         ui.painter().text(
                             ui.max_rect().center_bottom(),
@@ -310,15 +371,21 @@ impl eframe::App for DissonanceLabApp {
                             FontId::proportional(STATUS_FONT_SIZE),
                             theme::KEYBOARD_LABEL,
                         );
-                        if self.piano_gui.pressed_keys().count_ones() <= 1 {
-                            // Hide "shift for multi select" label on narrow screens (mobile/phone)
+                        if self.piano_gui.held_keys().count_ones() <= 1 {
+                            // Hide sustain label on narrow screens (mobile/phone)
                             if ui.available_width() >= MOBILE_BREAKPOINT_WIDTH {
+                                let sustain_active = self.piano_gui.is_sustain_active();
+                                let label_color = if sustain_active {
+                                    ui.visuals().text_color() // Active: normal text color
+                                } else {
+                                    theme::TEXT_TERTIARY // Inactive: dimmed color
+                                };
                                 ui.painter().text(
                                     ui.max_rect().right_bottom(),
                                     Align2::RIGHT_BOTTOM,
-                                    "shift for multi select",
+                                    "⬆ sustain",
                                     FontId::proportional(STATUS_FONT_SIZE),
-                                    theme::TEXT_TERTIARY,
+                                    label_color,
                                 );
                             }
                         } else {
@@ -332,6 +399,8 @@ impl eframe::App for DissonanceLabApp {
                         }
                     },
                 );
+
+                // Process MIDI messages
                 for message in self.midi_to_piano_gui_rx.try_iter() {
                     match message {
                         wmidi::MidiMessage::NoteOff(_channel, note, _) => {
@@ -340,9 +409,53 @@ impl eframe::App for DissonanceLabApp {
                         wmidi::MidiMessage::NoteOn(_channel, note, _) => {
                             self.piano_gui.external_note_on(note);
                         }
+                        wmidi::MidiMessage::ControlChange(_, control, value) => {
+                            // Check for sustain pedal (control 64)
+                            if u8::from(control) == 64 {
+                                // MIDI sustain pedal - values >= 64 are "on", values < 64 are "off"
+                                let raw_sustain_active = u8::from(value) >= 64;
+                                let sustain_active = if self.invert_sustain_pedal {
+                                    !raw_sustain_active // Invert the logic for problematic controllers
+                                } else {
+                                    raw_sustain_active // Normal MIDI spec behavior
+                                };
+                                let mut sustain_actions = Vec::new();
+                                self.piano_gui
+                                    .set_external_sustain(sustain_active, &mut sustain_actions);
+
+                                // Process the sustain actions
+                                for action in sustain_actions {
+                                    match action {
+                                        piano_gui::Action::SustainPedal(active) => {
+                                            if let AudioState::Playing(web_audio) =
+                                                &*self.audio.lock().unwrap()
+                                            {
+                                                web_audio.send_message(
+                                                    ToWorkletMessage::SustainPedal { active },
+                                                );
+                                            }
+                                            // Request immediate repaint to update the sustain label color
+                                            ctx.request_repaint();
+                                        }
+                                        piano_gui::Action::Released(note) => {
+                                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                                web_audio.send_message(ToWorkletMessage::NoteOff {
+                                                    note: u8::from(note),
+                                                });
+                                            }
+                                        }
+                                        _ => {
+                                            debug_assert!(false, "Unexpected action from set_external_sustain: {action:?}");
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         _ => {}
                     }
                 }
+
+                // Show piano GUI and process actions
                 let actions = interval_display::show(&mut self.piano_gui, ui);
                 for action in actions {
                     match action {
@@ -361,11 +474,18 @@ impl eframe::App for DissonanceLabApp {
                                 });
                             }
                         }
+                        piano_gui::Action::SustainPedal(active) => {
+                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                web_audio.send_message(ToWorkletMessage::SustainPedal { active });
+                            }
+                            // Request immediate repaint to update the sustain label color
+                            ctx.request_repaint();
+                        }
                     }
                 }
             });
         });
-        const REPAINT_PERIOD: Duration = Duration::from_secs(2);
+        const REPAINT_PERIOD: Duration = Duration::from_millis(500); // 2 times per second
         ctx.request_repaint_after(REPAINT_PERIOD);
     }
 }

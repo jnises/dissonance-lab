@@ -79,7 +79,10 @@ pub fn get_workspace_crates(project_root: &std::path::Path) -> Result<Vec<(Strin
 
     let mut crates = Vec::new();
     for package in metadata.packages {
-        crates.push((package.name, package.manifest_path.to_string()));
+        crates.push((
+            package.name.as_str().to_string(),
+            package.manifest_path.to_string(),
+        ));
     }
 
     Ok(crates)
