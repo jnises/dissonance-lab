@@ -112,15 +112,13 @@ impl PianoGui {
         }
 
         // Update current shift state and get actions
-        let shift_actions = self.state.update_shift_sustain(shift_pressed);
-        actions.extend(shift_actions);
+        self.state.update_shift_sustain(shift_pressed, &mut actions);
 
         // Convert current pointer state to key state
         let current_gui_keys = self.pressed_keys();
 
         // Update PianoState with current GUI key state and get actions
-        let gui_actions = self.state.update_gui_keys(current_gui_keys);
-        actions.extend(gui_actions);
+        self.state.update_gui_keys(current_gui_keys, &mut actions);
 
         // Render white keys first (so black keys appear on top)
         for semitone in Semitone::white_keys() {

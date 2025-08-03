@@ -65,15 +65,13 @@ impl PianoState {
     }
 
     /// Update the GUI pressed keys state and generate appropriate actions
-    pub fn update_gui_keys(&mut self, pressed_keys: KeySet) -> Vec<Action> {
+    pub fn update_gui_keys(&mut self, pressed_keys: KeySet, actions: &mut Vec<Action>) {
         self.current_gui_pressed_keys = pressed_keys;
-        self.generate_actions_for_gui_keys()
+        self.generate_actions_for_gui_keys(actions);
     }
 
     /// Update the shift sustain state and generate appropriate actions
-    pub fn update_shift_sustain(&mut self, active: bool) -> Vec<Action> {
-        let mut actions = Vec::new();
-
+    pub fn update_shift_sustain(&mut self, active: bool, actions: &mut Vec<Action>) {
         self.shift_sustain_active = active;
 
         // Generate sustain pedal action if state changed
@@ -86,11 +84,9 @@ impl PianoState {
                 self.handle_sustain_release_for_external_keys();
 
                 // Handle sustain release for GUI keys
-                actions.extend(self.handle_shift_sustain_release());
+                self.handle_shift_sustain_release(actions);
             }
         }
-
-        actions
     }
 
     /// Add external MIDI note press
@@ -176,9 +172,7 @@ impl PianoState {
     }
 
     /// Generate actions for GUI key state changes
-    fn generate_actions_for_gui_keys(&mut self) -> Vec<Action> {
-        let mut actions = Vec::new();
-
+    fn generate_actions_for_gui_keys(&mut self, actions: &mut Vec<Action>) {
         for semitone in Semitone::iter() {
             let note = semitone.to_note_in_octave(self.octave);
             let semitone_index = semitone.as_index();
@@ -204,14 +198,10 @@ impl PianoState {
 
         // Update previous state for next frame
         self.previous_gui_pressed_keys = self.current_gui_pressed_keys;
-
-        actions
     }
 
     /// Handle shift sustain release - release all sustained GUI keys that aren't currently pressed
-    fn handle_shift_sustain_release(&mut self) -> Vec<Action> {
-        let mut actions = Vec::new();
-
+    fn handle_shift_sustain_release(&mut self, actions: &mut Vec<Action>) {
         for semitone in Semitone::iter() {
             let semitone_index = semitone.as_index();
             let note = semitone.to_note_in_octave(self.octave);
@@ -223,8 +213,6 @@ impl PianoState {
                 actions.push(Action::Released(note));
             }
         }
-
-        actions
     }
 
     /// Handle sustain pedal release for external (MIDI) keys
@@ -259,7 +247,8 @@ mod tests {
         // Press C key (semitone 0)
         let mut pressed_keys = KeySet::default();
         pressed_keys.set(0, true);
-        let actions = state.update_gui_keys(pressed_keys);
+        let mut actions = Vec::new();
+        state.update_gui_keys(pressed_keys, &mut actions);
 
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::Pressed(_)));
@@ -267,7 +256,8 @@ mod tests {
 
         // Release C key
         let pressed_keys = KeySet::default();
-        let actions = state.update_gui_keys(pressed_keys);
+        let mut actions = Vec::new();
+        state.update_gui_keys(pressed_keys, &mut actions);
 
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::Released(_)));
@@ -279,7 +269,8 @@ mod tests {
         let mut state = PianoState::new();
 
         // Activate sustain
-        let actions = state.update_shift_sustain(true);
+        let mut actions = Vec::new();
+        state.update_shift_sustain(true, &mut actions);
         assert_eq!(actions.len(), 1);
         assert_eq!(actions[0], Action::SustainPedal(true));
         assert!(state.is_sustain_active());
@@ -287,18 +278,21 @@ mod tests {
         // Press and release C key while sustain is active
         let mut pressed_keys = KeySet::default();
         pressed_keys.set(0, true);
-        let actions = state.update_gui_keys(pressed_keys);
+        let mut actions = Vec::new();
+        state.update_gui_keys(pressed_keys, &mut actions);
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::Pressed(_)));
 
         // Release key while sustain is active - should not generate release action
         let pressed_keys = KeySet::default();
-        let actions = state.update_gui_keys(pressed_keys);
+        let mut actions = Vec::new();
+        state.update_gui_keys(pressed_keys, &mut actions);
         assert!(actions.is_empty());
         assert!(state.held_keys()[0]); // Key should still be held due to sustain
 
         // Release sustain - should generate release action
-        let actions = state.update_shift_sustain(false);
+        let mut actions = Vec::new();
+        state.update_shift_sustain(false, &mut actions);
         assert_eq!(actions.len(), 2);
         assert_eq!(actions[0], Action::SustainPedal(false));
         assert!(matches!(actions[1], Action::Released(_)));
@@ -346,12 +340,14 @@ mod tests {
         let mut state = PianoState::new();
 
         // Activate both shift and external sustain
-        state.update_shift_sustain(true);
+        let mut actions = Vec::new();
+        state.update_shift_sustain(true, &mut actions);
         state.set_external_sustain(true);
         assert!(state.is_sustain_active());
 
         // Release shift sustain - should still be active due to external
-        state.update_shift_sustain(false);
+        let mut actions = Vec::new();
+        state.update_shift_sustain(false, &mut actions);
         assert!(state.is_sustain_active());
 
         // Release external sustain - should no longer be active

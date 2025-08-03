@@ -32,6 +32,8 @@
     - This was already completed. The `show` method properly coordinates by handling GUI events, updating `PianoState` via `update_shift_sustain()` and `update_gui_keys()`, and collecting actions from both updates.
   - [x] Add unit tests for `PianoState` to verify sustain behavior, action generation, and state transitions work correctly without GUI dependencies
     - This was already completed. Comprehensive unit tests exist covering state initialization, GUI key behavior, sustain behavior, external MIDI handling, and mixed sustain sources.
+  - [x] Take `action` as a `&mut` rather than returning a vec of actions in piano_state.rs. This should avoid some allocations.
+    - Refactored `update_gui_keys`, `update_shift_sustain`, and private helper methods to take `&mut Vec<Action>` instead of returning `Vec<Action>`. This eliminates intermediate vector allocations by allowing direct appending to the caller's action vector. Updated all test cases and callers in `piano_gui.rs` accordingly.
 - [ ] Piano input from the gui should show in the gui, and should result in actions being sent.
 - [ ] Piano input from midi should only result in keys being marked as pressed in the gui.
 - [ ] Sustain pedal activated by shift should result in action to send pedal input to synth.
