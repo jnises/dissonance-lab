@@ -11,9 +11,9 @@ const COMB_FILTER_DAMPING: f32 = 0.2;
 const ALLPASS_FILTER_DELAYS_MS: [f32; 2] = [5.0, 1.7];
 const ALLPASS_FILTER_FEEDBACK: f32 = 0.5;
 
-const DEFAULT_ROOM_SIZE: f32 = 0.5;
-const DEFAULT_DAMPING: f32 = 0.5;
-const DEFAULT_WET_LEVEL: f32 = 0.33;
+const DEFAULT_ROOM_SIZE: f32 = 0.7;
+const DEFAULT_DAMPING: f32 = 0.4;
+const DEFAULT_WET_LEVEL: f32 = 0.5;
 const DEFAULT_DRY_LEVEL: f32 = 0.4;
 const DEFAULT_WIDTH: f32 = 1.0;
 
@@ -203,14 +203,14 @@ mod tests {
         let impulse_response = reverb.process(1.0);
 
         // The impulse response should contain both dry and wet signal
-        // With default settings (dry=0.4, wet=0.33), we expect some immediate output
+        // With default settings (dry=0.3, wet=0.6), we expect some immediate output
         assert!(
             impulse_response.abs() > 0.0,
             "Impulse should produce immediate output"
         );
 
-        // The dry component should be around 0.4 (dry_level * input)
-        let expected_dry = 0.4; // DEFAULT_DRY_LEVEL * 1.0
+        // The dry component should be around 0.3 (dry_level * input)
+        let expected_dry = DEFAULT_DRY_LEVEL; // DEFAULT_DRY_LEVEL * 1.0
         assert!(
             impulse_response >= expected_dry * 0.9,
             "Should include significant dry component"
