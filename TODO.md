@@ -23,6 +23,8 @@
   - Codebase cleaned of non-useful change logs.
 - [x] Replace `#[allow(...)]` with `#[expect(...)]` wherever that makes sense
   - Replaced most `#[allow(dead_code)]` with `#[expect(dead_code)]`; removed attributes where code is actually used; kept `#[allow(dead_code)]` for public API constants provided for convenience
+- [x] Write tests to ensure the reverb actually works. Make sure an impulse input results in a sensible output.
+  - Added comprehensive reverb tests covering impulse response, wet/dry mixing, room size effects, damping, parameter clamping, stability, and basic functionality. Fixed reverb initialization bug where `update_parameters()` wasn't called during construction.
 - [ ] model piano string stiffness inharmonicity
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
