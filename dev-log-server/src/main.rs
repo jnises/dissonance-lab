@@ -17,9 +17,9 @@ struct LogMessage {
     level: String,
     message: String,
     // ignore these for now. but we might want these in the logs in the future
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     file: Option<String>,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     line: Option<u32>,
 }
 

@@ -71,7 +71,7 @@ impl Interval {
     }
 
     /// Returns the equal temperament ratio for this interval
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn tempered_ratio(&self) -> f32 {
         OCTAVE_RATIO.powf(self.semitones() as f32 / SEMITONES_PER_OCTAVE)
     }
