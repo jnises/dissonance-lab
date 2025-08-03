@@ -172,14 +172,13 @@ impl PianoGui {
             .pointers_holding_key
             .get(&note)
             .is_some_and(|pointers| !pointers.is_empty());
-        let selected = is_pressed;
 
         // Get state information from PianoState
         let sustained_selected = self.state.gui_sustained_keys()[semitone.as_index()];
         let external_selected = self.state.is_external_pressed(semitone);
         let sustained_external = self.state.is_external_sustained(semitone);
 
-        let key_fill = if selected {
+        let key_fill = if is_pressed {
             // Currently pressed via GUI
             theme::pressed_key()
         } else if sustained_selected {
@@ -191,9 +190,6 @@ impl PianoGui {
         } else if sustained_external {
             // Sustained external keys (were pressed via MIDI while sustain was active, now released)
             theme::external_sustained_key()
-        } else if is_pressed {
-            // Show actively pressed keys even when sustain is off
-            theme::pressed_key()
         } else {
             ui.visuals().panel_fill
         };
