@@ -10,3 +10,4 @@ If it looks like a small task just do it.
 Stop after you've completed the item, unless it was a small change the next item looks directly related and also looks small.
 If your solution to the task differs from the original description in the todo, add a brief comment to the task explaining how you addressed it.
 Before marking a top level item as complete, verify that you have run all checks as detailed in your instructions file.
+Whenever you defer a task for future implementation, add a corresponding item to TODO.md describing what remains to be done.

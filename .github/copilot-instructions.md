@@ -24,6 +24,7 @@ The project it split into multiple crates. All in the same cargo workspace.
 - Place comments on the line above the code they reference, rather than as trailing comments on the same line.
 - If you decide to solve a warning by using `#[allow(...)]`, write a comment about why you think it is ok. And think a second time about whether it really is ok..
 - Minimize redundant mutable state as much as possible. Strongly prefer computing dependent values on demand. Use caching only when necessary for performance. If you determine that redundant mutable state is truly required, add comments explaining the rationale.
+- Whenever you postpone a task for later implementation, add a clear TODO comment describing what remains to be done.
 
 # Conventions
 - Use rust edition 2024
