@@ -356,6 +356,74 @@ mod tests {
     }
 
     #[test]
+    fn test_shift_sustain_generates_sustain_pedal_actions() {
+        let mut state = PianoState::new();
+
+        // Activating shift sustain should generate SustainPedal(true) action
+        let mut actions = Vec::new();
+        state.update_shift_sustain(true, &mut actions);
+        
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0], Action::SustainPedal(true));
+        assert!(state.is_sustain_active());
+
+        // Deactivating shift sustain should generate SustainPedal(false) action
+        let mut actions = Vec::new();
+        state.update_shift_sustain(false, &mut actions);
+        
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0], Action::SustainPedal(false));
+        assert!(!state.is_sustain_active());
+
+        // Activating again should generate SustainPedal(true) action
+        let mut actions = Vec::new();
+        state.update_shift_sustain(true, &mut actions);
+        
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0], Action::SustainPedal(true));
+        assert!(state.is_sustain_active());
+    }
+
+    #[test]
+    fn test_pressing_sustained_key_generates_only_pressed_action() {
+        let mut state = PianoState::new();
+
+        // First activate sustain
+        let mut actions = Vec::new();
+        state.update_shift_sustain(true, &mut actions);
+        actions.clear(); // Clear sustain pedal action
+
+        // Press C key via GUI
+        let mut pressed_keys = KeySet::default();
+        pressed_keys.set(0, true); // C
+        let mut actions = Vec::new();
+        state.update_gui_keys(pressed_keys, &mut actions);
+        
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], Action::Pressed(_)));
+        assert!(state.held_keys()[0]); // C should be held
+
+        // Release C key while sustain is active - should become sustained
+        let pressed_keys = KeySet::default();
+        let mut actions = Vec::new();
+        state.update_gui_keys(pressed_keys, &mut actions);
+        
+        assert!(actions.is_empty()); // No release action due to sustain
+        assert!(state.held_keys()[0]); // C should still be held (sustained)
+
+        // Now press C key again while it's sustained - should generate only Pressed action
+        let mut pressed_keys = KeySet::default();
+        pressed_keys.set(0, true); // C pressed again
+        let mut actions = Vec::new();
+        state.update_gui_keys(pressed_keys, &mut actions);
+        
+        // Should generate only Action::Pressed (no retriggering)
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], Action::Pressed(_)));
+        assert!(state.held_keys()[0]); // C should still be held (now actively pressed)
+    }
+
+    #[test]
     fn test_external_sustain() {
         let mut state = PianoState::new();
 
