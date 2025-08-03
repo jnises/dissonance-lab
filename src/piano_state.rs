@@ -278,7 +278,11 @@ mod tests {
 
         // Should generate one Pressed action for each key
         assert_eq!(actions.len(), 3);
-        assert!(actions.iter().all(|action| matches!(action, Action::Pressed(_))));
+        assert!(
+            actions
+                .iter()
+                .all(|action| matches!(action, Action::Pressed(_)))
+        );
 
         // All pressed keys should show up in held_keys (what appears in GUI)
         let held = state.held_keys();
@@ -362,7 +366,7 @@ mod tests {
         // Activating shift sustain should generate SustainPedal(true) action
         let mut actions = Vec::new();
         state.update_shift_sustain(true, &mut actions);
-        
+
         assert_eq!(actions.len(), 1);
         assert_eq!(actions[0], Action::SustainPedal(true));
         assert!(state.is_sustain_active());
@@ -370,7 +374,7 @@ mod tests {
         // Deactivating shift sustain should generate SustainPedal(false) action
         let mut actions = Vec::new();
         state.update_shift_sustain(false, &mut actions);
-        
+
         assert_eq!(actions.len(), 1);
         assert_eq!(actions[0], Action::SustainPedal(false));
         assert!(!state.is_sustain_active());
@@ -378,7 +382,7 @@ mod tests {
         // Activating again should generate SustainPedal(true) action
         let mut actions = Vec::new();
         state.update_shift_sustain(true, &mut actions);
-        
+
         assert_eq!(actions.len(), 1);
         assert_eq!(actions[0], Action::SustainPedal(true));
         assert!(state.is_sustain_active());
@@ -398,7 +402,7 @@ mod tests {
         pressed_keys.set(0, true); // C
         let mut actions = Vec::new();
         state.update_gui_keys(pressed_keys, &mut actions);
-        
+
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::Pressed(_)));
         assert!(state.held_keys()[0]); // C should be held
@@ -407,7 +411,7 @@ mod tests {
         let pressed_keys = KeySet::default();
         let mut actions = Vec::new();
         state.update_gui_keys(pressed_keys, &mut actions);
-        
+
         assert!(actions.is_empty()); // No release action due to sustain
         assert!(state.held_keys()[0]); // C should still be held (sustained)
 
@@ -416,7 +420,7 @@ mod tests {
         pressed_keys.set(0, true); // C pressed again
         let mut actions = Vec::new();
         state.update_gui_keys(pressed_keys, &mut actions);
-        
+
         // Should generate only Action::Pressed (no retriggering)
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::Pressed(_)));
