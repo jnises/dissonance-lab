@@ -172,7 +172,7 @@ impl PianoGui {
             .pointers_holding_key
             .get(&note)
             .is_some_and(|pointers| !pointers.is_empty());
-        let selected = is_pressed; // pressed_keys is now computed from pointers_holding_key
+        let selected = is_pressed;
 
         // Get state information from PianoState
         let sustained_selected = self.state.gui_sustained_keys()[semitone.as_index()];
