@@ -85,29 +85,24 @@ impl Reverb {
         }
     }
 
-    #[allow(dead_code)]
     pub fn set_room_size(&mut self, size: f32) {
         self.room_size = size.clamp(0.0, 1.0);
         self.update_parameters();
     }
 
-    #[allow(dead_code)]
     pub fn set_damping(&mut self, damping: f32) {
         self.damping = damping.clamp(0.0, 1.0);
         self.update_parameters();
     }
 
-    #[allow(dead_code)]
     pub fn set_wet_level(&mut self, level: f32) {
         self.wet_level = level.clamp(0.0, 1.0);
     }
 
-    #[allow(dead_code)]
     pub fn set_dry_level(&mut self, level: f32) {
         self.dry_level = level.clamp(0.0, 1.0);
     }
 
-    #[allow(dead_code)]
     pub fn set_width(&mut self, width: f32) {
         self.width = width.clamp(0.0, 1.0);
     }

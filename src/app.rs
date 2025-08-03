@@ -208,7 +208,6 @@ impl eframe::App for DissonanceLabApp {
                                 disabled_button
                                     .on_hover_text("Audio not supported on this device/browser");
                             } else {
-                                #[allow(clippy::collapsible_else_if)]
                                 let mute_button_response = ui.button(
                                     RichText::new("🔇")
                                         .size(MUTE_FONT_SIZE)

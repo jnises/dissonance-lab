@@ -21,6 +21,8 @@
   - User-toggleable, persists in local storage, fixes inverted pedal behavior.
 - [x] Removed agent-generated change-description comments
   - Codebase cleaned of non-useful change logs.
+- [x] Replace `#[allow(...)]` with `#[expect(...)]` wherever that makes sense
+  - Replaced most `#[allow(dead_code)]` with `#[expect(dead_code)]`; removed attributes where code is actually used; kept `#[allow(dead_code)]` for public API constants provided for convenience
 - [ ] model piano string stiffness inharmonicity
 - [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
   - [ ] The `KeySet` type needs to keep track of the order of the keys
@@ -30,7 +32,6 @@
   - [ ] Modify interval_display.rs to use different ordering logic based on input method
   - [ ] Update the pressed_keys data structure to include ordering/priority information
   - [ ] Test the new ordering behavior with both mouse and MIDI input
-- [ ] Make the console output from the audio worklet also forward back to the dev server. perhaps we need to have the audio worklet log using a message instead of straight to console
 - [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
 - [ ] Calculate dissonances using critical bands theory (plomp levelt) instead.
     - This would allow us to calculate the dissonance of entire chords
@@ -41,5 +42,5 @@
 - [ ] We only need one row of dissonances that shows what dissonance a new note would result in.
     - for the second note we show the same as we currently do
     - for more notes we show what chord they would result in
-- [ ] Replace `#[allow(...)]` with `#[expect(...)]` wherever that makes sense
+- [ ] Make the console output from the audio worklet also forward back to the dev server. perhaps we need to have the audio worklet log using a message instead of straight to console
 - [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm

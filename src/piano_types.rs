@@ -7,9 +7,8 @@ use wmidi::Note;
 pub struct Semitone(u8);
 
 impl Semitone {
-    // Named constants for all 12 semitones
-    // These constants are provided for convenience and future use
-    #[allow(dead_code)]
+    /// Named constants for all 12 semitones
+    #[allow(dead_code)] // These constants are provided for convenience and future use
     pub const C: Self = Self(0);
     #[allow(dead_code)]
     pub const C_SHARP: Self = Self(1);

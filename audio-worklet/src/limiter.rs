@@ -38,24 +38,20 @@ impl Limiter {
         limiter
     }
 
-    #[allow(dead_code)]
     pub fn set_threshold(&mut self, threshold_db: f32) {
         self.threshold = threshold_db.clamp(-60.0, 0.0);
     }
 
-    #[allow(dead_code)]
     pub fn set_attack(&mut self, attack_time: f32) {
         self.attack = attack_time.clamp(0.001, 1.0);
         self.update_coefficients();
     }
 
-    #[allow(dead_code)]
     pub fn set_release(&mut self, release_time: f32) {
         self.release = release_time.clamp(0.001, 3.0);
         self.update_coefficients();
     }
 
-    #[allow(dead_code)]
     pub fn set_makeup_gain(&mut self, makeup_gain_db: f32) {
         self.makeup_gain = makeup_gain_db.clamp(0.0, 30.0);
     }
@@ -93,7 +89,6 @@ impl Limiter {
     }
 
     // Get the current gain reduction in dB (useful for metering)
-    #[allow(dead_code)]
     #[inline]
     pub fn get_gain_reduction_db(&self) -> f32 {
         20.0 * self.gain_reduction.log10()
