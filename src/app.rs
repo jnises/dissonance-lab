@@ -103,16 +103,14 @@ impl DissonanceLabApp {
                                     velocity: u8::from(*velocity),
                                 });
                             }
-                            wmidi::MidiMessage::ControlChange(_, control, value) => {
-                                // Check for sustain pedal (control 64)
-                                if u8::from(*control) == 64 {
-                                    // MIDI sustain pedal - values >= 64 are "on", values < 64 are "off"
-                                    let sustain_active = u8::from(*value) >= 64;
-                                    web_audio.send_message(ToWorkletMessage::SustainPedal {
-                                        active: sustain_active,
-                                    });
-                                }
+                        wmidi::MidiMessage::ControlChange(_, control, _value) => {
+                            // Check for sustain pedal (control 64)
+                            if u8::from(*control) == 64 {
+                                // MIDI sustain pedal - values >= 64 are "on", values < 64 are "off"
+                                // Note: Do not send sustain message directly to synth here
+                                // This will be handled in the main event loop to combine with shift sustain
                             }
+                        }
                             _ => {}
                         }
                     }
@@ -369,7 +367,20 @@ impl eframe::App for DissonanceLabApp {
                             if u8::from(control) == 64 {
                                 // MIDI sustain pedal - values >= 64 are "on", values < 64 are "off"
                                 let sustain_active = u8::from(value) >= 64;
-                                self.piano_gui.set_external_sustain(sustain_active);
+                                let mut sustain_actions = Vec::new();
+                                self.piano_gui.set_external_sustain(sustain_active, &mut sustain_actions);
+                                
+                                // Process the sustain actions
+                                for action in sustain_actions {
+                                    if let piano_gui::Action::SustainPedal(active) = action {
+                                        if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                            web_audio.send_message(ToWorkletMessage::SustainPedal { active });
+                                        }
+                                        // Request immediate repaint to update the sustain label color
+                                        ctx.request_repaint();
+                                    }
+                                    // Other actions not expected from sustain changes
+                                }
                             }
                         }
                         _ => {}

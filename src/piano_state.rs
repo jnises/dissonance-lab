@@ -72,20 +72,24 @@ impl PianoState {
 
     /// Update the shift sustain state and generate appropriate actions
     pub fn update_shift_sustain(&mut self, active: bool, actions: &mut Vec<Action>) {
+        let was_overall_sustain_active = self.is_sustain_active();
         self.shift_sustain_active = active;
+        let is_overall_sustain_active = self.is_sustain_active();
 
-        // Generate sustain pedal action if state changed
-        if active != self.previous_shift_sustain_active {
-            actions.push(Action::SustainPedal(active));
-            self.previous_shift_sustain_active = active;
+        // Generate sustain pedal action if overall sustain state changed
+        if was_overall_sustain_active != is_overall_sustain_active {
+            actions.push(Action::SustainPedal(is_overall_sustain_active));
+        }
 
-            if !active {
-                // Handle sustain pedal release for external keys
-                self.handle_sustain_release_for_external_keys();
+        // Update previous shift sustain state for next comparison
+        self.previous_shift_sustain_active = active;
 
-                // Handle sustain release for GUI keys
-                self.handle_shift_sustain_release(actions);
-            }
+        if !active {
+            // Handle sustain pedal release for external keys
+            self.handle_sustain_release_for_external_keys();
+
+            // Handle sustain release for GUI keys
+            self.handle_shift_sustain_release(actions);
         }
     }
 
@@ -114,8 +118,16 @@ impl PianoState {
     }
 
     /// Set external sustain pedal state (from MIDI input)
-    pub fn set_external_sustain(&mut self, active: bool) {
+    pub fn set_external_sustain(&mut self, active: bool, actions: &mut Vec<Action>) {
+        let was_overall_sustain_active = self.is_sustain_active();
         self.external_sustain_active = active;
+        let is_overall_sustain_active = self.is_sustain_active();
+        
+        // Generate sustain pedal action if overall sustain state changed
+        if was_overall_sustain_active != is_overall_sustain_active {
+            actions.push(Action::SustainPedal(is_overall_sustain_active));
+        }
+        
         if !active {
             // When sustain is released, clear all sustained external keys
             self.handle_sustain_release_for_external_keys();
@@ -442,9 +454,10 @@ mod tests {
     #[test]
     fn test_external_sustain() {
         let mut state = PianoState::new();
+        let mut actions = Vec::new();
 
         // Set external sustain active
-        state.set_external_sustain(true);
+        state.set_external_sustain(true, &mut actions);
         assert!(state.is_sustain_active());
 
         // Add and release external note while sustain is active
@@ -456,7 +469,8 @@ mod tests {
         assert!(state.held_keys()[0]); // Should still be held due to sustain
 
         // Release external sustain
-        state.set_external_sustain(false);
+        actions.clear();
+        state.set_external_sustain(false, &mut actions);
         assert!(!state.is_sustain_active());
         assert!(!state.held_keys()[0]); // Should no longer be held
     }
@@ -464,21 +478,66 @@ mod tests {
     #[test]
     fn test_mixed_sustain_sources() {
         let mut state = PianoState::new();
+        let mut actions = Vec::new();
 
         // Activate both shift and external sustain
-        let mut actions = Vec::new();
         state.update_shift_sustain(true, &mut actions);
-        state.set_external_sustain(true);
+        // Should generate one sustain action when first source becomes active
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], Action::SustainPedal(true)));
+        
+        actions.clear();
+        state.set_external_sustain(true, &mut actions);
+        // Should not generate sustain action since sustain was already active
+        assert_eq!(actions.len(), 0);
         assert!(state.is_sustain_active());
 
         // Release shift sustain - should still be active due to external
-        let mut actions = Vec::new();
+        actions.clear();
         state.update_shift_sustain(false, &mut actions);
+        // Should not generate sustain action since external sustain keeps it active
+        assert_eq!(actions.len(), 0);
         assert!(state.is_sustain_active());
 
         // Release external sustain - should no longer be active
-        state.set_external_sustain(false);
+        actions.clear();
+        state.set_external_sustain(false, &mut actions);
+        // Should generate sustain release action since both sources are now inactive
+        assert_eq!(actions.len(), 1);
+        assert!(matches!(actions[0], Action::SustainPedal(false)));
         assert!(!state.is_sustain_active());
+    }
+
+    #[test]
+    fn test_sustain_combination_order_independence() {
+        // Test that the order of activating/deactivating sustain sources doesn't matter
+        
+        // Test external first, then shift
+        let mut state1 = PianoState::new();
+        let mut actions1 = Vec::new();
+        
+        state1.set_external_sustain(true, &mut actions1);
+        assert_eq!(actions1.len(), 1);
+        assert!(matches!(actions1[0], Action::SustainPedal(true)));
+        
+        actions1.clear();
+        state1.update_shift_sustain(true, &mut actions1);
+        assert_eq!(actions1.len(), 0); // No new action since sustain was already active
+        
+        // Test shift first, then external  
+        let mut state2 = PianoState::new();
+        let mut actions2 = Vec::new();
+        
+        state2.update_shift_sustain(true, &mut actions2);
+        assert_eq!(actions2.len(), 1);
+        assert!(matches!(actions2[0], Action::SustainPedal(true)));
+        
+        actions2.clear();
+        state2.set_external_sustain(true, &mut actions2);
+        assert_eq!(actions2.len(), 0); // No new action since sustain was already active
+        
+        // Both should have the same final state
+        assert_eq!(state1.is_sustain_active(), state2.is_sustain_active());
     }
 
     #[test]
@@ -604,7 +663,8 @@ mod tests {
         );
 
         // Test sustain across octaves
-        state.set_external_sustain(true);
+        let mut actions = Vec::new();
+        state.set_external_sustain(true, &mut actions);
 
         // Press and release C2 while sustain is active
         state.external_note_on(c2);
@@ -623,7 +683,8 @@ mod tests {
         );
 
         // Release sustain
-        state.set_external_sustain(false);
+        actions.clear();
+        state.set_external_sustain(false, &mut actions);
         assert!(
             !state.is_external_sustained(Semitone::C),
             "C should not be sustained after releasing sustain"

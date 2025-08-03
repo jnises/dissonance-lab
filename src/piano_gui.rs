@@ -43,8 +43,8 @@ impl PianoGui {
     }
 
     /// Set external sustain pedal state (from MIDI input)
-    pub fn set_external_sustain(&mut self, active: bool) {
-        self.state.set_external_sustain(active);
+    pub fn set_external_sustain(&mut self, active: bool, actions: &mut Vec<Action>) {
+        self.state.set_external_sustain(active, actions);
     }
 
     /// Check if sustain is currently active (either from Shift key or MIDI)
