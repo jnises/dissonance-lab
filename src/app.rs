@@ -33,6 +33,7 @@ pub struct DissonanceLabApp {
     midi: MidiState,
     midi_to_piano_gui_rx: channel::Receiver<wmidi::MidiMessage<'static>>,
     midi_to_piano_gui_tx: channel::Sender<wmidi::MidiMessage<'static>>,
+    invert_sustain_pedal: bool,
 }
 
 impl Default for DissonanceLabApp {
@@ -44,6 +45,7 @@ impl Default for DissonanceLabApp {
             midi: MidiState::NotConnected { last_checked: None },
             midi_to_piano_gui_rx,
             midi_to_piano_gui_tx,
+            invert_sustain_pedal: false,
         }
     }
 }
@@ -57,7 +59,25 @@ impl DissonanceLabApp {
 
         // Setup custom theme instead of default dark theme
         theme::setup_custom_theme(&cc.egui_ctx);
-        Default::default()
+        
+        let mut app = Self::default();
+        // Load sustain pedal polarity setting from local storage
+        app.load_sustain_pedal_setting(cc);
+        app
+    }
+
+    fn load_sustain_pedal_setting(&mut self, cc: &eframe::CreationContext<'_>) {
+        if let Some(storage) = cc.storage {
+            if let Some(invert_sustain) = storage.get_string("invert_sustain_pedal") {
+                self.invert_sustain_pedal = invert_sustain == "true";
+            }
+        }
+    }
+
+    fn save_sustain_pedal_setting(&self, frame: &mut eframe::Frame) {
+        if let Some(storage) = frame.storage_mut() {
+            storage.set_string("invert_sustain_pedal", self.invert_sustain_pedal.to_string());
+        }
     }
 
     fn setup_audio(&mut self) {
@@ -140,7 +160,7 @@ impl DissonanceLabApp {
 }
 
 impl eframe::App for DissonanceLabApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // Ensure dark mode remains forced, reapply custom theme if needed
         if !ctx.style().visuals.dark_mode {
             theme::setup_custom_theme(ctx);
@@ -316,6 +336,30 @@ impl eframe::App for DissonanceLabApp {
                                     midi_reader.get_name().to_string()
                                 }
                             });
+
+                            // Add discreet sustain pedal polarity toggle when MIDI is connected
+                            if is_connected {
+                                const TOGGLE_FONT_SIZE: f32 = 10.0;
+                                let polarity_icon = if self.invert_sustain_pedal {
+                                    "⤴" // Up-right arrow for inverted
+                                } else {
+                                    "⤵" // Down-right arrow for normal
+                                };
+                                let toggle_button = ui.small_button(
+                                    RichText::new(polarity_icon)
+                                        .size(TOGGLE_FONT_SIZE)
+                                        .color(ui.visuals().weak_text_color())
+                                );
+                                if toggle_button.clicked() {
+                                    self.invert_sustain_pedal = !self.invert_sustain_pedal;
+                                    self.save_sustain_pedal_setting(frame);
+                                }
+                                toggle_button.on_hover_text(if self.invert_sustain_pedal {
+                                    "Sustain pedal: inverted (click to use normal polarity)"
+                                } else {
+                                    "Sustain pedal: normal (click to invert polarity)"
+                                });
+                            }
                         });
                         ui.painter().text(
                             ui.max_rect().center_bottom(),
@@ -366,7 +410,12 @@ impl eframe::App for DissonanceLabApp {
                             // Check for sustain pedal (control 64)
                             if u8::from(control) == 64 {
                                 // MIDI sustain pedal - values >= 64 are "on", values < 64 are "off"
-                                let sustain_active = u8::from(value) >= 64;
+                                let raw_sustain_active = u8::from(value) >= 64;
+                                let sustain_active = if self.invert_sustain_pedal {
+                                    !raw_sustain_active // Invert the logic for problematic controllers
+                                } else {
+                                    raw_sustain_active // Normal MIDI spec behavior
+                                };
                                 let mut sustain_actions = Vec::new();
                                 self.piano_gui
                                     .set_external_sustain(sustain_active, &mut sustain_actions);
