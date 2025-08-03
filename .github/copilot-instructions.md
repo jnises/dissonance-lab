@@ -1,6 +1,8 @@
 Dissonance Lab is a single page web application implemented using rust that shows note interval dissonance graphically.
 It also allows you to play and hear the notes using a built in piano-like synthesizer.
 
+This is a prototype toy project. No need to keep backwards compatibility.
+
 # Code structure
 The project it split into multiple crates. All in the same cargo workspace.
 - The main `dissonance-lab` crate in the root.
@@ -20,8 +22,9 @@ The project it split into multiple crates. All in the same cargo workspace.
 - Avoid unsafe. If you really think you need unsafe, ask the user first, and write a detailed comment why unsafe was required.
 - Avoid wildcard imports (`use x::*;`) unless explicitly recommended for a specific case, such as importing a crate's prelude. Prefer listing only the items you need to improve code clarity and maintainability.
 - Place comments on the line above the code they reference, rather than as trailing comments on the same line.
-- If you decide to solve a warning by using `#[allow(...)]`, write a comment about why you think it is ok. And think a second time about whether it really is ok..
+- If you decide to solve a warning by using `#[expect(...)]` or `#[allow(...)]` (prefer `expect`), write a comment about why you think it is ok. And think a second time about whether it really is ok..
 - Minimize redundant mutable state as much as possible. Strongly prefer computing dependent values on demand. Use caching only when necessary for performance. If you determine that redundant mutable state is truly required, add comments explaining the rationale.
+- Whenever you postpone a task for later implementation, add a clear TODO comment describing what remains to be done.
 
 # Conventions
 - Use rust edition 2024

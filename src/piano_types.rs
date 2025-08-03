@@ -7,6 +7,33 @@ use wmidi::Note;
 pub struct Semitone(u8);
 
 impl Semitone {
+    // Named constants for all 12 semitones
+    // These constants are provided for convenience and future use
+    #[allow(dead_code)]
+    pub const C: Self = Self(0);
+    #[allow(dead_code)]
+    pub const C_SHARP: Self = Self(1);
+    #[allow(dead_code)]
+    pub const D: Self = Self(2);
+    #[allow(dead_code)]
+    pub const D_SHARP: Self = Self(3);
+    #[allow(dead_code)]
+    pub const E: Self = Self(4);
+    #[allow(dead_code)]
+    pub const F: Self = Self(5);
+    #[allow(dead_code)]
+    pub const F_SHARP: Self = Self(6);
+    #[allow(dead_code)]
+    pub const G: Self = Self(7);
+    #[allow(dead_code)]
+    pub const G_SHARP: Self = Self(8);
+    #[allow(dead_code)]
+    pub const A: Self = Self(9);
+    #[allow(dead_code)]
+    pub const A_SHARP: Self = Self(10);
+    #[allow(dead_code)]
+    pub const B: Self = Self(11);
+
     /// Create a new Semitone from a u8 value (0-11)
     pub const fn new(value: u8) -> Self {
         debug_assert!(value < 12, "Semitone value must be in range 0-11");
