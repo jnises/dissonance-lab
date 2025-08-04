@@ -204,6 +204,8 @@ struct PianoVoice {
     inharmonicity: InharmonicityModel,
     // Individual phase accumulators for inharmonic partials
     partial_phases: [f32; 8], // Phases for partials 2-8 (partial 1 uses main phase)
+    // Cached phase deltas for inharmonic partials to avoid recalculation in hot path
+    partial_phase_deltas: [f32; 7], // Phase deltas for partials 2-8 (7 partials)
 }
 
 impl PianoVoice {
@@ -247,6 +249,7 @@ impl PianoVoice {
             note_phase: 0.0,
             inharmonicity,
             partial_phases: [0.0; 8], // Initialize all partial phases to 0
+            partial_phase_deltas: [0.0; 7], // Initialize all partial phase deltas to 0
         }
     }
 
@@ -314,6 +317,17 @@ impl PianoVoice {
     fn update_phase_delta(&mut self) {
         if let Some(key) = &self.current_key {
             self.phase_delta = key.frequency / self.sample_rate;
+
+            // Cache partial phase deltas to avoid recalculation in hot audio processing loop
+            let fundamental_freq = key.frequency;
+            for partial_num in 2..=8 {
+                let partial_freq = self
+                    .inharmonicity
+                    .partial_frequency(fundamental_freq, partial_num as u32);
+                let partial_phase_delta = partial_freq / self.sample_rate;
+                let partial_index = (partial_num - 2) as usize; // Array index (0-6 for partials 2-8)
+                self.partial_phase_deltas[partial_index] = partial_phase_delta;
+            }
         }
     }
 
@@ -352,23 +366,10 @@ impl PianoVoice {
             (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(MAX_PHASE);
         self.note_phase += self.phase_delta;
 
-        // Update individual phase accumulators for inharmonic partials
-        // Get the fundamental frequency for inharmonic calculations
-        let fundamental_freq = if let Some(key) = &self.current_key {
-            key.frequency
-        } else {
-            440.0 // Fallback frequency
-        };
-
-        // Calculate phase deltas for each inharmonic partial
-        for partial_num in 2..=8 {
-            let partial_freq = self
-                .inharmonicity
-                .partial_frequency(fundamental_freq, partial_num as u32);
-            let partial_phase_delta = partial_freq / self.sample_rate;
-            let partial_index = (partial_num - 2) as usize; // Array index (0-6 for partials 2-8)
+        // Update individual phase accumulators for inharmonic partials using cached phase deltas
+        for (partial_index, &cached_phase_delta) in self.partial_phase_deltas.iter().enumerate() {
             self.partial_phases[partial_index] =
-                (self.partial_phases[partial_index] + partial_phase_delta).rem_euclid(MAX_PHASE);
+                (self.partial_phases[partial_index] + cached_phase_delta).rem_euclid(MAX_PHASE);
         }
 
         let mut sample = 0.0;
@@ -810,5 +811,52 @@ mod tests {
             max_discontinuity < MAX_ALLOWED_DISCONTINUITY,
             "Phase wrapping caused audio discontinuity: {max_discontinuity} exceeds threshold {MAX_ALLOWED_DISCONTINUITY} (detected {phase_wraps_detected} phase wraps)"
         );
+    }
+
+    #[test]
+    fn test_partial_phase_delta_caching() {
+        // Test that partial phase deltas are correctly cached when a note is played
+        let mut voice = PianoVoice::new(44100.0);
+        let key = PianoKey::new(wmidi::Note::A4);
+        let velocity = wmidi::U7::try_from(100).unwrap();
+
+        // Initially, all cached phase deltas should be 0
+        for &delta in &voice.partial_phase_deltas {
+            assert_eq!(delta, 0.0, "Initial partial phase delta should be 0");
+        }
+
+        voice.note_on(key, velocity);
+
+        // After note_on, cached phase deltas should be non-zero and different
+        let mut all_zero = true;
+        let mut all_same = true;
+        let first_delta = voice.partial_phase_deltas[0];
+
+        for &delta in &voice.partial_phase_deltas {
+            if delta != 0.0 {
+                all_zero = false;
+            }
+            if (delta - first_delta).abs() > 0.0001 {
+                all_same = false;
+            }
+        }
+
+        assert!(
+            !all_zero,
+            "Cached phase deltas should be non-zero after note_on"
+        );
+        assert!(
+            !all_same,
+            "Cached phase deltas should be different for different partials"
+        );
+
+        // Verify that cached values are reasonable (positive and less than 1.0 for A4)
+        for (i, &delta) in voice.partial_phase_deltas.iter().enumerate() {
+            assert!(
+                delta > 0.0 && delta < 1.0,
+                "Partial {partial_num} phase delta {delta} should be in range (0.0, 1.0)",
+                partial_num = i + 2
+            );
+        }
     }
 }
