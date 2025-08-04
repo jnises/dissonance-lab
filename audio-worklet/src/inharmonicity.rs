@@ -190,19 +190,14 @@ mod tests {
             // Inharmonic frequency should be higher than harmonic
             assert!(
                 inharmonic_freq > harmonic_freq,
-                "Partial {} should be sharp: inharmonic {} vs harmonic {}",
-                partial_num,
-                inharmonic_freq,
-                harmonic_freq
+                "Partial {partial_num} should be sharp: inharmonic {inharmonic_freq} vs harmonic {harmonic_freq}"
             );
 
             // The deviation should be reasonable (not too extreme)
             let deviation_ratio = inharmonic_freq / harmonic_freq;
             assert!(
                 deviation_ratio < 1.05, // Less than 5% sharp (higher partials can be quite sharp)
-                "Partial {} deviation too large: ratio = {}",
-                partial_num,
-                deviation_ratio
+                "Partial {partial_num} deviation too large: ratio = {deviation_ratio}"
             );
         }
     }
@@ -249,16 +244,13 @@ mod tests {
             // Phase delta should be reasonable (not too large that it would alias)
             assert!(
                 phase_delta < 0.5,
-                "Partial {} phase delta {} too large, would alias",
-                partial_num,
-                phase_delta
+                "Partial {partial_num} phase delta {phase_delta} too large, would alias"
             );
 
             // Phase delta should be positive and non-zero
             assert!(
                 phase_delta > 0.0,
-                "Partial {} phase delta should be positive",
-                partial_num
+                "Partial {partial_num} phase delta should be positive"
             );
 
             // For a 1-second period at this sample rate, we should get the right frequency
@@ -266,10 +258,7 @@ mod tests {
             let expected_freq = partial_freq;
             assert!(
                 (cycles_per_second - expected_freq).abs() < 0.01,
-                "Partial {} frequency calculation inconsistent: expected {}, got {}",
-                partial_num,
-                expected_freq,
-                cycles_per_second
+                "Partial {partial_num} frequency calculation inconsistent: expected {expected_freq}, got {cycles_per_second}"
             );
         }
     }

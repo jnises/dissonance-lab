@@ -713,9 +713,7 @@ mod tests {
         const MAX_ALLOWED_DISCONTINUITY: f32 = 0.1;
         assert!(
             max_discontinuity < MAX_ALLOWED_DISCONTINUITY,
-            "Audio discontinuity detected: {} exceeds threshold {}",
-            max_discontinuity,
-            MAX_ALLOWED_DISCONTINUITY
+            "Audio discontinuity detected: {max_discontinuity} exceeds threshold {MAX_ALLOWED_DISCONTINUITY}"
         );
     }
 
@@ -751,10 +749,9 @@ mod tests {
         // Verify all phases are in valid range [0.0, 1.0)
         for (i, &phase) in voice.partial_phases.iter().enumerate() {
             assert!(
-                phase >= 0.0 && phase < 1.0,
-                "Partial {} phase {} out of range [0.0, 1.0)",
-                i + 2,
-                phase
+                (0.0..1.0).contains(&phase),
+                "Partial {partial_index} phase {phase} out of range [0.0, 1.0)",
+                partial_index = i + 2
             );
         }
     }
@@ -779,12 +776,12 @@ mod tests {
         for _ in 0..10000 {
             // Store phase values before processing
             let phases_before = voice.partial_phases;
-            
+
             let current_sample = voice.process();
-            
-            // Store phase values after processing  
+
+            // Store phase values after processing
             let phases_after = voice.partial_phases;
-            
+
             // Check for phase wraps (when phase goes from high value to low value)
             for i in 0..phases_before.len() {
                 const WRAP_THRESHOLD: f32 = 0.8; // If phase drops by more than this, it wrapped
@@ -792,7 +789,7 @@ mod tests {
                     phase_wraps_detected += 1;
                 }
             }
-            
+
             // Check for audio discontinuities
             let diff = (current_sample - previous_sample).abs();
             max_discontinuity = max_discontinuity.max(diff);
@@ -811,10 +808,7 @@ mod tests {
         const MAX_ALLOWED_DISCONTINUITY: f32 = 0.15;
         assert!(
             max_discontinuity < MAX_ALLOWED_DISCONTINUITY,
-            "Phase wrapping caused audio discontinuity: {} exceeds threshold {} (detected {} phase wraps)",
-            max_discontinuity,
-            MAX_ALLOWED_DISCONTINUITY,
-            phase_wraps_detected
+            "Phase wrapping caused audio discontinuity: {max_discontinuity} exceeds threshold {MAX_ALLOWED_DISCONTINUITY} (detected {phase_wraps_detected} phase wraps)"
         );
     }
 }
