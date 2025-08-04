@@ -15,7 +15,7 @@ impl InharmonicityModel {
     ///
     /// # Parameters
     /// - `string_diameter`: String diameter in meters
-    /// - `string_length`: String length in meters  
+    /// - `string_length`: String length in meters
     /// - `string_tension`: String tension in Newtons
     pub fn new(string_diameter: f32, string_length: f32, string_tension: f32) -> Self {
         let coefficient = Self::calculate_inharmonicity_coefficient(
