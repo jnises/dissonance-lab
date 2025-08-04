@@ -1,30 +1,26 @@
-- [x] Add multi-touch support and refactor piano_gui.rs
-  - Multi-pointer tracking, refactored state/rendering, switched to `wmidi::Note`/`Semitone`, debug assertions, interval display compatibility.
-- [x] Make `shift` act as a sustain pedal
-  - GUI and synth support for sustain via shift; improved sustain logic and GUI indication.
-- [x] Enforce dark mode theme
-- [x] Differentiate key states visually in piano_gui
+- [x] Multi-touch support and piano GUI refactor
+  - Multi-pointer tracking, state/rendering split, uses `wmidi::Note`/`Semitone`, debug assertions, interval display compatibility.
+- [x] Shift key acts as sustain pedal
+  - GUI and synth support, improved sustain logic, visual indication.
+- [x] Enforced dark mode theme
+- [x] Visual differentiation of key states in piano GUI
   - Distinct colors for pressed, sustained, and external keys.
-- [x] Extend synth sustain duration
-  - Reduced decay rate for longer sustain.
-- [x] Refactor piano_gui types into `piano_types.rs`
-  - Shared types (`Semitone`, `PointerId`, `KeySet`, `ExternalKeySet`) moved for modularity.
-- [x] Refactor business logic out of PianoGui into `PianoState`
-  - `PianoState` in `piano_state.rs` manages key state, sustain, and actions; GUI delegates logic; comprehensive unit tests.
-- [x] Tests for GUI and MIDI input, sustain pedal, and key/sustain interactions
-  - Verified correct action generation and GUI state for all input types and sustain scenarios.
+- [x] Extended synth sustain duration (slower decay)
+- [x] Piano GUI types refactored into `piano_types.rs`
+  - Shared types (`Semitone`, `PointerId`, `KeySet`, `ExternalKeySet`) for modularity.
+- [x] Piano business logic moved to `PianoState`
+  - Handles key state, sustain, actions; GUI delegates logic; unit tested.
+- [x] Tests for GUI/MIDI input, sustain pedal, key/sustain interactions
 - [x] External MIDI notes octave-normalized in GUI
-  - MIDI notes from any octave show on correct key; added tests and Semitone constants.
-- [x] Combine shift and MIDI sustain sources for synth pedal actions
-  - Synth receives pedal on/off only when both sources inactive; order-independent; tested.
+  - All MIDI notes display on correct key; added tests and Semitone constants.
+- [x] Combined shift and MIDI sustain sources for synth pedal actions
+  - Pedal on/off only when both inactive; order-independent; tested.
 - [x] Sustain pedal polarity toggle for MIDI controllers
-  - User-toggleable, persists in local storage, fixes inverted pedal behavior.
-- [x] Removed agent-generated change-description comments
-  - Codebase cleaned of non-useful change logs.
-- [x] Replace `#[allow(...)]` with `#[expect(...)]` wherever that makes sense
-  - Replaced most `#[allow(dead_code)]` with `#[expect(dead_code)]`; removed attributes where code is actually used; kept `#[allow(dead_code)]` for public API constants provided for convenience
-- [x] Write tests to ensure the reverb actually works. Make sure an impulse input results in a sensible output.
-  - Added comprehensive reverb tests covering impulse response, wet/dry mixing, room size effects, damping, parameter clamping, stability, and basic functionality. Fixed reverb initialization bug where `update_parameters()` wasn't called during construction.
+  - User-toggleable, persists in local storage, fixes inverted pedal.
+- [x] Removed agent-generated change-description comments from codebase
+- [x] Replaced most `#[allow(...)]` with `#[expect(...)]`
+  - Kept `#[allow(dead_code)]` only for public API constants provided for convenience.
+- [x] Reverb tests: impulse response, wet/dry, room size, damping, clamping, stability, initialization bug fixed.
 - [ ] model piano string stiffness inharmonicity
 - [ ] Calculate dissonances using critical bands theory (plomp levelt) instead.
     - This would allow us to calculate the dissonance of entire chords
