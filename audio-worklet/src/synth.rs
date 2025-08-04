@@ -758,4 +758,63 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_partial_phase_rem_euclid_no_discontinuities() {
+        // Test that rem_euclid phase wrapping doesn't create audio discontinuities
+        let mut voice = PianoVoice::new(44100.0);
+        let key = PianoKey::new(wmidi::Note::A4);
+        let velocity = wmidi::U7::try_from(100).unwrap();
+
+        voice.note_on(key, velocity);
+
+        // Track previous sample output and look for discontinuities during phase wrapping
+        let mut previous_sample = voice.process();
+        let mut max_discontinuity = 0.0f32;
+        let mut phase_wraps_detected = 0;
+
+        // Process enough samples to ensure multiple phase wraps for high frequency partials
+        // A4 (440Hz) with 8th harmonic (~3520Hz) at 44100Hz sample rate
+        // will wrap roughly every 12.5 samples, so 10000 samples ensures many wraps
+        for _ in 0..10000 {
+            // Store phase values before processing
+            let phases_before = voice.partial_phases;
+            
+            let current_sample = voice.process();
+            
+            // Store phase values after processing  
+            let phases_after = voice.partial_phases;
+            
+            // Check for phase wraps (when phase goes from high value to low value)
+            for i in 0..phases_before.len() {
+                const WRAP_THRESHOLD: f32 = 0.8; // If phase drops by more than this, it wrapped
+                if phases_before[i] > WRAP_THRESHOLD && phases_after[i] < (1.0 - WRAP_THRESHOLD) {
+                    phase_wraps_detected += 1;
+                }
+            }
+            
+            // Check for audio discontinuities
+            let diff = (current_sample - previous_sample).abs();
+            max_discontinuity = max_discontinuity.max(diff);
+            previous_sample = current_sample;
+        }
+
+        // Verify that we actually detected phase wraps (test is working)
+        assert!(
+            phase_wraps_detected > 0,
+            "No phase wraps detected - test may not be running long enough"
+        );
+
+        // Verify that phase wraps don't cause large audio discontinuities
+        // Piano signals can have legitimate sharp transients during attack, but
+        // phase wrapping artifacts would be much larger
+        const MAX_ALLOWED_DISCONTINUITY: f32 = 0.15;
+        assert!(
+            max_discontinuity < MAX_ALLOWED_DISCONTINUITY,
+            "Phase wrapping caused audio discontinuity: {} exceeds threshold {} (detected {} phase wraps)",
+            max_discontinuity,
+            MAX_ALLOWED_DISCONTINUITY,
+            phase_wraps_detected
+        );
+    }
 }
