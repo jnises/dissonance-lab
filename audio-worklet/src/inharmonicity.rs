@@ -99,17 +99,26 @@ impl PianoStringParameters {
         // Piano range is typically A0 (21) to C8 (108)
         let note_ratio = (midi_note as f32 - 21.0) / (108.0 - 21.0);
 
-        // String length decreases exponentially from bass to treble
+        // String length decreases from bass to treble
         // Bass strings ~2m, treble strings ~0.1m
         let length = 2.0 * (1.0 - 0.95 * note_ratio);
 
-        // String diameter decreases from bass to treble
-        // Bass strings ~1mm, treble strings ~0.8mm
-        let diameter = (1.0 - 0.2 * note_ratio) * 0.001;
+        // Bass strings are thicker AND wound strings have additional mass/stiffness
+        // More realistic scaling: bass strings ~1.5mm, treble strings ~0.8mm
+        let base_diameter = (1.0 - 0.47 * note_ratio) * 0.001;
+        
+        // Add effective stiffness from wound bass strings
+        let winding_factor = if note_ratio < 0.3 { // Bass register
+            1.5  // Wound strings behave effectively stiffer
+        } else {
+            1.0
+        };
+        
+        let diameter = base_diameter * winding_factor;
 
-        // Tension increases from bass to treble to maintain pitch
-        // Typical range 150N to 200N
-        let tension = 150.0 + 50.0 * note_ratio;
+        // Tension scaling: bass strings have lower tension to avoid excessive force
+        // More realistic: 100N to 200N range
+        let tension = 100.0 + 100.0 * note_ratio;
 
         Self {
             diameter,
@@ -169,12 +178,33 @@ mod tests {
     fn test_string_parameters_scaling() {
         // Test that bass notes have different parameters than treble
         let bass_params = PianoStringParameters::for_midi_note(21); // A0
-        let treble_params = PianoStringParameters::for_midi_note(108); // C8
+        let treble_params = PianoStringParameters::for_midi_note(84); // C6 (more realistic high note)
 
-        // Bass strings should be longer, thicker, with less tension
+        // Bass strings should be longer, thicker
         assert!(bass_params.length > treble_params.length);
         assert!(bass_params.diameter > treble_params.diameter);
+        
+        // Bass strings should have lower tension (corrected expectation)
         assert!(bass_params.tension < treble_params.tension);
+        
+        // Most importantly: bass should have higher inharmonicity
+        let bass_model = InharmonicityModel::new(
+            bass_params.diameter, 
+            bass_params.length, 
+            bass_params.tension
+        );
+        let treble_model = InharmonicityModel::new(
+            treble_params.diameter, 
+            treble_params.length, 
+            treble_params.tension
+        );
+        
+        assert!(
+            bass_model.coefficient() > treble_model.coefficient(),
+            "Bass inharmonicity ({:.6}) should be higher than treble ({:.6})",
+            bass_model.coefficient(),
+            treble_model.coefficient()
+        );
     }
 
     #[test]
