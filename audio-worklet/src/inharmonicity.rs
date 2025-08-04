@@ -67,7 +67,7 @@ impl InharmonicityModel {
         }
 
         let n = partial_number as f32;
-        let inharmonicity_factor = (1.0 + self.coefficient * n * n).sqrt();
+        let inharmonicity_factor = self.coefficient.mul_add(n * n, 1.0).sqrt();
         n * fundamental_freq * inharmonicity_factor
     }
 
