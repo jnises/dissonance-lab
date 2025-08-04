@@ -26,15 +26,6 @@
 - [x] Write tests to ensure the reverb actually works. Make sure an impulse input results in a sensible output.
   - Added comprehensive reverb tests covering impulse response, wet/dry mixing, room size effects, damping, parameter clamping, stability, and basic functionality. Fixed reverb initialization bug where `update_parameters()` wasn't called during construction.
 - [ ] model piano string stiffness inharmonicity
-- [ ] Change the order of the interval displays so the bottom row shows the first pressed note when using the mouse, and the actual base when using a midi keyboard.
-  - [ ] The `KeySet` type needs to keep track of the order of the keys
-  - [ ] Modify PianoGui to track the chronological order of mouse key presses
-  - [ ] Define what "actual base" means for MIDI keyboard input (e.g., lowest note, root note, etc.) Just assume that it is the lowest note for now.
-  - [ ] Add input source tracking to distinguish between mouse and MIDI input for each pressed key. If the input modes are mixed, just do some best effort solution. No need to spend much code for this case.
-  - [ ] Modify interval_display.rs to use different ordering logic based on input method
-  - [ ] Update the pressed_keys data structure to include ordering/priority information
-  - [ ] Test the new ordering behavior with both mouse and MIDI input
-- [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
 - [ ] Calculate dissonances using critical bands theory (plomp levelt) instead.
     - This would allow us to calculate the dissonance of entire chords
     - how do we handle the fact that we only show a single octave? just force the calculation to happen on a single central octave?
@@ -46,3 +37,4 @@
     - for more notes we show what chord they would result in
 - [ ] Make the console output from the audio worklet also forward back to the dev server. perhaps we need to have the audio worklet log using a message instead of straight to console
 - [ ] go through the codebase looking for comments that say what has been changed. as is typical of coding agents. remove those as they are not useful longterm
+- [ ] Could the midi input callback be moved out of the rust code to make it lower latency?
