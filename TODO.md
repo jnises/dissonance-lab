@@ -22,6 +22,15 @@
   - Kept `#[allow(dead_code)]` only for public API constants provided for convenience.
 - [x] Reverb tests: impulse response, wet/dry, room size, damping, clamping, stability, initialization bug fixed.
 - [ ] model piano string stiffness inharmonicity
+    - [x] Research inharmonicity physics and mathematical models (Railsback curve, inharmonicity coefficient B)
+    - [x] Implement inharmonicity coefficient calculation based on string properties
+    - [x] Modify PianoVoice harmonic generation to use inharmonic partials instead of integer multiples
+    - [x] Make sure the phase is implemented correctly now that the overtones are not integers. Similar to the existing detuned_phase.
+    - [x] Add realistic string parameters (tension, length, diameter) for different piano keys
+    - [x] Test that we don't get discontinuities due to phase wrapping
+        - Fixed by using individual phase accumulators for each inharmonic partial (partial_phases array)
+        - Added proper integration tests in synth module to verify actual implementation
+    - [ ] Test and validate inharmonicity model against real piano measurements
 - [ ] Calculate dissonances using critical bands theory (plomp levelt) instead.
     - This would allow us to calculate the dissonance of entire chords
     - how do we handle the fact that we only show a single octave? just force the calculation to happen on a single central octave?

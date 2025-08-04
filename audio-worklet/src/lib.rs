@@ -3,6 +3,7 @@ use shared_types::ToWorkletMessage;
 use wasm_bindgen::prelude::*;
 use web_sys::{AudioWorkletGlobalScope, MessagePort};
 
+pub mod inharmonicity;
 pub mod limiter;
 pub mod reverb;
 pub mod synth;

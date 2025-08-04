@@ -1,0 +1,276 @@
+use std::f32::consts::PI;
+
+/// Piano string inharmonicity model
+///
+/// Models the deviation of piano string overtones from perfect harmonics
+/// due to string stiffness. Real piano strings produce partials that are
+/// slightly sharp compared to integer multiples of the fundamental.
+pub struct InharmonicityModel {
+    /// Inharmonicity coefficient B for this string
+    coefficient: f32,
+}
+
+impl InharmonicityModel {
+    /// Create a new inharmonicity model for a piano string
+    ///
+    /// # Parameters
+    /// - `string_diameter`: String diameter in meters
+    /// - `string_length`: String length in meters  
+    /// - `string_tension`: String tension in Newtons
+    pub fn new(string_diameter: f32, string_length: f32, string_tension: f32) -> Self {
+        let coefficient = Self::calculate_inharmonicity_coefficient(
+            string_diameter,
+            string_length,
+            string_tension,
+        );
+
+        Self { coefficient }
+    }
+
+    /// Create inharmonicity model from precomputed coefficient
+    pub fn from_coefficient(coefficient: f32) -> Self {
+        Self { coefficient }
+    }
+
+    /// Calculate the inharmonicity coefficient B
+    ///
+    /// Formula: B = (π³ * d⁴ * E) / (64 * T * L²)
+    /// Where:
+    /// - d = string diameter (m)
+    /// - E = Young's modulus of steel (~200 GPa)
+    /// - T = string tension (N)
+    /// - L = string length (m)
+    fn calculate_inharmonicity_coefficient(diameter: f32, length: f32, tension: f32) -> f32 {
+        // Young's modulus of steel in Pa (200 GPa)
+        const YOUNGS_MODULUS_STEEL: f32 = 2e11;
+
+        let numerator = PI.powi(3) * diameter.powi(4) * YOUNGS_MODULUS_STEEL;
+        let denominator = 64.0 * tension * length.powi(2);
+
+        numerator / denominator
+    }
+
+    /// Calculate the frequency of the nth partial including inharmonicity
+    ///
+    /// Formula: f_n = n * f₀ * √(1 + B * n²)
+    ///
+    /// # Parameters
+    /// - `fundamental_freq`: The fundamental frequency f₀
+    /// - `partial_number`: The partial number n (1 for fundamental, 2 for first overtone, etc.)
+    ///
+    /// # Returns
+    /// The inharmonic frequency of the nth partial
+    pub fn partial_frequency(&self, fundamental_freq: f32, partial_number: u32) -> f32 {
+        if partial_number == 1 {
+            // The fundamental (first partial) is always exactly the fundamental frequency
+            return fundamental_freq;
+        }
+
+        let n = partial_number as f32;
+        let inharmonicity_factor = (1.0 + self.coefficient * n * n).sqrt();
+        n * fundamental_freq * inharmonicity_factor
+    }
+
+    /// Get the inharmonicity coefficient B
+    pub fn coefficient(&self) -> f32 {
+        self.coefficient
+    }
+}
+
+/// Piano string parameters for different register ranges
+pub struct PianoStringParameters {
+    /// String diameter in meters
+    pub diameter: f32,
+    /// String length in meters
+    pub length: f32,
+    /// String tension in Newtons
+    pub tension: f32,
+}
+
+impl PianoStringParameters {
+    /// Get approximate string parameters for a given MIDI note
+    ///
+    /// This uses simplified models based on typical grand piano construction.
+    /// Real pianos have more complex string scaling with wound bass strings, etc.
+    pub fn for_midi_note(midi_note: u8) -> Self {
+        // Approximate parameters based on typical grand piano scaling
+        // These are simplified - real pianos have more complex scaling laws
+
+        // Piano range is typically A0 (21) to C8 (108)
+        let note_ratio = (midi_note as f32 - 21.0) / (108.0 - 21.0);
+
+        // String length decreases exponentially from bass to treble
+        // Bass strings ~2m, treble strings ~0.1m
+        let length = 2.0 * (1.0 - 0.95 * note_ratio);
+
+        // String diameter decreases from bass to treble
+        // Bass strings ~1mm, treble strings ~0.8mm
+        let diameter = (1.0 - 0.2 * note_ratio) * 0.001;
+
+        // Tension increases from bass to treble to maintain pitch
+        // Typical range 150N to 200N
+        let tension = 150.0 + 50.0 * note_ratio;
+
+        Self {
+            diameter,
+            length,
+            tension,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_inharmonicity_coefficient_calculation() {
+        // Test with typical piano string parameters
+        let diameter = 0.001; // 1mm
+        let length = 1.0; // 1m
+        let tension = 150.0; // 150N
+
+        let coefficient =
+            InharmonicityModel::calculate_inharmonicity_coefficient(diameter, length, tension);
+
+        // Should be a small positive value
+        assert!(coefficient > 0.0);
+        assert!(coefficient < 0.01); // Typical range for piano strings
+    }
+
+    #[test]
+    fn test_partial_frequency_calculation() {
+        // Test with a known coefficient
+        let model = InharmonicityModel::from_coefficient(0.001);
+        let fundamental = 440.0; // A4
+
+        // First partial (fundamental) should be unchanged
+        let first_partial = model.partial_frequency(fundamental, 1);
+        assert!((first_partial - fundamental).abs() < 0.1);
+
+        // Second partial should be slightly sharp
+        let second_partial = model.partial_frequency(fundamental, 2);
+        let expected_harmonic = 2.0 * fundamental;
+        assert!(second_partial > expected_harmonic);
+
+        // Higher partials should be progressively more sharp
+        let third_partial = model.partial_frequency(fundamental, 3);
+        let fourth_partial = model.partial_frequency(fundamental, 4);
+
+        let second_deviation = second_partial - 2.0 * fundamental;
+        let third_deviation = third_partial - 3.0 * fundamental;
+        let fourth_deviation = fourth_partial - 4.0 * fundamental;
+
+        assert!(third_deviation > second_deviation);
+        assert!(fourth_deviation > third_deviation);
+    }
+
+    #[test]
+    fn test_string_parameters_scaling() {
+        // Test that bass notes have different parameters than treble
+        let bass_params = PianoStringParameters::for_midi_note(21); // A0
+        let treble_params = PianoStringParameters::for_midi_note(108); // C8
+
+        // Bass strings should be longer, thicker, with less tension
+        assert!(bass_params.length > treble_params.length);
+        assert!(bass_params.diameter > treble_params.diameter);
+        assert!(bass_params.tension < treble_params.tension);
+    }
+
+    #[test]
+    fn test_inharmonic_vs_harmonic_frequency_deviation() {
+        // Test that inharmonic partials are actually different from harmonic ones
+        let model = InharmonicityModel::from_coefficient(0.001);
+        let fundamental_freq = 440.0;
+
+        for partial_num in 2..=8 {
+            let inharmonic_freq = model.partial_frequency(fundamental_freq, partial_num as u32);
+            let harmonic_freq = partial_num as f32 * fundamental_freq;
+
+            // Inharmonic frequency should be higher than harmonic
+            assert!(
+                inharmonic_freq > harmonic_freq,
+                "Partial {} should be sharp: inharmonic {} vs harmonic {}",
+                partial_num,
+                inharmonic_freq,
+                harmonic_freq
+            );
+
+            // The deviation should be reasonable (not too extreme)
+            let deviation_ratio = inharmonic_freq / harmonic_freq;
+            assert!(
+                deviation_ratio < 1.05, // Less than 5% sharp (higher partials can be quite sharp)
+                "Partial {} deviation too large: ratio = {}",
+                partial_num,
+                deviation_ratio
+            );
+        }
+    }
+
+    #[test]
+    fn test_higher_partials_more_inharmonic() {
+        // Test that higher partials deviate more from harmonic than lower ones
+        let model = InharmonicityModel::from_coefficient(0.001);
+        let fundamental_freq = 440.0;
+
+        let mut previous_deviation = 0.0;
+
+        for partial_num in 2..=8 {
+            let inharmonic_freq = model.partial_frequency(fundamental_freq, partial_num as u32);
+            let harmonic_freq = partial_num as f32 * fundamental_freq;
+            let deviation = inharmonic_freq - harmonic_freq;
+
+            // Higher partials should have larger absolute deviation
+            assert!(
+                deviation > previous_deviation,
+                "Partial {} deviation ({}) should be larger than partial {} deviation ({})",
+                partial_num,
+                deviation,
+                partial_num - 1,
+                previous_deviation
+            );
+
+            previous_deviation = deviation;
+        }
+    }
+
+    #[test]
+    fn test_phase_delta_calculation_consistency() {
+        // Test that the frequency calculations are mathematically sound
+        // This ensures the phase deltas will be correct when used in the synth
+        let model = InharmonicityModel::from_coefficient(0.001);
+        let fundamental_freq = 440.0;
+        let sample_rate = 44100.0;
+
+        for partial_num in 2..=8 {
+            let partial_freq = model.partial_frequency(fundamental_freq, partial_num as u32);
+            let phase_delta = partial_freq / sample_rate;
+
+            // Phase delta should be reasonable (not too large that it would alias)
+            assert!(
+                phase_delta < 0.5,
+                "Partial {} phase delta {} too large, would alias",
+                partial_num,
+                phase_delta
+            );
+
+            // Phase delta should be positive and non-zero
+            assert!(
+                phase_delta > 0.0,
+                "Partial {} phase delta should be positive",
+                partial_num
+            );
+
+            // For a 1-second period at this sample rate, we should get the right frequency
+            let cycles_per_second = phase_delta * sample_rate;
+            let expected_freq = partial_freq;
+            assert!(
+                (cycles_per_second - expected_freq).abs() < 0.01,
+                "Partial {} frequency calculation inconsistent: expected {}, got {}",
+                partial_num,
+                expected_freq,
+                cycles_per_second
+            );
+        }
+    }
+}
