@@ -96,30 +96,41 @@ impl PianoStringParameters {
         // Approximate parameters based on typical grand piano scaling
         // These are simplified - real pianos have more complex scaling laws
 
-        // Piano range is typically A0 (21) to C8 (108)
-        let note_ratio = (midi_note as f32 - 21.0) / (108.0 - 21.0);
+        // Piano range constants
+        const MIDI_NOTE_MIN: f32 = 21.0; // A0
+        const MIDI_NOTE_MAX: f32 = 108.0; // C8
+        let note_ratio = (midi_note as f32 - MIDI_NOTE_MIN) / (MIDI_NOTE_MAX - MIDI_NOTE_MIN);
 
-        // String length decreases from bass to treble
-        // Bass strings ~2m, treble strings ~0.1m
-        let length = 2.0 * (1.0 - 0.95 * note_ratio);
+        // String length decreases linearly from bass to treble
+        const LENGTH_BASS: f32 = 2.0; // Bass strings ~2m
+        const LENGTH_SCALING_FACTOR: f32 = 0.95; // Treble strings ~0.1m (2.0 * (1.0 - 0.95) = 0.1m)
+        let length = LENGTH_BASS * (1.0 - LENGTH_SCALING_FACTOR * note_ratio);
 
         // Bass strings are thicker AND wound strings have additional mass/stiffness
         // More realistic scaling: bass strings ~1.5mm, treble strings ~0.8mm
-        let base_diameter = (1.0 - 0.47 * note_ratio) * 0.001;
+        const DIAMETER_SCALING_FACTOR: f32 = 0.47;
+        const DIAMETER_CONVERSION: f32 = 0.001; // Convert mm to meters
+        let base_diameter = (1.0 - DIAMETER_SCALING_FACTOR * note_ratio) * DIAMETER_CONVERSION;
 
         // Add effective stiffness from wound bass strings
-        let winding_factor = if note_ratio < 0.3 {
+        const BASS_REGISTER_THRESHOLD: f32 = 0.3; // Notes below this ratio are considered bass
+        const WOUND_STRING_STIFFNESS_FACTOR: f32 = 1.5; // Wound strings behave effectively stiffer
+        const PLAIN_STRING_FACTOR: f32 = 1.0;
+        
+        let winding_factor = if note_ratio < BASS_REGISTER_THRESHOLD {
             // Bass register
-            1.5 // Wound strings behave effectively stiffer
+            WOUND_STRING_STIFFNESS_FACTOR
         } else {
-            1.0
+            PLAIN_STRING_FACTOR
         };
 
         let diameter = base_diameter * winding_factor;
 
         // Tension scaling: bass strings have lower tension to avoid excessive force
-        // More realistic: 100N to 200N range
-        let tension = 100.0 + 100.0 * note_ratio;
+        // Linear increase from bass to treble: 100N to 200N range
+        const TENSION_BASS: f32 = 100.0; // Newtons
+        const TENSION_RANGE: f32 = 100.0; // Newtons (200N - 100N)
+        let tension = TENSION_BASS + TENSION_RANGE * note_ratio;
 
         Self {
             diameter,
