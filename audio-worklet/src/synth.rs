@@ -33,6 +33,7 @@ impl PianoKey {
 
 /// Piano voice with oscillator and envelope
 struct PianoVoice {
+    // TODO: couldn't these be part of the partial_phases array?
     phase: f32,
     detuned_phase: f32,
     phase_delta: f32,
@@ -49,7 +50,7 @@ struct PianoVoice {
     // Inharmonicity model for realistic piano string behavior
     inharmonicity: InharmonicityModel,
     // Individual phase accumulators for inharmonic partials
-    partial_phases: [f32; 8], // Phases for partials 2-8 (partial 1 uses main phase)
+    partial_phases: [f32; 7], // Phases for partials 2-8 (partial 1 uses main phase)
     // Cached phase deltas for inharmonic partials to avoid recalculation in hot path
     partial_phase_deltas: [f32; 7], // Phase deltas for partials 2-8 (7 partials)
 }
@@ -94,7 +95,7 @@ impl PianoVoice {
             attack_phase: 0.0, // Initialize attack phase
             note_phase: 0.0,
             inharmonicity,
-            partial_phases: [0.0; 8], // Initialize all partial phases to 0
+            partial_phases: [0.0; 7], // Initialize all partial phases to 0
             partial_phase_deltas: [0.0; 7], // Initialize all partial phase deltas to 0
         }
     }
