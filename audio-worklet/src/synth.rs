@@ -69,11 +69,7 @@ impl PianoVoice {
         // Use middle C (MIDI 60) as default
         const DEFAULT_MIDI_NOTE: u8 = 60;
         let string_params = PianoStringParameters::for_midi_note(DEFAULT_MIDI_NOTE);
-        let inharmonicity = InharmonicityModel::new(
-            string_params.diameter,
-            string_params.length,
-            string_params.tension,
-        );
+        let inharmonicity: InharmonicityModel = string_params.into();
 
         Self {
             phase: 0.0,
@@ -117,11 +113,7 @@ impl PianoVoice {
         // Update inharmonicity model for this specific note
         let midi_note_value = u8::from(key.midi_note);
         let string_params = PianoStringParameters::for_midi_note(midi_note_value);
-        self.inharmonicity = InharmonicityModel::new(
-            string_params.diameter,
-            string_params.length,
-            string_params.tension,
-        );
+        self.inharmonicity = string_params.into();
 
         self.update_phase_delta();
 

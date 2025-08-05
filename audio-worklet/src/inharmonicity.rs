@@ -87,6 +87,12 @@ pub struct PianoStringParameters {
     pub tension: f32,
 }
 
+impl From<PianoStringParameters> for InharmonicityModel {
+    fn from(params: PianoStringParameters) -> Self {
+        Self::new(params.diameter, params.length, params.tension)
+    }
+}
+
 impl PianoStringParameters {
     /// Get approximate string parameters for a given MIDI note
     ///
@@ -200,16 +206,8 @@ mod tests {
         assert!(bass_params.tension < treble_params.tension);
 
         // Most importantly: bass should have higher inharmonicity
-        let bass_model = InharmonicityModel::new(
-            bass_params.diameter,
-            bass_params.length,
-            bass_params.tension,
-        );
-        let treble_model = InharmonicityModel::new(
-            treble_params.diameter,
-            treble_params.length,
-            treble_params.tension,
-        );
+        let bass_model: InharmonicityModel = bass_params.into();
+        let treble_model: InharmonicityModel = treble_params.into();
 
         assert!(
             bass_model.coefficient() > treble_model.coefficient(),
