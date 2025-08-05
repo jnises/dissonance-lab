@@ -122,7 +122,7 @@ impl PianoStringParameters {
         const BASS_REGISTER_THRESHOLD: f32 = 0.3; // Notes below this ratio are considered bass
         const WOUND_STRING_STIFFNESS_FACTOR: f32 = 1.5; // Wound strings behave effectively stiffer
         const PLAIN_STRING_FACTOR: f32 = 1.0;
-        
+
         let winding_factor = if note_ratio < BASS_REGISTER_THRESHOLD {
             // Bass register
             WOUND_STRING_STIFFNESS_FACTOR
