@@ -1,6 +1,13 @@
-use crate::{limiter::Limiter, reverb::Reverb};
+use crate::{
+    inharmonicity::{InharmonicityModel, PianoStringParameters},
+    limiter::Limiter,
+    reverb::Reverb,
+};
 use bitvec::{BitArr, order::Msb0};
 use std::{cmp::Ordering, f32::consts::PI};
+
+mod envelope;
+use envelope::{EnvelopeGenerator, EnvelopeState};
 
 /// Synth trait for audio synthesis
 pub trait Synth {
@@ -24,165 +31,9 @@ impl PianoKey {
     }
 }
 
-/// Envelope generator for ADSR (Attack, Decay, Sustain, Release)
-struct EnvelopeGenerator {
-    sustain_level: f32, // 0.0 to 1.0
-    current_level: f32,
-    state: EnvelopeState,
-    sustain_decay_rate: f32,   // Piano-like sustain decay
-    attack_rate: Option<f32>,  // Precalculated attack rate
-    decay_rate: Option<f32>,   // Precalculated decay rate
-    release_rate: Option<f32>, // Precalculated release rate
-    velocity_level: f32,       // Velocity scaling factor (0.0 to 1.0)
-}
-
-#[derive(PartialEq, Eq, Debug)]
-enum EnvelopeState {
-    Idle,
-    Attack,
-    Decay,
-    Sustain,
-    Release,
-}
-
-impl EnvelopeGenerator {
-    /// Create a new envelope generator with given ADSR parameters
-    /// - `attack`: Attack time in seconds
-    /// - `decay`: Decay time in seconds
-    /// - `sustain`: Sustain level (0.0 to 1.0)
-    /// - `release`: Release time in seconds
-    /// - `sample_rate`: Sample rate in Hz
-    fn new(attack: f32, decay: f32, sustain: f32, release: f32, sample_rate: f32) -> Self {
-        const EPSILON: f32 = 0.000001;
-
-        let attack_rate = if attack > EPSILON {
-            Some(1.0 / (sample_rate * attack))
-        } else {
-            None // Immediate attack
-        };
-
-        let decay_rate = if decay > EPSILON {
-            Some((1.0 - sustain) / (sample_rate * decay))
-        } else {
-            None // Immediate decay
-        };
-
-        let release_rate = if release > EPSILON {
-            Some(1.0 / (sample_rate * release))
-        } else {
-            None // Immediate release
-        };
-
-        Self {
-            sustain_level: sustain,
-            current_level: 0.0,
-            state: EnvelopeState::Idle,
-            // Will be set based on note frequency
-            sustain_decay_rate: 0.0,
-            attack_rate,
-            decay_rate,
-            release_rate,
-            velocity_level: 1.0, // Default full velocity
-        }
-    }
-
-    fn trigger(&mut self) {
-        self.state = EnvelopeState::Attack;
-        // Don't reset level to 0 to allow legato playing
-    }
-
-    fn release(&mut self) {
-        self.state = EnvelopeState::Release;
-    }
-
-    fn set_sustain_decay_rate(&mut self, rate: f32) {
-        self.sustain_decay_rate = rate;
-    }
-
-    fn set_velocity(&mut self, velocity: f32) {
-        self.velocity_level = velocity;
-    }
-
-    #[inline]
-    fn process(&mut self) -> f32 {
-        const MIN_ENVELOPE_LEVEL: f32 = 0.0;
-        match self.state {
-            EnvelopeState::Idle => {
-                self.current_level = MIN_ENVELOPE_LEVEL;
-            }
-            EnvelopeState::Attack => {
-                const MAX_ENVELOPE_LEVEL: f32 = 1.0;
-                if let Some(rate) = self.attack_rate {
-                    self.current_level += rate;
-                    if self.current_level >= MAX_ENVELOPE_LEVEL {
-                        self.current_level = MAX_ENVELOPE_LEVEL;
-                        self.state = EnvelopeState::Decay;
-                    }
-                } else {
-                    self.current_level = MAX_ENVELOPE_LEVEL;
-                    self.state = EnvelopeState::Decay;
-                }
-            }
-            EnvelopeState::Decay => {
-                if let Some(rate) = self.decay_rate {
-                    self.current_level -= rate;
-                    if self.current_level <= self.sustain_level {
-                        self.current_level = self.sustain_level;
-                        self.state = EnvelopeState::Sustain;
-                    }
-                } else {
-                    self.current_level = self.sustain_level;
-                    self.state = EnvelopeState::Sustain;
-                }
-            }
-            EnvelopeState::Sustain => {
-                // Piano-like sustain: gradually decays instead of holding steady
-                self.current_level -= self.sustain_decay_rate;
-                if self.current_level <= MIN_ENVELOPE_LEVEL {
-                    self.current_level = MIN_ENVELOPE_LEVEL;
-                    self.state = EnvelopeState::Idle;
-                }
-            }
-            EnvelopeState::Release => {
-                if let Some(rate) = self.release_rate {
-                    // Piano strings don't follow simple exponential decay
-                    // They have a more complex release with initially faster decay
-                    // followed by a longer tail
-
-                    const RELEASE_THRESHOLD: f32 = 0.0001; // -80dB
-                    const INITIAL_DECAY_FACTOR: f32 = 2.5; // Initial decay is faster
-                    const INITIAL_DECAY_THRESHOLD: f32 = 0.1;
-
-                    self.current_level -= rate
-                        * self.current_level
-                        * if self.current_level > INITIAL_DECAY_THRESHOLD {
-                            INITIAL_DECAY_FACTOR
-                        } else {
-                            1.0
-                        };
-
-                    if self.current_level <= RELEASE_THRESHOLD {
-                        self.current_level = MIN_ENVELOPE_LEVEL;
-                        self.state = EnvelopeState::Idle;
-                    }
-                } else {
-                    self.current_level = MIN_ENVELOPE_LEVEL;
-                    self.state = EnvelopeState::Idle;
-                }
-            }
-        }
-
-        // Apply velocity scaling to the envelope output
-        self.current_level * self.velocity_level
-    }
-
-    fn is_active(&self) -> bool {
-        self.state != EnvelopeState::Idle
-    }
-}
-
 /// Piano voice with oscillator and envelope
 struct PianoVoice {
+    // TODO: couldn't these be part of the partial_phases array?
     phase: f32,
     detuned_phase: f32,
     phase_delta: f32,
@@ -196,6 +47,12 @@ struct PianoVoice {
     velocity: f32,     // Normalized velocity (0.0 to 1.0)
     attack_phase: f32, // Tracks progress through attack portion (0.0 to 1.0)
     note_phase: f32,
+    // Inharmonicity model for realistic piano string behavior
+    inharmonicity: InharmonicityModel,
+    // Individual phase accumulators for inharmonic partials
+    partial_phases: [f32; 7], // Phases for partials 2-8 (partial 1 uses main phase)
+    // Cached phase deltas for inharmonic partials to avoid recalculation in hot path
+    partial_phase_deltas: [f32; 7], // Phase deltas for partials 2-8 (7 partials)
 }
 
 impl PianoVoice {
@@ -207,6 +64,12 @@ impl PianoVoice {
 
         const DETUNING: f32 = 1.003; // Creates chorus-like effect for richer tone
         const BRIGHTNESS: f32 = 0.8; // Controls higher harmonic content
+
+        // Initialize with a default inharmonicity - will be updated when note is played
+        // Use middle C (MIDI 60) as default
+        const DEFAULT_MIDI_NOTE: u8 = 60;
+        let string_params = PianoStringParameters::for_midi_note(DEFAULT_MIDI_NOTE);
+        let inharmonicity: InharmonicityModel = string_params.into();
 
         Self {
             phase: 0.0,
@@ -227,6 +90,9 @@ impl PianoVoice {
             velocity: 1.0,     // Default full velocity
             attack_phase: 0.0, // Initialize attack phase
             note_phase: 0.0,
+            inharmonicity,
+            partial_phases: [0.0; 7], // Initialize all partial phases to 0
+            partial_phase_deltas: [0.0; 7], // Initialize all partial phase deltas to 0
         }
     }
 
@@ -243,6 +109,12 @@ impl PianoVoice {
         const VELOCITY_DECAY_FACTOR: f32 = 0.3;
 
         self.current_key = Some(key);
+
+        // Update inharmonicity model for this specific note
+        let midi_note_value = u8::from(key.midi_note);
+        let string_params = PianoStringParameters::for_midi_note(midi_note_value);
+        self.inharmonicity = string_params.into();
+
         self.update_phase_delta();
 
         // Power curve provides more natural dynamic response than linear mapping
@@ -252,6 +124,8 @@ impl PianoVoice {
         self.envelope.set_velocity(self.velocity);
         self.attack_phase = 0.0; // Reset attack phase on new note
         self.note_phase = 0.0;
+
+        // Don't reset partial_phases to maintain legato playing consistency with main phases
 
         // Model frequency-dependent decay behavior of real piano strings
         // Physics: higher frequency strings have less mass and dissipate energy faster
@@ -282,6 +156,17 @@ impl PianoVoice {
     fn update_phase_delta(&mut self) {
         if let Some(key) = &self.current_key {
             self.phase_delta = key.frequency / self.sample_rate;
+
+            // Cache partial phase deltas to avoid recalculation in hot audio processing loop
+            let fundamental_freq = key.frequency;
+            for partial_num in 2..=8 {
+                let partial_freq = self
+                    .inharmonicity
+                    .partial_frequency(fundamental_freq, partial_num as u32);
+                let partial_phase_delta = partial_freq / self.sample_rate;
+                let partial_index = (partial_num - 2) as usize; // Array index (0-6 for partials 2-8)
+                self.partial_phase_deltas[partial_index] = partial_phase_delta;
+            }
         }
     }
 
@@ -320,6 +205,12 @@ impl PianoVoice {
             (self.detuned_phase + self.phase_delta * self.detuning).rem_euclid(MAX_PHASE);
         self.note_phase += self.phase_delta;
 
+        // Update individual phase accumulators for inharmonic partials using cached phase deltas
+        for (partial_index, &cached_phase_delta) in self.partial_phase_deltas.iter().enumerate() {
+            self.partial_phases[partial_index] =
+                (self.partial_phases[partial_index] + cached_phase_delta).rem_euclid(MAX_PHASE);
+        }
+
         let mut sample = 0.0;
 
         // Calculate attack intensity - strongest at the beginning
@@ -330,18 +221,14 @@ impl PianoVoice {
         const THIRD_HARMONIC_AMPLITUDE: f32 = 0.15;
         const TWO_PI: f32 = 2.0 * PI;
 
-        // Fundamental
+        // Fundamental (always exactly 1.0 multiplier, uses main phase)
         sample += FUNDAMENTAL_AMPLITUDE * (TWO_PI * self.phase).sin();
 
-        // Second harmonic - quite strong in pianos
-        const SECOND_HARMONIC_MULTIPLIER: f32 = 2.0;
-        sample +=
-            SECOND_HARMONIC_AMPLITUDE * (SECOND_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
+        // Second partial - inharmonic (uses partial_phases[0])
+        sample += SECOND_HARMONIC_AMPLITUDE * (TWO_PI * self.partial_phases[0]).sin();
 
-        // Third harmonic
-        const THIRD_HARMONIC_MULTIPLIER: f32 = 3.0;
-        sample +=
-            THIRD_HARMONIC_AMPLITUDE * (THIRD_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
+        // Third partial - inharmonic (uses partial_phases[1])
+        sample += THIRD_HARMONIC_AMPLITUDE * (TWO_PI * self.partial_phases[1]).sin();
 
         const DYNAMIC_BRIGHTNESS_BASE: f32 = 0.7;
         const DYNAMIC_BRIGHTNESS_VELOCITY_FACTOR: f32 = 0.3;
@@ -358,41 +245,36 @@ impl PianoVoice {
 
         const FOURTH_HARMONIC_AMPLITUDE: f32 = 0.2;
         const FIFTH_HARMONIC_AMPLITUDE: f32 = 0.14;
-        const FOURTH_HARMONIC_MULTIPLIER: f32 = 4.0;
-        const FIFTH_HARMONIC_MULTIPLIER: f32 = 5.0;
 
         sample += dynamic_brightness
             * FOURTH_HARMONIC_AMPLITUDE
             * attack_harmonic_boost
-            * (FOURTH_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
+            * (TWO_PI * self.partial_phases[2]).sin(); // 4th partial
         sample += dynamic_brightness
             * FIFTH_HARMONIC_AMPLITUDE
             * attack_harmonic_boost
-            * (FIFTH_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
+            * (TWO_PI * self.partial_phases[3]).sin(); // 5th partial
 
         const ATTACK_INTENSITY_THRESHOLD: f32 = 0.01;
 
         const SIXTH_HARMONIC_AMPLITUDE: f32 = 0.05;
         const SEVENTH_HARMONIC_AMPLITUDE: f32 = 0.03;
         const EIGHTH_HARMONIC_AMPLITUDE: f32 = 0.02;
-        const SIXTH_HARMONIC_MULTIPLIER: f32 = 6.0;
-        const SEVENTH_HARMONIC_MULTIPLIER: f32 = 7.0;
-        const EIGHTH_HARMONIC_MULTIPLIER: f32 = 8.0;
 
         // Add even higher harmonics during attack for hammer "ping"
         if attack_intensity > ATTACK_INTENSITY_THRESHOLD {
             sample += dynamic_brightness
                 * SIXTH_HARMONIC_AMPLITUDE
                 * attack_intensity
-                * (SIXTH_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
+                * (TWO_PI * self.partial_phases[4]).sin(); // 6th partial
             sample += dynamic_brightness
                 * SEVENTH_HARMONIC_AMPLITUDE
                 * attack_intensity
-                * (SEVENTH_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
+                * (TWO_PI * self.partial_phases[5]).sin(); // 7th partial
             sample += dynamic_brightness
                 * EIGHTH_HARMONIC_AMPLITUDE
                 * attack_intensity
-                * (EIGHTH_HARMONIC_MULTIPLIER * TWO_PI * self.phase).sin();
+                * (TWO_PI * self.partial_phases[6]).sin(); // 8th partial
         }
 
         const DETUNED_OSCILLATOR_AMPLITUDE: f32 = 0.1;
@@ -506,8 +388,8 @@ impl PianoSynth {
                 .filter(|(_, v)| v.envelope.state == EnvelopeState::Release)
                 .min_by(|(_, a), (_, b)| {
                     a.envelope
-                        .current_level
-                        .partial_cmp(&b.envelope.current_level)
+                        .current_level()
+                        .partial_cmp(&b.envelope.current_level())
                         .unwrap_or(Ordering::Equal)
                 })
                 .map(|(idx, _)| idx);
@@ -523,8 +405,8 @@ impl PianoSynth {
                     .filter(|(_, v)| v.envelope.state == EnvelopeState::Sustain)
                     .min_by(|(_, a), (_, b)| {
                         a.envelope
-                            .current_level
-                            .partial_cmp(&b.envelope.current_level)
+                            .current_level()
+                            .partial_cmp(&b.envelope.current_level())
                             .unwrap_or(Ordering::Equal)
                     })
                     .map(|(idx, _)| idx);
@@ -538,8 +420,8 @@ impl PianoSynth {
                         .enumerate()
                         .min_by(|(_, a), (_, b)| {
                             a.envelope
-                                .current_level
-                                .partial_cmp(&b.envelope.current_level)
+                                .current_level()
+                                .partial_cmp(&b.envelope.current_level())
                                 .unwrap_or(Ordering::Equal)
                         })
                         .map(|(idx, _)| idx)
@@ -624,6 +506,196 @@ impl Synth for PianoSynth {
             for c in out_channels.iter_mut() {
                 *c = s;
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_inharmonic_phase_continuity() {
+        // Test that the actual synth implementation doesn't create discontinuities
+        let mut synth = PianoSynth::new();
+        let sample_rate = 44100;
+        let num_channels = 1;
+
+        // Initialize synth
+        let mut init_buffer = vec![0.0f32; num_channels];
+        synth.play(sample_rate, num_channels, &mut init_buffer);
+
+        // Play a note
+        let note = wmidi::Note::A4;
+        let velocity = wmidi::U7::try_from(100).unwrap();
+        synth.note_on(note, velocity);
+
+        // Generate audio and check for large discontinuities
+        const BUFFER_SIZE: usize = 1024;
+        let mut buffer = vec![0.0f32; BUFFER_SIZE * num_channels];
+        let mut previous_sample = 0.0f32;
+        let mut max_discontinuity = 0.0f32;
+
+        // Process several buffers to test phase wrapping
+        for _ in 0..100 {
+            synth.play(sample_rate, num_channels, &mut buffer);
+
+            for &sample in buffer.iter().step_by(num_channels) {
+                let diff = (sample - previous_sample).abs();
+                max_discontinuity = max_discontinuity.max(diff);
+                previous_sample = sample;
+            }
+        }
+
+        // Allow for normal audio signal variation but catch phase jumps
+        // Piano signals can have sharp attacks, so be reasonable with threshold
+        // Actual measured discontinuity is ~0.027, so 0.1 provides good safety margin
+        const MAX_ALLOWED_DISCONTINUITY: f32 = 0.1;
+        assert!(
+            max_discontinuity < MAX_ALLOWED_DISCONTINUITY,
+            "Audio discontinuity detected: {max_discontinuity} exceeds threshold {MAX_ALLOWED_DISCONTINUITY}"
+        );
+    }
+
+    #[test]
+    fn test_voice_phase_accumulator_independence() {
+        // Test that each partial's phase accumulator works independently
+        let mut voice = PianoVoice::new(44100.0);
+        let key = PianoKey::new(wmidi::Note::A4);
+        let velocity = wmidi::U7::try_from(100).unwrap();
+
+        voice.note_on(key, velocity);
+
+        // Process several samples and verify partial phases are different
+        for _ in 0..1000 {
+            voice.process();
+        }
+
+        // Check that partial phases have different values (they advance at different rates)
+        let mut all_same = true;
+        let first_phase = voice.partial_phases[0];
+        for &phase in &voice.partial_phases[1..] {
+            if (phase - first_phase).abs() > 0.01 {
+                all_same = false;
+                break;
+            }
+        }
+
+        assert!(
+            !all_same,
+            "All partial phases are the same - inharmonic advancement not working"
+        );
+
+        // Verify all phases are in valid range [0.0, 1.0)
+        for (i, &phase) in voice.partial_phases.iter().enumerate() {
+            assert!(
+                (0.0..1.0).contains(&phase),
+                "Partial {partial_index} phase {phase} out of range [0.0, 1.0)",
+                partial_index = i + 2
+            );
+        }
+    }
+
+    #[test]
+    fn test_partial_phase_rem_euclid_no_discontinuities() {
+        // Test that rem_euclid phase wrapping doesn't create audio discontinuities
+        let mut voice = PianoVoice::new(44100.0);
+        let key = PianoKey::new(wmidi::Note::A4);
+        let velocity = wmidi::U7::try_from(100).unwrap();
+
+        voice.note_on(key, velocity);
+
+        // Track previous sample output and look for discontinuities during phase wrapping
+        let mut previous_sample = voice.process();
+        let mut max_discontinuity = 0.0f32;
+        let mut phase_wraps_detected = 0;
+
+        // Process enough samples to ensure multiple phase wraps for high frequency partials
+        // A4 (440Hz) with 8th harmonic (~3520Hz) at 44100Hz sample rate
+        // will wrap roughly every 12.5 samples, so 10000 samples ensures many wraps
+        for _ in 0..10000 {
+            // Store phase values before processing
+            let phases_before = voice.partial_phases;
+
+            let current_sample = voice.process();
+
+            // Store phase values after processing
+            let phases_after = voice.partial_phases;
+
+            // Check for phase wraps (when phase goes from high value to low value)
+            for i in 0..phases_before.len() {
+                const WRAP_THRESHOLD: f32 = 0.8; // If phase drops by more than this, it wrapped
+                if phases_before[i] > WRAP_THRESHOLD && phases_after[i] < (1.0 - WRAP_THRESHOLD) {
+                    phase_wraps_detected += 1;
+                }
+            }
+
+            // Check for audio discontinuities
+            let diff = (current_sample - previous_sample).abs();
+            max_discontinuity = max_discontinuity.max(diff);
+            previous_sample = current_sample;
+        }
+
+        // Verify that we actually detected phase wraps (test is working)
+        assert!(
+            phase_wraps_detected > 0,
+            "No phase wraps detected - test may not be running long enough"
+        );
+
+        // Verify that phase wraps don't cause large audio discontinuities
+        // Piano signals can have legitimate sharp transients during attack, but
+        // phase wrapping artifacts would be much larger
+        const MAX_ALLOWED_DISCONTINUITY: f32 = 0.15;
+        assert!(
+            max_discontinuity < MAX_ALLOWED_DISCONTINUITY,
+            "Phase wrapping caused audio discontinuity: {max_discontinuity} exceeds threshold {MAX_ALLOWED_DISCONTINUITY} (detected {phase_wraps_detected} phase wraps)"
+        );
+    }
+
+    #[test]
+    fn test_partial_phase_delta_caching() {
+        // Test that partial phase deltas are correctly cached when a note is played
+        let mut voice = PianoVoice::new(44100.0);
+        let key = PianoKey::new(wmidi::Note::A4);
+        let velocity = wmidi::U7::try_from(100).unwrap();
+
+        // Initially, all cached phase deltas should be 0
+        for &delta in &voice.partial_phase_deltas {
+            assert_eq!(delta, 0.0, "Initial partial phase delta should be 0");
+        }
+
+        voice.note_on(key, velocity);
+
+        // After note_on, cached phase deltas should be non-zero and different
+        let mut all_zero = true;
+        let mut all_same = true;
+        let first_delta = voice.partial_phase_deltas[0];
+
+        for &delta in &voice.partial_phase_deltas {
+            if delta != 0.0 {
+                all_zero = false;
+            }
+            if (delta - first_delta).abs() > 0.0001 {
+                all_same = false;
+            }
+        }
+
+        assert!(
+            !all_zero,
+            "Cached phase deltas should be non-zero after note_on"
+        );
+        assert!(
+            !all_same,
+            "Cached phase deltas should be different for different partials"
+        );
+
+        // Verify that cached values are reasonable (positive and less than 1.0 for A4)
+        for (i, &delta) in voice.partial_phase_deltas.iter().enumerate() {
+            assert!(
+                delta > 0.0 && delta < 1.0,
+                "Partial {partial_num} phase delta {delta} should be in range (0.0, 1.0)",
+                partial_num = i + 2
+            );
         }
     }
 }
