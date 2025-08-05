@@ -51,6 +51,6 @@ The project it split into multiple crates. All in the same cargo workspace.
 
 # Temporary Tools
 - If you need to create temporary scripts, tools, or files for debugging, analysis, or one-time tasks, place them in `tmp/` directory at the project root.
-- When creating temporary scripts or tools, set them up as separate cargo projects instead of standalone `.rs` files.
+- When creating temporary scripts or tools, set them up as separate cargo projects instead of standalone `.rs` files. Remember to add `[workspace]` to take them out of the main workspace if needed.
 - Clean up temporary files when they are no longer needed.
 

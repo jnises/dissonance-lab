@@ -1,46 +1,35 @@
-- [x] Multi-touch support and piano GUI refactor
-  - Multi-pointer tracking, state/rendering split, uses `wmidi::Note`/`Semitone`, debug assertions, interval display compatibility.
-- [x] Shift key acts as sustain pedal
-  - GUI and synth support, improved sustain logic, visual indication.
-- [x] Enforced dark mode theme
-- [x] Visual differentiation of key states in piano GUI
-  - Distinct colors for pressed, sustained, and external keys.
-- [x] Extended synth sustain duration (slower decay)
-- [x] Piano GUI types refactored into `piano_types.rs`
-  - Shared types (`Semitone`, `PointerId`, `KeySet`, `ExternalKeySet`) for modularity.
-- [x] Piano business logic moved to `PianoState`
-  - Handles key state, sustain, actions; GUI delegates logic; unit tested.
-- [x] Tests for GUI/MIDI input, sustain pedal, key/sustain interactions
-- [x] External MIDI notes octave-normalized in GUI
-  - All MIDI notes display on correct key; added tests and Semitone constants.
-- [x] Combined shift and MIDI sustain sources for synth pedal actions
-  - Pedal on/off only when both inactive; order-independent; tested.
-- [x] Sustain pedal polarity toggle for MIDI controllers
-  - User-toggleable, persists in local storage, fixes inverted pedal.
-- [x] Removed agent-generated change-description comments from codebase
-- [x] Replaced most `#[allow(...)]` with `#[expect(...)]`
-  - Kept `#[allow(dead_code)]` only for public API constants provided for convenience.
+- [x] Multi-touch and piano GUI refactor: supports multiple pointers, separates state/rendering, uses `wmidi::Note`/`Semitone`, debug assertions, interval display compatible.
+- [x] Shift key as sustain pedal: GUI/synth support, improved sustain logic, visual indicator.
+- [x] Dark mode enforced.
+- [x] Piano GUI: distinct colors for pressed, sustained, and external keys.
+- [x] Extended synth sustain (slower decay).
+- [x] Piano types in `piano_types.rs`: shared types for modularity.
+- [x] Piano logic in `PianoState`: handles key state, sustain, actions; GUI delegates logic; unit tested.
+- [x] Tests for GUI/MIDI input, sustain pedal, key/sustain interactions.
+- [x] External MIDI notes octave-normalized in GUI; added tests and Semitone constants.
+- [x] Combined shift and MIDI sustain for synth pedal; order-independent; tested.
+- [x] Sustain pedal polarity toggle for MIDI controllers; user-toggleable, persists in local storage.
+- [x] Removed agent-generated change-description comments from codebase.
+- [x] Replaced most `#[allow(...)]` with `#[expect(...)]`; kept `#[allow(dead_code)]` for public API constants.
 - [x] Reverb tests: impulse response, wet/dry, room size, damping, clamping, stability, initialization bug fixed.
-- [x] model piano string stiffness inharmonicity
-    - [x] Research inharmonicity physics and mathematical models (Railsback curve, inharmonicity coefficient B)
-    - [x] Implement inharmonicity coefficient calculation based on string properties
-    - [x] Modify PianoVoice harmonic generation to use inharmonic partials instead of integer multiples
-    - [x] Make sure the phase is implemented correctly now that the overtones are not integers. Similar to the existing detuned_phase.
-    - [x] Add realistic string parameters (tension, length, diameter) for different piano keys
-    - [x] Test that we don't get discontinuities due to phase wrapping
-        - Fixed by using individual phase accumulators for each inharmonic partial (partial_phases array)
-        - Added proper integration tests in synth module to verify actual implementation
-    - [x] Test and validate inharmonicity model against real piano measurements
-        - Validated inharmonicity coefficients against research literature (Järveläinen et al.)
-        - Confirmed bass strings have higher inharmonicity than treble (corrected string parameter scaling)
-        - Verified progressive sharpening of higher partials matches real piano behavior
-        - Ensured coefficient values fall within realistic ranges (0.0001-0.005 for piano strings)
-        - Added comprehensive validation tests and corrected string tension/diameter scaling
+- [x] Piano string inharmonicity modeled:
+  - Inharmonicity coefficient (B) calculated from string properties.
+  - Harmonics use inharmonic partials; phase handled per partial.
+  - Realistic string parameters for keys; validated against literature (Järveläinen et al.).
+  - Bass strings have higher inharmonicity; progressive sharpening of higher partials.
+  - Validation tests ensure coefficients and scaling are realistic.
 - [ ] Calculate dissonances using critical bands theory (plomp levelt) instead.
+    - [x] Research Plomp & Levelt's critical bands theory and collect mathematical formulas/parameters
+    - [x] Design octave normalization strategy: determine how to handle single-octave display with multi-octave calculations
+    - [x] Investigate root note dependency: research whether critical bands theory requires knowledge of chord root
+    - [x] Create prototype implementation for interval dissonance using critical bands
+    - [x] Extend implementation to support chord dissonance calculations
+    - [ ] Compare results with current hardcoded system and validate against known examples
+    - [ ] Replace current dissonance system with critical bands implementation
     - This would allow us to calculate the dissonance of entire chords
-    - how do we handle the fact that we only show a single octave? just force the calculation to happen on a single central octave?
-    - can critical bands theory be made octave normalized?
-    - does critical bands theory care about the root? do we need to know which note is the root? can the overtones be extended downwards?
+    - Research completed: Octave-equivalent critical bands theory implemented. Inversions have identical dissonance. Ready for integration.
+- [ ] when pressing one or more keys, calculate the dissonance that each other key would result in if pressed in combination with the currently held keys, and show it as a color on the other keys.
+- [ ] when only pressing one key, show which interval the other keys would be from the current key if that key is treated as the root. Research in tmp/research-notes.md
 - [ ] The dissonance of the currently held notes should show somewhere prominent
 - [ ] We only need one row of dissonances that shows what dissonance a new note would result in.
     - for the second note we show the same as we currently do
