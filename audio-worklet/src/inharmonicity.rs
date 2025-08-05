@@ -167,7 +167,7 @@ mod tests {
 
         // First partial (fundamental) should be unchanged
         let first_partial = model.partial_frequency(fundamental, 1);
-        assert!((first_partial - fundamental).abs() < 0.1);
+        assert_eq!(first_partial, fundamental);
 
         // Second partial should be slightly sharp
         let second_partial = model.partial_frequency(fundamental, 2);
