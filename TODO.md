@@ -24,7 +24,7 @@
     - [x] Investigate root note dependency: research whether critical bands theory requires knowledge of chord root
     - [x] Create prototype implementation for interval dissonance using critical bands. Prototype in tmp/
     - [x] Extend implementation to support chord dissonance calculations
-    - [ ] Compare results with current hardcoded system and validate against known examples
+    - [x] Compare results with current hardcoded system and validate against known examples. analysis in tmp/validation-analysis.md
     - [ ] Replace current dissonance system with critical bands implementation
     - This would allow us to calculate the dissonance of entire chords
     - Research completed: Octave-equivalent critical bands theory implemented. Inversions have identical dissonance. Ready for integration.
