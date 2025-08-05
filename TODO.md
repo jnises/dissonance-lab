@@ -22,7 +22,7 @@
     - [x] Research Plomp & Levelt's critical bands theory and collect mathematical formulas/parameters
     - [x] Design octave normalization strategy: determine how to handle single-octave display with multi-octave calculations
     - [x] Investigate root note dependency: research whether critical bands theory requires knowledge of chord root
-    - [x] Create prototype implementation for interval dissonance using critical bands
+    - [x] Create prototype implementation for interval dissonance using critical bands. Prototype in tmp/
     - [x] Extend implementation to support chord dissonance calculations
     - [ ] Compare results with current hardcoded system and validate against known examples
     - [ ] Replace current dissonance system with critical bands implementation
