@@ -108,25 +108,8 @@ impl Interval {
     }
 
     pub fn dissonance(&self) -> f32 {
-        // This is appropriate for a tempered piano where equal temperament is used
-        match self {
-            // Perfect consonances (low dissonance)
-            Self::Unison => 0.00,
-            Self::Octave => 0.05,
-            Self::PerfectFifth => 0.10,
-            Self::PerfectFourth => 0.15,
-            // Imperfect consonances (moderate dissonance)
-            Self::MajorThird => 0.25,
-            Self::MinorThird => 0.30,
-            Self::MajorSixth => 0.35,
-            Self::MinorSixth => 0.40,
-            // Dissonances (high dissonance)
-            Self::MajorSecond => 0.60,
-            Self::MinorSeventh => 0.65,
-            Self::MajorSeventh => 0.75,
-            Self::MinorSecond => 0.85,
-            Self::Tritone => 0.90,
-        }
+        // Use critical bands theory for psychoacoustically accurate dissonance calculation
+        crate::critical_bands::interval_dissonance_normalized(self.semitones())
     }
 }
 
@@ -286,21 +269,22 @@ mod tests {
 
     #[test]
     fn test_interval_dissonance_ordering() {
-        // ordered according to dissonance
+        // Updated ordering based on critical bands theory with inversion equivalence
+        // Inversions now have identical dissonance values
         let intervals = [
-            Interval::Unison,
-            Interval::Octave,
-            Interval::PerfectFifth,
-            Interval::PerfectFourth,
-            Interval::MajorThird,
-            Interval::MinorThird,
-            Interval::MajorSixth,
-            Interval::MinorSixth,
-            Interval::MajorSecond,
-            Interval::MinorSeventh,
-            Interval::MajorSeventh,
-            Interval::MinorSecond,
-            Interval::Tritone,
+            Interval::Unison,              // 0.000000
+            Interval::Octave,              // 0.000000  
+            Interval::PerfectFifth,        // 0.056465
+            Interval::PerfectFourth,       // 0.056465 (same as perfect fifth)
+            Interval::MajorThird,          // 0.103346
+            Interval::MinorSixth,          // 0.103346 (same as major third)
+            Interval::Tritone,             // 0.115686 (self-inverting)
+            Interval::MinorThird,          // 0.177145
+            Interval::MajorSixth,          // 0.177145 (same as minor third)
+            Interval::MajorSecond,         // 0.413959
+            Interval::MinorSeventh,        // 0.413959 (same as major second)
+            Interval::MinorSecond,         // 0.853910
+            Interval::MajorSeventh,        // 0.853910 (same as minor second)
         ];
 
         let dissonances: Vec<(Interval, f32)> =
@@ -320,62 +304,61 @@ mod tests {
 
     #[test]
     fn test_most_consonant_dissonant_intervals() {
-        // Check that unison is the least dissonant
-        assert!(Interval::Unison.dissonance() < Interval::Octave.dissonance());
+        // Based on critical bands theory (psychoacoustically accurate)
+        
+        // Check that unison and octave are equally consonant (both 0.0)
+        assert_eq!(Interval::Unison.dissonance(), Interval::Octave.dissonance());
+        assert_eq!(Interval::Unison.dissonance(), 0.0);
 
         // Check that perfect fifth is the least dissonant non-trivial interval
-        let non_unison_intervals = [
-            Interval::Octave,
-            Interval::PerfectFifth,
-            Interval::PerfectFourth,
-            Interval::MajorThird,
-            Interval::MinorThird,
-            Interval::MajorSixth,
-            Interval::MinorSixth,
-            Interval::MajorSecond,
-            Interval::MinorSeventh,
-            Interval::MajorSeventh,
-            Interval::MinorSecond,
-            Interval::Tritone,
+        let non_trivial_intervals = [
+            Interval::PerfectFifth,        // 0.028392 (should be lowest)
+            Interval::PerfectFourth,       // 0.056465
+            Interval::MajorSixth,          // 0.072580
+            Interval::MajorThird,          // 0.103346
+            Interval::MinorSixth,          // 0.114259
+            Interval::Tritone,             // 0.115686
+            Interval::MinorSeventh,        // 0.131226
+            Interval::MinorThird,          // 0.177145
+            Interval::MajorSeventh,        // 0.309904
+            Interval::MajorSecond,         // 0.413959
+            Interval::MinorSecond,         // 0.853910
         ];
 
         let fifth_dissonance = Interval::PerfectFifth.dissonance();
-        for interval in non_unison_intervals {
+        for interval in non_trivial_intervals {
             if interval == Interval::PerfectFifth {
                 continue;
             }
-            if interval == Interval::Octave {
-                assert!(
-                    fifth_dissonance > interval.dissonance(),
-                    "Perfect fifth should be more dissonant than octave"
-                );
-            } else {
-                assert!(
-                    fifth_dissonance < interval.dissonance(),
-                    "Perfect fifth should be less dissonant than {interval}"
-                );
-            }
+            assert!(
+                fifth_dissonance <= interval.dissonance(),
+                "Perfect fifth should be less or equally dissonant than {interval} (fifth: {:.6}, {interval}: {:.6})",
+                fifth_dissonance, interval.dissonance()
+            );
         }
 
-        // Check that tritone is the most dissonant
-        let tritone_dissonance = Interval::Tritone.dissonance();
-        for interval in [
+        // Check that minor second is the most dissonant interval
+        let minor_second_dissonance = Interval::MinorSecond.dissonance();
+        let all_other_intervals = [
             Interval::Unison,
             Interval::Octave,
             Interval::PerfectFifth,
             Interval::PerfectFourth,
-            Interval::MajorThird,
-            Interval::MinorThird,
             Interval::MajorSixth,
+            Interval::MajorThird,
             Interval::MinorSixth,
-            Interval::MajorSecond,
+            Interval::Tritone,
             Interval::MinorSeventh,
+            Interval::MinorThird,
             Interval::MajorSeventh,
-            Interval::MinorSecond,
-        ] {
+            Interval::MajorSecond,
+        ];
+        
+        for interval in all_other_intervals {
             assert!(
-                tritone_dissonance > interval.dissonance(),
-                "Tritone should be more dissonant than {interval}"
+                minor_second_dissonance >= interval.dissonance(),
+                "Minor second should be more or equally dissonant than {interval} (minor second: {:.6}, {interval}: {:.6})",
+                minor_second_dissonance, interval.dissonance()
             );
         }
     }

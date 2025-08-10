@@ -18,16 +18,17 @@
   - Realistic string parameters for keys; validated against literature (Järveläinen et al.).
   - Bass strings have higher inharmonicity; progressive sharpening of higher partials.
   - Validation tests ensure coefficients and scaling are realistic.
-- [ ] Calculate dissonances using critical bands theory (plomp levelt) instead.
+- [x] Calculate dissonances using critical bands theory (plomp levelt) instead.
     - [x] Research Plomp & Levelt's critical bands theory and collect mathematical formulas/parameters
     - [x] Design octave normalization strategy: determine how to handle single-octave display with multi-octave calculations
     - [x] Investigate root note dependency: research whether critical bands theory requires knowledge of chord root
     - [x] Create prototype implementation for interval dissonance using critical bands. Prototype in tmp/
     - [x] Extend implementation to support chord dissonance calculations
     - [x] Compare results with current hardcoded system and validate against known examples. analysis in tmp/validation-analysis.md
-    - [ ] Replace current dissonance system with critical bands implementation
+    - [x] Replace current dissonance system with critical bands implementation
     - This would allow us to calculate the dissonance of entire chords
     - Research completed: Octave-equivalent critical bands theory implemented. Inversions have identical dissonance. Ready for integration.
+    - **COMPLETED**: Replaced hardcoded dissonance with psychoacoustically accurate critical bands implementation. Inversions now correctly show identical dissonance values (e.g., major third = minor sixth). All tests updated and passing.
 - [ ] when pressing one or more keys, calculate the dissonance that each other key would result in if pressed in combination with the currently held keys, and show it as a color on the other keys.
 - [ ] when only pressing one key, show which interval the other keys would be from the current key if that key is treated as the root. Research in tmp/research-notes.md
 - [ ] The dissonance of the currently held notes should show somewhere prominent

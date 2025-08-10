@@ -66,9 +66,17 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Vec<piano_gui::Acti
                     Color32::WHITE,
                 );
             } else {
-                let normalized_dissonance = (interval.dissonance()
-                    - Interval::PerfectFifth.dissonance())
-                    / (Interval::Tritone.dissonance() - Interval::PerfectFifth.dissonance());
+                // Use the full range of critical bands dissonance values for better color differentiation
+                // Range: Unison (0.0) to Minor Second/Major Seventh (most dissonant)
+                let min_dissonance = Interval::Unison.dissonance(); // 0.0
+                let max_dissonance = Interval::MinorSecond.dissonance(); // ~0.854 (most dissonant)
+                
+                let normalized_dissonance = if max_dissonance > min_dissonance {
+                    ((interval.dissonance() - min_dissonance) / (max_dissonance - min_dissonance)).clamp(0.0, 1.0)
+                } else {
+                    0.0 // Fallback for edge case
+                };
+                
                 painter.rect_filled(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     KEY_RECT_CORNER_RADIUS,

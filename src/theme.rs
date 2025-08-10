@@ -50,9 +50,20 @@ pub fn external_sustained_key() -> Color32 {
 }
 
 pub static DISSONANCE_GRADIENT: LazyLock<BasisGradient> = LazyLock::new(|| {
+    // Create gradient with monotonically increasing darkness (darker = more dissonant)
+    // Consonant intervals are bright/light, dissonant intervals are dark/intense
     colorgrad::GradientBuilder::new()
         .html_colors(&[
-            "#4A90E2", "#3CCFCF", "#98D353", "#FFC857", "#FF9A3D", "#FF6B6B", "#FF3366",
+            "#E6F3FF", // Very light blue for unison (most consonant)
+            "#B3D9FF", // Light blue for perfect consonances (perfect fifth/fourth)
+            "#80BFFF", // Medium-light blue for low dissonance
+            "#4DA6FF", // Medium blue for moderate-low dissonance  
+            "#1A8CFF", // Brighter blue for moderate dissonance (thirds/sixths)
+            "#0066CC", // Darker blue for tritone (more dissonant than perfect fifth)
+            "#004499", // Dark blue for moderate-high dissonance
+            "#003366", // Very dark blue for high dissonance
+            "#002244", // Very dark blue-black for very high dissonance
+            "#000011", // Near black for maximum dissonance (minor second)
         ])
         .mode(BlendMode::Oklab)
         .build::<BasisGradient>()
