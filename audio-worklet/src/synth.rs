@@ -323,7 +323,8 @@ impl PianoVoice {
                 * (TWO_PI * attack_intensity * THUMP_FREQ).sin(); // Lower frequency thump
         }
 
-        const FINAL_AMPLITUDE_SCALING: f32 = 0.3;
+        // +6dB gain
+        const FINAL_AMPLITUDE_SCALING: f32 = 0.6;
 
         // Reduce overall volume to prevent clipping
         sample *= FINAL_AMPLITUDE_SCALING;
