@@ -195,7 +195,9 @@ impl WebAudio {
     /// Browsers may start the context suspended until a user gesture occurs. When we
     /// auto-initialize audio at startup this can result in a "playing" state with no sound
     /// until the user clicks mute/unmute. Calling this before sending note messages will
-    /// resume the context once a gesture has occurred (e.g., piano key press).
+    /// until the user performs a gesture (such as clicking mute/unmute or pressing a piano key).
+    /// Calling this before sending note messages will resume the context once a gesture has occurred
+    /// (e.g., piano key press, mute/unmute click, or any other user interaction).
     pub fn ensure_running(&self) {
         if let Some(node) = self.node.try_get()
             && let Ok(connection) = node.as_ref()
