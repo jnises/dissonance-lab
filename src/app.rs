@@ -71,7 +71,7 @@ impl DissonanceLabApp {
         app.load_sustain_pedal_setting(cc);
         // Try to eagerly initialize audio once at startup in case the browser allows it without user gesture.
         // Some browsers (notably Safari / iOS) will reject or suspend AudioContext creation until a user gesture.
-        // If initialization ultimately fails we will revert the state back to Uninitialized so the user can click the button.
+        // If initialization ultimately fails we will revert the state back to Uninitialized so the user can click the audio enable/unmute button in the UI.
         app.try_startup_audio_once();
         app
     }
