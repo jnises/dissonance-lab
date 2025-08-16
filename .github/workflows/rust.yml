@@ -16,7 +16,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: awalsh128/cache-apt-pkgs-action@v1
         with:
-          packages: libgtk-3-dev libasound2-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+          packages: libasound2-dev libgtk-3-dev libssl-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
           version: 1
       - run: cargo check --all-features --workspace
 
