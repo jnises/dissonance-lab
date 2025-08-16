@@ -34,6 +34,10 @@ pub struct DissonanceLabApp {
     midi_to_piano_gui_rx: channel::Receiver<wmidi::MidiMessage<'static>>,
     midi_to_piano_gui_tx: channel::Sender<wmidi::MidiMessage<'static>>,
     invert_sustain_pedal: bool,
+    // Whether we already performed the automatic startup attempt
+    auto_audio_attempted: bool,
+    // Whether the user has explicitly attempted to enable audio (clicked the button)
+    user_audio_attempted: bool,
 }
 
 impl Default for DissonanceLabApp {
@@ -46,6 +50,8 @@ impl Default for DissonanceLabApp {
             midi_to_piano_gui_rx,
             midi_to_piano_gui_tx,
             invert_sustain_pedal: false,
+            auto_audio_attempted: false,
+            user_audio_attempted: false,
         }
     }
 }
@@ -63,14 +69,18 @@ impl DissonanceLabApp {
         let mut app = Self::default();
         // Load sustain pedal polarity setting from local storage
         app.load_sustain_pedal_setting(cc);
+        // Try to eagerly initialize audio once at startup in case the browser allows it without user gesture.
+        // Some browsers (notably Safari / iOS) will reject or suspend AudioContext creation until a user gesture.
+        // If initialization ultimately fails we will revert the state back to Uninitialized so the user can click the audio enable/unmute button in the UI.
+        app.try_startup_audio_once();
         app
     }
 
     fn load_sustain_pedal_setting(&mut self, cc: &eframe::CreationContext<'_>) {
-        if let Some(storage) = cc.storage {
-            if let Some(invert_sustain) = storage.get_string("invert_sustain_pedal") {
-                self.invert_sustain_pedal = invert_sustain == "true";
-            }
+        if let Some(storage) = cc.storage
+            && let Some(invert_sustain) = storage.get_string("invert_sustain_pedal")
+        {
+            self.invert_sustain_pedal = invert_sustain == "true";
         }
     }
 
@@ -90,13 +100,32 @@ impl DissonanceLabApp {
         ));
         let web_audio = WebAudio::new();
         *self.audio.lock().unwrap() = AudioState::Playing(web_audio);
+        self.user_audio_attempted = true;
+    }
+
+    /// Attempt to start audio during startup (no user gesture yet).
+    /// If the worklet later reports a disable state, revert to Uninitialized so the user can try again manually.
+    fn try_startup_audio_once(&mut self) {
+        // Only attempt if currently uninitialized – don't override an explicit user mute choice.
+        if matches!(*self.audio.lock().unwrap(), AudioState::Uninitialized) {
+            // Move into a Playing state to kick off async loading.
+            let web_audio = WebAudio::new();
+            *self.audio.lock().unwrap() = AudioState::Playing(web_audio);
+            self.auto_audio_attempted = true;
+        }
     }
 
     /// Check if the current audio state indicates failure and update to Disabled if so
     fn check_audio_status(&mut self) {
         let mut audio_guard = self.audio.lock().unwrap();
-        if let AudioState::Playing(web_audio) = &*audio_guard {
-            if web_audio.is_disabled() {
+        if let AudioState::Playing(web_audio) = &*audio_guard
+            && web_audio.is_disabled()
+        {
+            if !self.user_audio_attempted {
+                // Automatic attempt failed / unsupported. Revert to Uninitialized so user can try enabling manually.
+                *audio_guard = AudioState::Uninitialized;
+            } else {
+                // User explicitly tried and it still failed; mark Disabled so we can show more explicit UI.
                 *audio_guard = AudioState::Disabled;
             }
         }
@@ -116,11 +145,13 @@ impl DissonanceLabApp {
                     if let AudioState::Playing(web_audio) = &*audio.lock().unwrap() {
                         match message {
                             wmidi::MidiMessage::NoteOff(_, note, _) => {
+                                web_audio.ensure_running();
                                 web_audio.send_message(ToWorkletMessage::NoteOff {
                                     note: u8::from(*note),
                                 });
                             }
                             wmidi::MidiMessage::NoteOn(_, note, velocity) => {
+                                web_audio.ensure_running();
                                 web_audio.send_message(ToWorkletMessage::NoteOn {
                                     note: u8::from(*note),
                                     velocity: u8::from(*velocity),
@@ -429,6 +460,7 @@ impl eframe::App for DissonanceLabApp {
                                             if let AudioState::Playing(web_audio) =
                                                 &*self.audio.lock().unwrap()
                                             {
+                                                web_audio.ensure_running();
                                                 web_audio.send_message(
                                                     ToWorkletMessage::SustainPedal { active },
                                                 );
@@ -438,6 +470,7 @@ impl eframe::App for DissonanceLabApp {
                                         }
                                         piano_gui::Action::Released(note) => {
                                             if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                                web_audio.ensure_running();
                                                 web_audio.send_message(ToWorkletMessage::NoteOff {
                                                     note: u8::from(note),
                                                 });
@@ -460,6 +493,7 @@ impl eframe::App for DissonanceLabApp {
                     match action {
                         piano_gui::Action::Pressed(note) => {
                             if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                web_audio.ensure_running();
                                 web_audio.send_message(ToWorkletMessage::NoteOn {
                                     note: u8::from(note),
                                     velocity: 64,
@@ -468,6 +502,7 @@ impl eframe::App for DissonanceLabApp {
                         }
                         piano_gui::Action::Released(note) => {
                             if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                web_audio.ensure_running();
                                 web_audio.send_message(ToWorkletMessage::NoteOff {
                                     note: u8::from(note),
                                 });
@@ -475,6 +510,7 @@ impl eframe::App for DissonanceLabApp {
                         }
                         piano_gui::Action::SustainPedal(active) => {
                             if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
+                                web_audio.ensure_running();
                                 web_audio.send_message(ToWorkletMessage::SustainPedal { active });
                             }
                             // Request immediate repaint to update the sustain label color
