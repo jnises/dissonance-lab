@@ -77,10 +77,10 @@ impl DissonanceLabApp {
     }
 
     fn load_sustain_pedal_setting(&mut self, cc: &eframe::CreationContext<'_>) {
-        if let Some(storage) = cc.storage {
-            if let Some(invert_sustain) = storage.get_string("invert_sustain_pedal") {
-                self.invert_sustain_pedal = invert_sustain == "true";
-            }
+        if let Some(storage) = cc.storage
+            && let Some(invert_sustain) = storage.get_string("invert_sustain_pedal")
+        {
+            self.invert_sustain_pedal = invert_sustain == "true";
         }
     }
 
@@ -118,15 +118,15 @@ impl DissonanceLabApp {
     /// Check if the current audio state indicates failure and update to Disabled if so
     fn check_audio_status(&mut self) {
         let mut audio_guard = self.audio.lock().unwrap();
-        if let AudioState::Playing(web_audio) = &*audio_guard {
-            if web_audio.is_disabled() {
-                if !self.user_audio_attempted {
-                    // Automatic attempt failed / unsupported. Revert to Uninitialized so user can try enabling manually.
-                    *audio_guard = AudioState::Uninitialized;
-                } else {
-                    // User explicitly tried and it still failed; mark Disabled so we can show more explicit UI.
-                    *audio_guard = AudioState::Disabled;
-                }
+        if let AudioState::Playing(web_audio) = &*audio_guard
+            && web_audio.is_disabled()
+        {
+            if !self.user_audio_attempted {
+                // Automatic attempt failed / unsupported. Revert to Uninitialized so user can try enabling manually.
+                *audio_guard = AudioState::Uninitialized;
+            } else {
+                // User explicitly tried and it still failed; mark Disabled so we can show more explicit UI.
+                *audio_guard = AudioState::Disabled;
             }
         }
     }

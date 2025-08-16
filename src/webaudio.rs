@@ -197,14 +197,14 @@ impl WebAudio {
     /// until the user clicks mute/unmute. Calling this before sending note messages will
     /// resume the context once a gesture has occurred (e.g., piano key press).
     pub fn ensure_running(&self) {
-        if let Some(node) = self.node.try_get() {
-            if let Ok(connection) = node.as_ref() {
-                // We don't have access to AudioContext.state via web-sys yet on all targets, so just attempt resume.
-                // Browsers ignore resume() if already running.
-                if let Err(e) = connection.context.resume() {
-                    // Ignored: can fail prior to a valid user gesture; we'll try again next event.
-                    log::debug!("AudioContext resume attempt failed or deferred: {e:?}");
-                }
+        if let Some(node) = self.node.try_get()
+            && let Ok(connection) = node.as_ref()
+        {
+            // We don't have access to AudioContext.state via web-sys yet on all targets, so just attempt resume.
+            // Browsers ignore resume() if already running.
+            if let Err(e) = connection.context.resume() {
+                // Ignored: can fail prior to a valid user gesture; we'll try again next event.
+                log::debug!("AudioContext resume attempt failed or deferred: {e:?}");
             }
         }
     }
@@ -228,29 +228,25 @@ impl AudioNodeConnection {
             let data = event.data();
 
             // Try to get the message type first
-            if data.is_object() {
-                if let Ok(type_val) = js_sys::Reflect::get(&data, &JsValue::from_str("type")) {
-                    if let Some(type_str) = type_val.as_string() {
-                        match type_str.as_str() {
-                            "init-complete" => {
-                                log::debug!("[audio-worklet] Initialization complete");
-                                return;
-                            }
-                            "init-error" => {
-                                if let Ok(error_val) =
-                                    js_sys::Reflect::get(&data, &JsValue::from_str("error"))
-                                {
-                                    if let Some(error_str) = error_val.as_string() {
-                                        log::error!(
-                                            "[audio-worklet] Initialization error: {error_str}"
-                                        );
-                                    }
-                                }
-                                return;
-                            }
-                            _ => {}
-                        }
+            if data.is_object()
+                && let Ok(type_val) = js_sys::Reflect::get(&data, &JsValue::from_str("type"))
+                && let Some(type_str) = type_val.as_string()
+            {
+                match type_str.as_str() {
+                    "init-complete" => {
+                        log::debug!("[audio-worklet] Initialization complete");
+                        return;
                     }
+                    "init-error" => {
+                        if let Ok(error_val) =
+                            js_sys::Reflect::get(&data, &JsValue::from_str("error"))
+                            && let Some(error_str) = error_val.as_string()
+                        {
+                            log::error!("[audio-worklet] Initialization error: {error_str}");
+                        }
+                        return;
+                    }
+                    _ => {}
                 }
             }
 

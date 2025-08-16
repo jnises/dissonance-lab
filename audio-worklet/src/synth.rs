@@ -371,13 +371,13 @@ impl PianoSynth {
     }
 
     fn allocate_voices_if_needed(&mut self) {
-        if self.voices.is_empty() {
-            if let Some(sr) = self.sample_rate {
-                const NUM_VOICES: usize = 8;
-                self.voices.reserve(NUM_VOICES);
-                for _ in 0..NUM_VOICES {
-                    self.voices.push(PianoVoice::new(sr as f32));
-                }
+        if self.voices.is_empty()
+            && let Some(sr) = self.sample_rate
+        {
+            const NUM_VOICES: usize = 8;
+            self.voices.reserve(NUM_VOICES);
+            for _ in 0..NUM_VOICES {
+                self.voices.push(PianoVoice::new(sr as f32));
             }
         }
     }
@@ -476,10 +476,10 @@ impl PianoSynth {
     /// Actually release a note (used both for normal note-off and when sustain pedal is released)
     fn release_note(&mut self, midi_note: wmidi::Note) {
         for voice in self.voices.iter_mut() {
-            if let Some(key) = &voice.current_key {
-                if key.midi_note == midi_note {
-                    voice.note_off();
-                }
+            if let Some(key) = &voice.current_key
+                && key.midi_note == midi_note
+            {
+                voice.note_off();
             }
         }
     }
