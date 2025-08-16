@@ -351,6 +351,7 @@ impl Default for PianoSynth {
 
 impl PianoSynth {
     pub fn new() -> Self {
+        // Used in tests where sample_rate will be set via play() before use.
         Self {
             voices: Vec::new(),
             sample_rate: None,
@@ -361,7 +362,33 @@ impl PianoSynth {
         }
     }
 
+    /// Construct with a known sample rate (used by the audio processor) so voices are ready
+    pub fn with_sample_rate(sample_rate: u32) -> Self {
+        let mut s = Self::new();
+        s.sample_rate = Some(sample_rate);
+        s.allocate_voices_if_needed();
+        s
+    }
+
+    fn allocate_voices_if_needed(&mut self) {
+        if self.voices.is_empty() {
+            if let Some(sr) = self.sample_rate {
+                const NUM_VOICES: usize = 8;
+                self.voices.reserve(NUM_VOICES);
+                for _ in 0..NUM_VOICES {
+                    self.voices.push(PianoVoice::new(sr as f32));
+                }
+            }
+        }
+    }
+
     pub fn note_on(&mut self, note: wmidi::Note, velocity: wmidi::U7) {
+        // Ensure voices exist (messages can arrive before first process callback when audio auto-starts)
+        self.allocate_voices_if_needed();
+        debug_assert!(
+            self.sample_rate.is_some(),
+            "sample_rate should be set before note_on"
+        );
         let key = PianoKey::new(note);
 
         // First try to find an inactive voice
@@ -434,6 +461,7 @@ impl PianoSynth {
     }
 
     pub fn note_off(&mut self, midi_note: wmidi::Note) {
+        self.allocate_voices_if_needed();
         if self.sustain_pedal_active {
             // If sustain pedal is active, mark the note as sustained instead of releasing it
             let note_value = u8::from(midi_note) as usize;
@@ -458,6 +486,7 @@ impl PianoSynth {
 
     /// Set the sustain pedal state
     pub fn set_sustain_pedal(&mut self, active: bool) {
+        self.allocate_voices_if_needed();
         if self.sustain_pedal_active && !active {
             // Sustain pedal being released - release all sustained notes
             let sustained_notes_copy = self.sustained_notes;
@@ -480,18 +509,13 @@ impl PianoSynth {
 impl Synth for PianoSynth {
     fn play(&mut self, sample_rate: u32, num_channels: usize, out_samples: &mut [f32]) {
         if self.sample_rate != Some(sample_rate) {
+            // Sample rate changed or first-time setup.
             self.voices.clear();
             self.reverb = None;
-            self.sample_rate = Some(sample_rate);
             self.limiter = None;
+            self.sample_rate = Some(sample_rate);
         }
-        if self.voices.is_empty() {
-            const NUM_VOICES: usize = 8;
-            self.voices.reserve(NUM_VOICES);
-            for _ in 0..NUM_VOICES {
-                self.voices.push(PianoVoice::new(sample_rate as f32));
-            }
-        }
+        self.allocate_voices_if_needed();
 
         for out_channels in out_samples.chunks_exact_mut(num_channels) {
             let s = self.process();
