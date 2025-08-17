@@ -178,10 +178,43 @@ impl WebAudio {
             false // Still loading
         }
     }
+
+    /// Check if the audio worklet finished initializing successfully
+    ///
+    /// Returns true only once the underlying Future has resolved Ok
+    pub fn is_ready(&self) -> bool {
+        if let Some(node) = self.node.try_get() {
+            node.is_ok()
+        } else {
+            false // Still loading
+        }
+    }
+
+    /// Ensure the underlying AudioContext is in a running state.
+    ///
+    /// Browsers may start the context suspended until a user gesture occurs. When we
+    /// auto-initialize audio at startup this can result in a "playing" state with no sound
+    /// until the user clicks mute/unmute. Calling this before sending note messages will
+    /// until the user performs a gesture (such as clicking mute/unmute or pressing a piano key).
+    /// Calling this before sending note messages will resume the context once a gesture has occurred
+    /// (e.g., piano key press, mute/unmute click, or any other user interaction).
+    pub fn ensure_running(&self) {
+        if let Some(node) = self.node.try_get()
+            && let Ok(connection) = node.as_ref()
+        {
+            // We don't have access to AudioContext.state via web-sys yet on all targets, so just attempt resume.
+            // Browsers ignore resume() if already running.
+            if let Err(e) = connection.context.resume() {
+                // Ignored: can fail prior to a valid user gesture; we'll try again next event.
+                log::debug!("AudioContext resume attempt failed or deferred: {e:?}");
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
 struct AudioNodeConnection {
+    context: AudioContext,
     node: AudioWorkletNode,
     // needs to be kept alive
     _onmessage: Closure<dyn FnMut(MessageEvent)>,
@@ -197,29 +230,25 @@ impl AudioNodeConnection {
             let data = event.data();
 
             // Try to get the message type first
-            if data.is_object() {
-                if let Ok(type_val) = js_sys::Reflect::get(&data, &JsValue::from_str("type")) {
-                    if let Some(type_str) = type_val.as_string() {
-                        match type_str.as_str() {
-                            "init-complete" => {
-                                log::debug!("[audio-worklet] Initialization complete");
-                                return;
-                            }
-                            "init-error" => {
-                                if let Ok(error_val) =
-                                    js_sys::Reflect::get(&data, &JsValue::from_str("error"))
-                                {
-                                    if let Some(error_str) = error_val.as_string() {
-                                        log::error!(
-                                            "[audio-worklet] Initialization error: {error_str}"
-                                        );
-                                    }
-                                }
-                                return;
-                            }
-                            _ => {}
-                        }
+            if data.is_object()
+                && let Ok(type_val) = js_sys::Reflect::get(&data, &JsValue::from_str("type"))
+                && let Some(type_str) = type_val.as_string()
+            {
+                match type_str.as_str() {
+                    "init-complete" => {
+                        log::debug!("[audio-worklet] Initialization complete");
+                        return;
                     }
+                    "init-error" => {
+                        if let Ok(error_val) =
+                            js_sys::Reflect::get(&data, &JsValue::from_str("error"))
+                            && let Some(error_str) = error_val.as_string()
+                        {
+                            log::error!("[audio-worklet] Initialization error: {error_str}");
+                        }
+                        return;
+                    }
+                    _ => {}
                 }
             }
 
@@ -233,6 +262,7 @@ impl AudioNodeConnection {
         port.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
 
         Self {
+            context,
             node,
             _onmessage: onmessage,
         }

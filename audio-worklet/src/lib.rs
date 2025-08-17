@@ -39,7 +39,7 @@ impl DissonanceProcessor {
         let sample_rate = global.sample_rate();
 
         let processor = DissonanceProcessor {
-            synth: synth::PianoSynth::new(),
+            synth: synth::PianoSynth::with_sample_rate(sample_rate as u32),
             sample_rate,
             port: None,
             interleaved_buffer_cache: Vec::new(),

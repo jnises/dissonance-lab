@@ -1,4 +1,4 @@
-const cacheName = "dissonance-lab-pwa-v21";
+const cacheName = "dissonance-lab-pwa-v23";
 const filesToCache = [
   "./",
   "./index.html",
