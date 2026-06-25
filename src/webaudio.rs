@@ -164,7 +164,7 @@ impl WebAudio {
                 log::warn!(
                     "Audio worklet still not ready after {count} message attempts. This may indicate a loading problem."
                 );
-            } else if count > 100 && count % 50 == 0 {
+            } else if count > 100 && count.is_multiple_of(50) {
                 log::warn!("Audio worklet still not ready after {count} message attempts.");
             }
         }

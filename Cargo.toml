@@ -3,46 +3,46 @@ members = [".", "audio-worklet", "shared-types", "xtask", "dev-log-server"]
 resolver = "2"
 
 [workspace.dependencies]
-egui = "0.32"
-eframe = { version = "0.32", default-features = false, features = [
+egui = "0.35.0"
+eframe = { version = "0.35.0", default-features = false, features = [
     "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
     "x11",           # Enable X11 support for Linux/WSL2.
     "wayland",       # Enable Wayland support and fix clipboard issues.
 ] }
-log = "0.4"
-num-rational = "0.4"
+log = "0.4.33"
+num-rational = "0.4.2"
 num-traits = "0.2.19"
-colorgrad = "0.7.0"
-anyhow = "1.0.97"
+colorgrad = "0.8.0"
+anyhow = "1.0.102"
 crossbeam = "0.8.4"
-wmidi = "4.0.10"
-itertools = "0.14.0"
-bitvec = "1.0.1"
-strum_macros = "0.27.1"
-midir = "0.10.1"
-thiserror = "2.0.12"
+wmidi = "4.0.11"
+itertools = "0.15.0"
+bitvec = "1.1.1"
+strum_macros = "0.28.0"
+midir = "0.11.0"
+thiserror = "2.0.18"
 web-time = "1.1.0"
-js-sys = "0.3.77"
-serde = { version = "1.0.219", features = ["derive"] }
+js-sys = "0.3.103"
+serde = { version = "1.0.228", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"
-wasm-bindgen = "0.2.100"
-wasm-bindgen-futures = "0.4"
+wasm-bindgen = "0.2.126"
+wasm-bindgen-futures = "0.4.76"
 console_error_panic_hook = "0.1.7"
-console_log = { version = "1.0", features = ["color"] }
-axum = "0.8"
-tokio = { version = "1.0", features = ["full"] }
-tower = "0.5"
-tower-http = { version = "0.6", features = ["cors"] }
-serde_json = "1.0"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-appender = "0.2"
-clap = { version = "4.0", features = ["derive"] }
-which = "8.0"
-ctrlc = { version = "3.4", features = ["termination"] }
-cargo_metadata = "0.21"
-web-sys = { version = "0.3.70", features = [
+console_log = { version = "1.0.0", features = ["color"] }
+axum = "0.8.9"
+tokio = { version = "1.52.3", features = ["full"] }
+tower = "0.5.3"
+tower-http = { version = "0.7.0", features = ["cors"] }
+serde_json = "1.0.150"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tracing-appender = "0.2.5"
+clap = { version = "4.6.1", features = ["derive"] }
+which = "8.0.4"
+ctrlc = { version = "3.5.2", features = ["termination"] }
+cargo_metadata = "0.23.1"
+web-sys = { version = "0.3.103", features = [
     "AudioContext",
     "AudioWorklet",
     "Worklet",
@@ -68,7 +68,7 @@ version = "0.5.0"
 authors = ["Joel Nises <joel.nises@gmail.com>"]
 edition = "2024"
 include = ["LICENSE", "**/*.rs", "Cargo.toml"]
-rust-version = "1.89"
+rust-version = "1.96"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -101,7 +101,7 @@ shared-types = { path = "shared-types" }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger = "0.11"
+env_logger = "0.11.11"
 
 # WASM: Override problematic dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
