@@ -23,6 +23,9 @@ pub struct PianoGui {
     /// Maps each note to the set of pointers currently pressing it.
     /// Enables multi-touch: multiple fingers can press the same key simultaneously.
     pointers_holding_key: HashMap<wmidi::Note, HashSet<PointerId>>,
+
+    /// Touch identifiers that are currently active, even if they are outside piano keys.
+    active_touch_ids: HashSet<u64>,
 }
 
 impl PianoGui {
@@ -31,6 +34,7 @@ impl PianoGui {
             state: PianoState::new(),
             key_held_by_pointer: HashMap::new(),
             pointers_holding_key: HashMap::new(),
+            active_touch_ids: HashSet::new(),
         }
     }
 
@@ -72,19 +76,22 @@ impl PianoGui {
         // Process all pointer events (touch and mouse)
 
         // Handle touch events
-        let mut has_active_touches = false;
+        let mut has_active_touches = !self.active_touch_ids.is_empty();
         ui.input(|i| {
             for event in &i.events {
                 if let Event::Touch { id, phase, pos, .. } = event {
                     has_active_touches = true;
-                    let pointer_id = PointerId::Touch(id.0);
+                    let touch_id = id.0;
+                    let pointer_id = PointerId::Touch(touch_id);
 
                     match phase {
                         TouchPhase::Start | TouchPhase::Move => {
+                            self.active_touch_ids.insert(touch_id);
                             let target_note = self.find_key_at_position(*pos, keys_rect);
                             self.handle_pointer_move(pointer_id, target_note);
                         }
                         TouchPhase::End | TouchPhase::Cancel => {
+                            self.active_touch_ids.remove(&touch_id);
                             self.handle_pointer_release(pointer_id);
                         }
                     }

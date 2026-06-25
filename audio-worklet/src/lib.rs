@@ -63,8 +63,12 @@ impl DissonanceProcessor {
             ToWorkletMessage::NoteOn { note, velocity } => {
                 log::debug!("NoteOn: note={note}, velocity={velocity}");
                 let midi_note = wmidi::Note::try_from(note).expect("Invalid MIDI note value");
-                let midi_velocity = wmidi::U7::try_from(velocity).unwrap_or(wmidi::U7::MAX);
-                self.synth.note_on(midi_note, midi_velocity);
+                if velocity == 0 {
+                    self.synth.note_off(midi_note);
+                } else {
+                    let midi_velocity = wmidi::U7::try_from(velocity).unwrap_or(wmidi::U7::MAX);
+                    self.synth.note_on(midi_note, midi_velocity);
+                }
             }
             ToWorkletMessage::NoteOff { note } => {
                 log::debug!("NoteOff: note={note}");
