@@ -71,7 +71,11 @@ if (typeof TextEncoder === "undefined") {
             codePoint =
               0x10000 + ((codePoint - 0xd800) << 10) + (next - 0xdc00);
             i += 1;
+          } else {
+            codePoint = 0xfffd;
           }
+        } else if (codePoint >= 0xd800 && codePoint <= 0xdfff) {
+          codePoint = 0xfffd;
         }
 
         if (codePoint < 0x80) {

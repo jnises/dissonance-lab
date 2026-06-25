@@ -15,6 +15,7 @@ use crate::{
 /// Width threshold for determining mobile/narrow screens
 const MOBILE_BREAKPOINT_WIDTH: f32 = 480.0;
 const MIDI_SUSTAIN_CONTROL: u8 = 64;
+const MIDI_SUSTAIN_ACTIVE_THRESHOLD: u8 = 64;
 
 enum AudioState {
     Uninitialized,
@@ -456,7 +457,7 @@ impl eframe::App for DissonanceLabApp {
                             if u8::from(control) == MIDI_SUSTAIN_CONTROL =>
                         {
                             // MIDI sustain pedal values greater than or equal to 64 are active.
-                            let raw_sustain_active = u8::from(value) >= MIDI_SUSTAIN_CONTROL;
+                            let raw_sustain_active = u8::from(value) >= MIDI_SUSTAIN_ACTIVE_THRESHOLD;
                             let sustain_active = if self.invert_sustain_pedal {
                                 // Invert the logic for problematic controllers.
                                 !raw_sustain_active
