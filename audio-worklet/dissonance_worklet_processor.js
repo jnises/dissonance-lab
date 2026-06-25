@@ -95,14 +95,40 @@ if (typeof TextEncoder === "undefined") {
     }
 
     encodeInto(input, destination) {
-      const bytes = this.encode(input);
-      const bytesToWrite = Math.min(bytes.length, destination.length);
-      destination.set(bytes.subarray(0, bytesToWrite));
+      const text = String(input);
+      const bytes = this.encode(text);
 
-      return {
-        read: String(input).length,
-        written: bytesToWrite,
-      };
+      if (bytes.length <= destination.length) {
+        destination.set(bytes);
+        return { read: text.length, written: bytes.length };
+      }
+
+      let written = 0;
+      let read = 0;
+      for (let i = 0; i < text.length; i++) {
+        const codePoint = text.codePointAt(i);
+        const byteLength =
+          codePoint < 0x80
+            ? 1
+            : codePoint < 0x800
+              ? 2
+              : codePoint < 0x10000
+                ? 3
+                : 4;
+
+        if (written + byteLength > destination.length) {
+          break;
+        }
+
+        written += byteLength;
+        read += codePoint > 0xffff ? 2 : 1;
+        if (codePoint > 0xffff) {
+          i += 1;
+        }
+      }
+
+      destination.set(bytes.subarray(0, written));
+      return { read, written };
     }
   };
 }
