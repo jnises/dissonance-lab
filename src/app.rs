@@ -14,6 +14,7 @@ use crate::{
 
 /// Width threshold for determining mobile/narrow screens
 const MOBILE_BREAKPOINT_WIDTH: f32 = 480.0;
+const MIDI_SUSTAIN_CONTROL: u8 = 64;
 
 enum AudioState {
     Uninitialized,
@@ -34,8 +35,6 @@ pub struct DissonanceLabApp {
     midi_to_piano_gui_rx: channel::Receiver<wmidi::MidiMessage<'static>>,
     midi_to_piano_gui_tx: channel::Sender<wmidi::MidiMessage<'static>>,
     invert_sustain_pedal: bool,
-    // Whether we already performed the automatic startup attempt
-    auto_audio_attempted: bool,
     // Whether the user has explicitly attempted to enable audio (clicked the button)
     user_audio_attempted: bool,
 }
@@ -50,7 +49,6 @@ impl Default for DissonanceLabApp {
             midi_to_piano_gui_rx,
             midi_to_piano_gui_tx,
             invert_sustain_pedal: false,
-            auto_audio_attempted: false,
             user_audio_attempted: false,
         }
     }
@@ -58,24 +56,29 @@ impl Default for DissonanceLabApp {
 
 impl DissonanceLabApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        assert!(
-            cfg!(target_arch = "wasm32"),
-            "This application only supports WebAssembly target architecture"
-        );
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            _ = cc;
+            panic!("This application only supports WebAssembly target architecture");
+        }
 
-        // Setup custom theme instead of default dark theme
-        theme::setup_custom_theme(&cc.egui_ctx);
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Setup custom theme instead of default dark theme
+            theme::setup_custom_theme(&cc.egui_ctx);
 
-        let mut app = Self::default();
-        // Load sustain pedal polarity setting from local storage
-        app.load_sustain_pedal_setting(cc);
-        // Try to eagerly initialize audio once at startup in case the browser allows it without user gesture.
-        // Some browsers (notably Safari / iOS) will reject or suspend AudioContext creation until a user gesture.
-        // If initialization ultimately fails we will revert the state back to Uninitialized so the user can click the audio enable/unmute button in the UI.
-        app.try_startup_audio_once();
-        app
+            let mut app = Self::default();
+            // Load sustain pedal polarity setting from local storage
+            app.load_sustain_pedal_setting(cc);
+            // Try to eagerly initialize audio once at startup in case the browser allows it without user gesture.
+            // Some browsers (notably Safari / iOS) will reject or suspend AudioContext creation until a user gesture.
+            // If initialization ultimately fails we will revert the state back to Uninitialized so the user can click the audio enable/unmute button in the UI.
+            app.try_startup_audio_once();
+            app
+        }
     }
 
+    #[cfg(target_arch = "wasm32")]
     fn load_sustain_pedal_setting(&mut self, cc: &eframe::CreationContext<'_>) {
         if let Some(storage) = cc.storage
             && let Some(invert_sustain) = storage.get_string("invert_sustain_pedal")
@@ -105,13 +108,13 @@ impl DissonanceLabApp {
 
     /// Attempt to start audio during startup (no user gesture yet).
     /// If the worklet later reports a disable state, revert to Uninitialized so the user can try again manually.
+    #[cfg(target_arch = "wasm32")]
     fn try_startup_audio_once(&mut self) {
         // Only attempt if currently uninitialized – don't override an explicit user mute choice.
         if matches!(*self.audio.lock().unwrap(), AudioState::Uninitialized) {
             // Move into a Playing state to kick off async loading.
             let web_audio = WebAudio::new();
             *self.audio.lock().unwrap() = AudioState::Playing(web_audio);
-            self.auto_audio_attempted = true;
         }
     }
 
@@ -163,13 +166,11 @@ impl DissonanceLabApp {
                                     });
                                 }
                             }
-                            wmidi::MidiMessage::ControlChange(_, control, _value) => {
-                                // Check for sustain pedal (control 64)
-                                if u8::from(*control) == 64 {
-                                    // MIDI sustain pedal - values >= 64 are "on", values < 64 are "off"
-                                    // Note: Do not send sustain message directly to synth here
-                                    // This will be handled in the main event loop to combine with shift sustain
-                                }
+                            wmidi::MidiMessage::ControlChange(_, control, _value)
+                                if u8::from(*control) == MIDI_SUSTAIN_CONTROL =>
+                            {
+                                // Note: Do not send sustain message directly to synth here.
+                                // This will be handled in the main event loop to combine with shift sustain.
                             }
                             _ => {}
                         }
@@ -200,16 +201,18 @@ impl DissonanceLabApp {
 }
 
 impl eframe::App for DissonanceLabApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+
         // Ensure dark mode remains forced, reapply custom theme if needed
-        if !ctx.style().visuals.dark_mode {
-            theme::setup_custom_theme(ctx);
+        if !ui.visuals().dark_mode {
+            theme::setup_custom_theme(&ctx);
         }
 
-        self.ensure_midi(ctx);
+        self.ensure_midi(&ctx);
         self.check_audio_status();
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
                 const STATUS_HEIGHT: f32 = 40.0;
                 ui.allocate_ui(
@@ -449,46 +452,52 @@ impl eframe::App for DissonanceLabApp {
                                 self.piano_gui.external_note_on(note);
                             }
                         }
-                        wmidi::MidiMessage::ControlChange(_, control, value) => {
-                            // Check for sustain pedal (control 64)
-                            if u8::from(control) == 64 {
-                                // MIDI sustain pedal - values >= 64 are "on", values < 64 are "off"
-                                let raw_sustain_active = u8::from(value) >= 64;
-                                let sustain_active = if self.invert_sustain_pedal {
-                                    !raw_sustain_active // Invert the logic for problematic controllers
-                                } else {
-                                    raw_sustain_active // Normal MIDI spec behavior
-                                };
-                                let mut sustain_actions = Vec::new();
-                                self.piano_gui
-                                    .set_external_sustain(sustain_active, &mut sustain_actions);
+                        wmidi::MidiMessage::ControlChange(_, control, value)
+                            if u8::from(control) == MIDI_SUSTAIN_CONTROL =>
+                        {
+                            // MIDI sustain pedal values greater than or equal to 64 are active.
+                            let raw_sustain_active = u8::from(value) >= MIDI_SUSTAIN_CONTROL;
+                            let sustain_active = if self.invert_sustain_pedal {
+                                // Invert the logic for problematic controllers.
+                                !raw_sustain_active
+                            } else {
+                                // Normal MIDI spec behavior.
+                                raw_sustain_active
+                            };
+                            let mut sustain_actions = Vec::new();
+                            self.piano_gui
+                                .set_external_sustain(sustain_active, &mut sustain_actions);
 
-                                // Process the sustain actions
-                                for action in sustain_actions {
-                                    match action {
-                                        piano_gui::Action::SustainPedal(active) => {
-                                            if let AudioState::Playing(web_audio) =
-                                                &*self.audio.lock().unwrap()
-                                            {
-                                                web_audio.ensure_running();
-                                                web_audio.send_message(
-                                                    ToWorkletMessage::SustainPedal { active },
-                                                );
-                                            }
-                                            // Request immediate repaint to update the sustain label color
-                                            ctx.request_repaint();
+                            // Process the sustain actions.
+                            for action in sustain_actions {
+                                match action {
+                                    piano_gui::Action::SustainPedal(active) => {
+                                        if let AudioState::Playing(web_audio) =
+                                            &*self.audio.lock().unwrap()
+                                        {
+                                            web_audio.ensure_running();
+                                            web_audio.send_message(ToWorkletMessage::SustainPedal {
+                                                active,
+                                            });
                                         }
-                                        piano_gui::Action::Released(note) => {
-                                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
-                                                web_audio.ensure_running();
-                                                web_audio.send_message(ToWorkletMessage::NoteOff {
-                                                    note: u8::from(note),
-                                                });
-                                            }
+                                        // Request immediate repaint to update the sustain label color.
+                                        ctx.request_repaint();
+                                    }
+                                    piano_gui::Action::Released(note) => {
+                                        if let AudioState::Playing(web_audio) =
+                                            &*self.audio.lock().unwrap()
+                                        {
+                                            web_audio.ensure_running();
+                                            web_audio.send_message(ToWorkletMessage::NoteOff {
+                                                note: u8::from(note),
+                                            });
                                         }
-                                        _ => {
-                                            debug_assert!(false, "Unexpected action from set_external_sustain: {action:?}");
-                                        }
+                                    }
+                                    _ => {
+                                        debug_assert!(
+                                            false,
+                                            "Unexpected action from set_external_sustain: {action:?}"
+                                        );
                                     }
                                 }
                             }

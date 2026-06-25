@@ -72,8 +72,9 @@ pub fn run_check(skip_fmt: bool) -> Result<()> {
         .context("Failed to run trunk build")?;
 
     if !output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("Trunk build failed: {}", stderr);
+        anyhow::bail!("Trunk build failed:\nstdout:\n{stdout}\nstderr:\n{stderr}");
     }
 
     println!("✅ All checks passed successfully!");
