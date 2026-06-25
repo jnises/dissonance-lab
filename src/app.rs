@@ -152,10 +152,16 @@ impl DissonanceLabApp {
                             }
                             wmidi::MidiMessage::NoteOn(_, note, velocity) => {
                                 web_audio.ensure_running();
-                                web_audio.send_message(ToWorkletMessage::NoteOn {
-                                    note: u8::from(*note),
-                                    velocity: u8::from(*velocity),
-                                });
+                                if u8::from(*velocity) == 0 {
+                                    web_audio.send_message(ToWorkletMessage::NoteOff {
+                                        note: u8::from(*note),
+                                    });
+                                } else {
+                                    web_audio.send_message(ToWorkletMessage::NoteOn {
+                                        note: u8::from(*note),
+                                        velocity: u8::from(*velocity),
+                                    });
+                                }
                             }
                             wmidi::MidiMessage::ControlChange(_, control, _value) => {
                                 // Check for sustain pedal (control 64)
@@ -436,8 +442,12 @@ impl eframe::App for DissonanceLabApp {
                         wmidi::MidiMessage::NoteOff(_channel, note, _) => {
                             self.piano_gui.external_note_off(note);
                         }
-                        wmidi::MidiMessage::NoteOn(_channel, note, _) => {
-                            self.piano_gui.external_note_on(note);
+                        wmidi::MidiMessage::NoteOn(_channel, note, velocity) => {
+                            if u8::from(velocity) == 0 {
+                                self.piano_gui.external_note_off(note);
+                            } else {
+                                self.piano_gui.external_note_on(note);
+                            }
                         }
                         wmidi::MidiMessage::ControlChange(_, control, value) => {
                             // Check for sustain pedal (control 64)
