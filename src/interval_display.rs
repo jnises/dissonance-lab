@@ -1,7 +1,6 @@
 use crate::{
     interval::{self, Interval},
     piano_gui::{PIANO_WIDTH, PianoGui},
-    piano_state::Action,
     theme,
     utils::colorgrad_to_egui,
 };
@@ -11,17 +10,21 @@ use egui::{
     vec2,
 };
 
-pub fn show(piano: &mut PianoGui, ui: &mut Ui) -> Vec<Action> {
-    let (actions, piano_rect) = piano.show(ui);
+pub fn show(piano: &PianoGui, ui: &mut Ui, piano_rect: Rect, just: bool) {
+    let mut row_references = piano.held_keys();
+    if just {
+        row_references.fill(false);
+        if let Some(reference) = piano.tuning_reference() {
+            row_references.set(usize::from(u8::from(reference) % 12), true);
+        }
+    }
     const INTERVAL_DISPLAY_HEIGHT: f32 = 200.0;
     const TEXT_Y_OFFSET: f32 = 4.0;
     const KEY_RECT_CORNER_RADIUS: f32 = 0.0;
+    let bottom = ui.cursor().bottom();
     let interval_rect = Rect::from_min_max(
-        pos2(
-            piano_rect.left(),
-            piano_rect.top() - INTERVAL_DISPLAY_HEIGHT,
-        ),
-        pos2(piano_rect.right(), piano_rect.top()),
+        pos2(piano_rect.left(), bottom - INTERVAL_DISPLAY_HEIGHT),
+        pos2(piano_rect.right(), bottom),
     );
     ui.allocate_rect(interval_rect, Sense::empty());
     let painter = ui.painter();
@@ -29,8 +32,7 @@ pub fn show(piano: &mut PianoGui, ui: &mut Ui) -> Vec<Action> {
     let key_width = interval_rect.width() / SEMITONES_IN_OCTAVE;
     const PIANO_WIDTH_ADJUSTMENT: f32 = 4.0;
     let font_scale = interval_rect.width() / (PIANO_WIDTH - PIANO_WIDTH_ADJUSTMENT);
-    for (row, selected_semi) in piano
-        .held_keys()
+    for (row, selected_semi) in row_references
         .iter_ones()
         .map(|i| i8::try_from(i).unwrap())
         .enumerate()
@@ -58,13 +60,14 @@ pub fn show(piano: &mut PianoGui, ui: &mut Ui) -> Vec<Action> {
                     Stroke::new(OUTLINE_STROKE_WIDTH, theme::outlines()),
                     StrokeKind::Inside,
                 );
-                const NOTE_FONT_SIZE: f32 = 20.0;
-                painter.text(
-                    score_center_pos,
-                    Align2::CENTER_CENTER,
-                    "♪",
-                    FontId::monospace(NOTE_FONT_SIZE * font_scale),
-                    Color32::WHITE,
+                let note_stroke = Stroke::new(1.5, theme::outlines());
+                let head = score_center_pos + vec2(-2.0, 4.0) * font_scale;
+                let stem = head + vec2(2.5, 0.0) * font_scale;
+                let top = stem - vec2(0.0, 11.0) * font_scale;
+                painter.circle_stroke(head, 2.5 * font_scale, note_stroke);
+                painter.line(
+                    vec![stem, top, top + vec2(4.5, 3.5) * font_scale],
+                    note_stroke,
                 );
             } else {
                 let normalized_dissonance = (interval.dissonance()
@@ -138,5 +141,4 @@ pub fn show(piano: &mut PianoGui, ui: &mut Ui) -> Vec<Action> {
             }
         }
     }
-    actions
 }

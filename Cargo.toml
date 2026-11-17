@@ -45,6 +45,7 @@ ctrlc = { version = "3.5.2", features = ["termination"] }
 cargo_metadata = "0.23.1"
 web-sys = { version = "0.3.103", features = [
     "AudioContext",
+    "AudioContextState",
     "AudioWorklet",
     "Worklet",
     "Blob",

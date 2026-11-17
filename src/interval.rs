@@ -53,21 +53,8 @@ impl Interval {
 
     /// Returns the just intonation ratio for this interval
     pub fn just_ratio(&self) -> Rational32 {
-        match self {
-            Self::Unison => Rational32::new(1, 1),
-            Self::MinorSecond => Rational32::new(16, 15),
-            Self::MajorSecond => Rational32::new(9, 8),
-            Self::MinorThird => Rational32::new(6, 5),
-            Self::MajorThird => Rational32::new(5, 4),
-            Self::PerfectFourth => Rational32::new(4, 3),
-            Self::Tritone => Rational32::new(45, 32),
-            Self::PerfectFifth => Rational32::new(3, 2),
-            Self::MinorSixth => Rational32::new(8, 5),
-            Self::MajorSixth => Rational32::new(5, 3),
-            Self::MinorSeventh => Rational32::new(9, 5),
-            Self::MajorSeventh => Rational32::new(15, 8),
-            Self::Octave => Rational32::new(2, 1),
-        }
+        let (numerator, denominator) = shared_types::just_ratio(self.semitones());
+        Rational32::new(numerator, denominator)
     }
 
     /// Returns the equal temperament ratio for this interval

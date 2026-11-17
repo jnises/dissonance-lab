@@ -1,4 +1,4 @@
-use egui::{Event, Rect, Sense, TouchPhase, Ui, pos2, vec2};
+use egui::{Event, PointerButton, Rect, Sense, TouchPhase, Ui, pos2, vec2};
 use std::collections::{HashMap, HashSet};
 use wmidi::Note;
 
@@ -29,8 +29,8 @@ impl PianoGui {
         }
     }
 
-    pub fn external_note_on(&mut self, note: Note) {
-        self.state.external_note_on(note);
+    pub fn external_note_on(&mut self, note: Note) -> Note {
+        self.state.external_note_on(note)
     }
 
     pub fn external_note_off(&mut self, note: Note) {
@@ -42,9 +42,21 @@ impl PianoGui {
         self.state.set_external_sustain(active, actions);
     }
 
-    /// Check if sustain is currently active (either from Shift key or MIDI)
+    /// Check if any sustain source is active.
     pub fn is_sustain_active(&self) -> bool {
         self.state.is_sustain_active()
+    }
+
+    pub fn hold_active(&self) -> bool {
+        self.state.hold_active()
+    }
+
+    pub fn set_hold(&mut self, active: bool, actions: &mut Vec<Action>) {
+        self.state.set_hold(active, actions);
+    }
+
+    pub fn tuning_reference(&self) -> Option<Note> {
+        self.state.tuning_reference()
     }
 
     pub fn show(&mut self, ui: &mut Ui) -> (Vec<Action>, Rect) {
@@ -64,28 +76,29 @@ impl PianoGui {
         let keys_rect = rect.shrink(MARGIN);
         let shift_pressed = ui.input(|i| i.modifiers.shift);
 
-        // Process all pointer events (touch and mouse)
+        self.state.update_shift_sustain(shift_pressed, &mut actions);
 
-        // Handle touch events
+        // Preserve the order of touches that land within one frame.
         let mut has_active_touches = !self.active_touch_ids.is_empty();
         ui.input(|i| {
             for event in &i.events {
                 if let Event::Touch { id, phase, pos, .. } = event {
                     has_active_touches = true;
+                    self.update_pointer(PointerId::Mouse, None, &mut actions);
                     let touch_id = id.0;
                     let pointer_id = PointerId::Touch(touch_id);
 
-                    match phase {
+                    let target_key = match phase {
                         TouchPhase::Start | TouchPhase::Move => {
                             self.active_touch_ids.insert(touch_id);
-                            let target_key = Self::find_key_at_position(*pos, keys_rect);
-                            self.handle_pointer_move(pointer_id, target_key);
+                            Self::find_key_at_position(*pos, keys_rect)
                         }
                         TouchPhase::End | TouchPhase::Cancel => {
                             self.active_touch_ids.remove(&touch_id);
-                            self.keys_by_pointer.remove(&pointer_id);
+                            None
                         }
-                    }
+                    };
+                    self.update_pointer(pointer_id, target_key, &mut actions);
                 }
             }
         });
@@ -93,42 +106,55 @@ impl PianoGui {
         // Handle mouse interactions only if there are no active touches
         // This prevents mouse events from interfering with multitouch on touch devices
         if !has_active_touches {
-            let mouse_pointer_id = PointerId::Mouse;
-            let mouse_pos = ui.input(|i| i.pointer.latest_pos());
-            let mouse_down = ui.input(|i| i.pointer.primary_down());
-
-            if let Some(pos) = mouse_pos {
-                if mouse_down {
-                    let target_key = Self::find_key_at_position(pos, keys_rect);
-                    self.handle_pointer_move(mouse_pointer_id, target_key);
-                } else {
-                    self.keys_by_pointer.remove(&mouse_pointer_id);
+            ui.input(|i| {
+                for event in &i.events {
+                    if let Event::PointerButton {
+                        pos,
+                        pressed,
+                        button: PointerButton::Primary,
+                        ..
+                    } = event
+                    {
+                        let key = if *pressed {
+                            Self::find_key_at_position(*pos, keys_rect)
+                        } else {
+                            None
+                        };
+                        self.update_pointer(PointerId::Mouse, key, &mut actions);
+                    }
                 }
-            } else {
-                self.keys_by_pointer.remove(&mouse_pointer_id);
-            }
+
+                let key = if i.pointer.primary_down() {
+                    i.pointer
+                        .latest_pos()
+                        .and_then(|pos| Self::find_key_at_position(pos, keys_rect))
+                } else {
+                    None
+                };
+                self.update_pointer(PointerId::Mouse, key, &mut actions);
+            });
         }
-
-        // Update current shift state and get actions
-        self.state.update_shift_sustain(shift_pressed, &mut actions);
-
-        // Convert current pointer state to key state
-        let mut current_gui_keys = KeySet::default();
-        for semitone in self.keys_by_pointer.values() {
-            current_gui_keys.set(semitone.as_index(), true);
-        }
-
-        // Update PianoState with current GUI key state and get actions
-        self.state.update_gui_keys(current_gui_keys, &mut actions);
 
         // Render white keys first (so black keys appear on top)
         for semitone in Semitone::white_keys() {
-            self.render_key(semitone, ui, &painter, keys_rect, &current_gui_keys);
+            self.render_key(
+                semitone,
+                ui,
+                &painter,
+                keys_rect,
+                self.state.gui_pressed_keys(),
+            );
         }
 
         // Render black keys on top
         for semitone in Semitone::black_keys() {
-            self.render_key(semitone, ui, &painter, keys_rect, &current_gui_keys);
+            self.render_key(
+                semitone,
+                ui,
+                &painter,
+                keys_rect,
+                self.state.gui_pressed_keys(),
+            );
         }
 
         (actions, keys_rect)
@@ -225,11 +251,23 @@ impl PianoGui {
         None
     }
 
-    fn handle_pointer_move(&mut self, pointer_id: PointerId, key: Option<Semitone>) {
-        if let Some(key) = key {
-            self.keys_by_pointer.insert(pointer_id, key);
+    fn update_pointer(
+        &mut self,
+        pointer_id: PointerId,
+        key: Option<Semitone>,
+        actions: &mut Vec<Action>,
+    ) {
+        let previous = if let Some(key) = key {
+            self.keys_by_pointer.insert(pointer_id, key)
         } else {
-            self.keys_by_pointer.remove(&pointer_id);
+            self.keys_by_pointer.remove(&pointer_id)
+        };
+        if previous != key {
+            let mut pressed_keys = KeySet::default();
+            for semitone in self.keys_by_pointer.values() {
+                pressed_keys.set(semitone.as_index(), true);
+            }
+            self.state.update_gui_keys(pressed_keys, actions);
         }
     }
 }

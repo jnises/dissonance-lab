@@ -124,11 +124,6 @@ impl Semitone {
         Note::try_from(midi_note as u8).unwrap()
     }
 
-    /// Create an iterator over all 12 semitones in chromatic order (C, C#, D, D#, E, F, F#, G, G#, A, A#, B)
-    pub fn iter() -> impl Iterator<Item = Semitone> {
-        (0..12).map(Semitone::new)
-    }
-
     /// Create an iterator over white key semitones (C, D, E, F, G, A, B)
     pub fn white_keys() -> impl Iterator<Item = Semitone> {
         [0, 2, 4, 5, 7, 9, 11].into_iter().map(Semitone::new)

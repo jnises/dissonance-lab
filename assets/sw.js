@@ -1,5 +1,5 @@
 const cachePrefix = "dissonance-lab-pwa-";
-const cacheName = `${cachePrefix}v24`;
+const cacheName = `${cachePrefix}v25`;
 const filesToCache = [
   "./",
   "./index.html",
@@ -16,15 +16,15 @@ self.addEventListener("install", function (e) {
     caches
       .open(cacheName)
       .then(function (cache) {
-        return cache.addAll(filesToCache);
-      })
-      .then(function () {
-        return self.skipWaiting(); // Ensure the new service worker activates immediately
+        // Fetch one fresh set of assets. The UI and worklet must share the same protocol.
+        return cache.addAll(filesToCache.map(
+          (file) => new Request(new URL(file, self.registration.scope), { cache: "reload" }),
+        ));
       }),
   );
 });
 
-/* Clear old caches when a new service worker is activated */
+/* Activation waits for tabs using the previous version to close. */
 self.addEventListener("activate", function (e) {
   e.waitUntil(
     caches

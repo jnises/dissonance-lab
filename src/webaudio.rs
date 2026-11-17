@@ -157,17 +157,22 @@ impl WebAudio {
         )
     }
 
+    pub fn is_running(&self) -> bool {
+        matches!(
+            self.node.try_get(),
+            Some(Ok(connection)) if connection.context.state() == web_sys::AudioContextState::Running
+        )
+    }
+
     /// Try to resume a context suspended by the browser's autoplay policy.
     pub fn ensure_running(&self) {
         if let Some(node) = self.node.try_get()
             && let Ok(connection) = node.as_ref()
+            && connection.context.state() != web_sys::AudioContextState::Running
+            && let Err(e) = connection.context.resume()
         {
-            // We don't have access to AudioContext.state via web-sys yet on all targets, so just attempt resume.
-            // Browsers ignore resume() if already running.
-            if let Err(e) = connection.context.resume() {
-                // Ignored: can fail prior to a valid user gesture; we'll try again next event.
-                log::debug!("AudioContext resume attempt failed or deferred: {e:?}");
-            }
+            // Autoplay policy can defer resume until the next user gesture.
+            log::debug!("AudioContext resume attempt failed or deferred: {e:?}");
         }
     }
 }

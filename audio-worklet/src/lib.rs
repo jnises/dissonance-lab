@@ -60,14 +60,18 @@ impl DissonanceProcessor {
     pub fn handle_message(&mut self, message: JsValue) {
         let msg = serde_wasm_bindgen::from_value::<ToWorkletMessage>(message).unwrap();
         match msg {
-            ToWorkletMessage::NoteOn { note, velocity } => {
-                log::debug!("NoteOn: note={note}, velocity={velocity}");
+            ToWorkletMessage::NoteOn {
+                note,
+                velocity,
+                frequency,
+            } => {
+                log::debug!("NoteOn: note={note}, velocity={velocity}, frequency={frequency:.2}");
                 let midi_note = wmidi::Note::try_from(note).expect("Invalid MIDI note value");
                 if velocity == 0 {
                     self.synth.note_off(midi_note);
                 } else {
                     let midi_velocity = wmidi::U7::try_from(velocity).unwrap_or(wmidi::U7::MAX);
-                    self.synth.note_on(midi_note, midi_velocity);
+                    self.synth.note_on(midi_note, midi_velocity, frequency);
                 }
             }
             ToWorkletMessage::NoteOff { note } => {
@@ -78,6 +82,10 @@ impl DissonanceProcessor {
             ToWorkletMessage::SustainPedal { active } => {
                 log::debug!("SustainPedal: active={active}");
                 self.synth.set_sustain_pedal(active);
+            }
+            ToWorkletMessage::Retune { tuning } => {
+                log::debug!("Retune: {tuning:?}");
+                self.synth.retune(tuning);
             }
         }
     }
