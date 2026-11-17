@@ -1,13 +1,13 @@
 use crate::utils::FutureData;
 use js_sys::wasm_bindgen::JsValue;
 use serde::Serialize;
-use shared_types::FromWorkletMessage;
 pub use shared_types::ToWorkletMessage;
+use shared_types::{FromWorkletMessage, WORKLET_PROTOCOL_VERSION};
 use std::{cell::Cell, rc::Rc};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{AudioContext, AudioWorkletNode, MessageEvent};
+use web_sys::{AudioContext, AudioWorkletNode, GainNode, MessageEvent};
 
 #[derive(Serialize)]
 struct ProcessorOptions {
@@ -114,9 +114,7 @@ impl WebAudio {
                 }
             };
 
-            // Connect the node to the audio context destination (speakers)
-            let connection = AudioNodeConnection::new(context, node);
-            Ok(connection)
+            AudioNodeConnection::new(context, node)
         });
         Self {
             node,
@@ -164,6 +162,22 @@ impl WebAudio {
         )
     }
 
+    pub fn set_muted(&self, muted: bool) -> Result<(), JsValue> {
+        let Some(Ok(connection)) = self.node.try_get() else {
+            unreachable!("Mute requires an initialized worklet");
+        };
+        const GAIN_TIME_CONSTANT_SECONDS: f64 = 0.005;
+        let now = connection.context.current_time();
+        let gain = connection.output.gain();
+        gain.cancel_scheduled_values(now)?;
+        gain.set_target_at_time(
+            if muted { 0.0 } else { 1.0 },
+            now,
+            GAIN_TIME_CONSTANT_SECONDS,
+        )?;
+        Ok(())
+    }
+
     /// Try to resume a context suspended by the browser's autoplay policy.
     pub fn ensure_running(&self) {
         if let Some(node) = self.node.try_get()
@@ -188,6 +202,7 @@ enum WorkletStatus {
 struct AudioNodeConnection {
     context: AudioContext,
     node: AudioWorkletNode,
+    output: GainNode,
     status: Rc<Cell<WorkletStatus>>,
     // These callbacks must live as long as their JS event handlers.
     _onmessage: Closure<dyn FnMut(MessageEvent)>,
@@ -195,17 +210,25 @@ struct AudioNodeConnection {
 }
 
 impl AudioNodeConnection {
-    fn new(context: AudioContext, node: AudioWorkletNode) -> Self {
-        let destination = context.destination();
-        node.connect_with_audio_node(&destination).unwrap();
+    fn new(context: AudioContext, node: AudioWorkletNode) -> Result<Self, JsValue> {
+        let output = context.create_gain()?;
+        node.connect_with_audio_node(&output)?;
+        output.connect_with_audio_node(&context.destination())?;
 
-        let port = node.port().unwrap();
+        let port = node.port()?;
         let status = Rc::new(Cell::new(WorkletStatus::Loading));
         let message_status = Rc::clone(&status);
         let onmessage = Closure::<dyn FnMut(_)>::new(move |event: MessageEvent| {
             match serde_wasm_bindgen::from_value(event.data()) {
-                Ok(FromWorkletMessage::InitComplete) => {
+                Ok(FromWorkletMessage::InitComplete { protocol_version }) => {
                     if message_status.get() == WorkletStatus::Loading {
+                        if protocol_version != WORKLET_PROTOCOL_VERSION {
+                            message_status.set(WorkletStatus::Failed);
+                            log::error!(
+                                "[audio-worklet] Version mismatch: expected {WORKLET_PROTOCOL_VERSION}, got {protocol_version}. Reload the app to update audio."
+                            );
+                            return;
+                        }
                         message_status.set(WorkletStatus::Ready);
                         log::debug!("[audio-worklet] Initialization complete");
                     }
@@ -226,13 +249,14 @@ impl AudioNodeConnection {
         });
         node.set_onprocessorerror(Some(onprocessorerror.as_ref().unchecked_ref()));
 
-        Self {
+        Ok(Self {
             context,
             node,
+            output,
             status,
             _onmessage: onmessage,
             _onprocessorerror: onprocessorerror,
-        }
+        })
     }
 }
 
@@ -241,5 +265,6 @@ impl Drop for AudioNodeConnection {
         self.node.port().unwrap().set_onmessage(None);
         self.node.set_onprocessorerror(None);
         self.node.disconnect().unwrap();
+        self.output.disconnect().unwrap();
     }
 }

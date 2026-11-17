@@ -46,6 +46,8 @@ cargo_metadata = "0.23.1"
 web-sys = { version = "0.3.103", features = [
     "AudioContext",
     "AudioContextState",
+    "AudioParam",
+    "GainNode",
     "AudioWorklet",
     "Worklet",
     "Blob",

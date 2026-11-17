@@ -1,5 +1,7 @@
 const cachePrefix = "dissonance-lab-pwa-";
 const cacheName = `${cachePrefix}v25`;
+const scope = new URL(self.registration.scope);
+const index = new URL("index.html", scope);
 const filesToCache = [
   "./",
   "./index.html",
@@ -17,9 +19,11 @@ self.addEventListener("install", function (e) {
       .open(cacheName)
       .then(function (cache) {
         // Fetch one fresh set of assets. The UI and worklet must share the same protocol.
-        return cache.addAll(filesToCache.map(
-          (file) => new Request(new URL(file, self.registration.scope), { cache: "reload" }),
-        ));
+        return cache.addAll(
+          filesToCache.map(
+            (file) => new Request(new URL(file, scope), { cache: "reload" }),
+          ),
+        );
       }),
   );
 });
@@ -35,9 +39,6 @@ self.addEventListener("activate", function (e) {
             .filter((name) => name.startsWith(cachePrefix) && name !== cacheName)
             .map((name) => caches.delete(name)),
         );
-      })
-      .then(function () {
-        return self.clients.claim(); // Take control of clients immediately
       }),
   );
 });
@@ -46,8 +47,14 @@ self.addEventListener("activate", function (e) {
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET") return;
 
+  const url = new URL(e.request.url);
+  const isAppNavigation =
+    e.request.mode === "navigate" &&
+    url.origin === scope.origin &&
+    (url.pathname === scope.pathname || url.pathname === index.pathname);
+
   e.respondWith(
-    caches.match(e.request, { cacheName })
+    caches.match(isAppNavigation ? scope.href : e.request, { cacheName })
       .then((response) => response || fetch(e.request)),
   );
 });

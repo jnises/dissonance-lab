@@ -1,6 +1,7 @@
 use crate::{
     interval::{self, Interval},
     piano_gui::{PIANO_WIDTH, PianoGui},
+    piano_types::Semitone,
     theme,
     utils::colorgrad_to_egui,
 };
@@ -9,13 +10,15 @@ use egui::{
     Align2, Color32, FontId, Rect, Sense, Stroke, StrokeKind, Ui, Vec2, epaint::PathShape, pos2,
     vec2,
 };
+use num_rational::Rational32;
 
 pub fn show(piano: &PianoGui, ui: &mut Ui, piano_rect: Rect, just: bool) {
     let mut row_references = piano.held_keys();
+    let reference = piano.tuning_reference().filter(|_| just).map(u8::from);
     if just {
         row_references.fill(false);
-        if let Some(reference) = piano.tuning_reference() {
-            row_references.set(usize::from(u8::from(reference) % 12), true);
+        if let Some(reference) = reference {
+            row_references.set(usize::from(reference % 12), true);
         }
     }
     const INTERVAL_DISPLAY_HEIGHT: f32 = 200.0;
@@ -38,14 +41,13 @@ pub fn show(piano: &PianoGui, ui: &mut Ui, piano_rect: Rect, just: bool) {
         .enumerate()
     {
         for semi in 0..12i8 {
-            // always consider the pressed key as the base
-            // TODO: if we show more than one octave we show the actual base as the root
             let interval = interval::Interval::from_semitone_wrapping(semi - selected_semi);
+            let note = u8::from(piano.note_for_key(Semitone::new(semi as u8)));
+            let this_selected = reference.map_or(semi == selected_semi, |root| note == root);
             let pos = pos2(
                 interval_rect.left() + key_width * (semi as f32 + 0.5),
                 interval_rect.bottom(),
             );
-            let this_selected = semi == selected_semi;
             const SCORE_CENTER_POS_ADJUSTMENT: f32 = 4.0;
             const SCORE_CENTER_POS_OFFSET: f32 = 10.0;
             let score_center_pos = pos
@@ -76,7 +78,9 @@ pub fn show(piano: &PianoGui, ui: &mut Ui, piano_rect: Rect, just: bool) {
                 painter.rect_filled(
                     Rect::from_center_size(score_center_pos, Vec2::splat(key_width)),
                     KEY_RECT_CORNER_RADIUS,
-                    colorgrad_to_egui(&theme::DISSONANCE_GRADIENT.at(normalized_dissonance)),
+                    colorgrad_to_egui(
+                        &theme::DISSONANCE_GRADIENT.at(normalized_dissonance.clamp(0.0, 1.0)),
+                    ),
                 );
                 // draw triangles to indicate that the pressed key is considered the root
                 const TRIANGLE_SIZE: f32 = 1.0 / 6.0;
@@ -109,10 +113,17 @@ pub fn show(piano: &PianoGui, ui: &mut Ui, piano_rect: Rect, just: bool) {
                     );
                 }
                 const RATIO_FONT_SIZE: f32 = 14.0;
+                let ratio = reference.map_or_else(
+                    || interval.just_ratio(),
+                    |root| {
+                        let (numerator, denominator) = shared_types::just_note_ratio(note, root);
+                        Rational32::new(numerator, denominator)
+                    },
+                );
                 let ratio_rect = painter.text(
                     score_center_pos - vec2(0.0, key_width / 2.0 - TEXT_Y_OFFSET),
                     Align2::CENTER_TOP,
-                    interval.just_ratio().to_string(),
+                    format!("{}/{}", ratio.numer(), ratio.denom()),
                     FontId::monospace(RATIO_FONT_SIZE * font_scale),
                     Color32::BLACK,
                 );
@@ -130,10 +141,25 @@ pub fn show(piano: &PianoGui, ui: &mut Ui, piano_rect: Rect, just: bool) {
                 if font_scale > MIN_FONT_SCALE {
                     const INTERVAL_NAME_FONT_SIZE: f32 = 7.0;
                     const INTERVAL_NAME_ALPHA: u8 = 150;
+                    let name = reference.map_or_else(
+                        || interval.to_string(),
+                        |root| {
+                            let distance = note.abs_diff(root);
+                            if distance > 12 {
+                                return format!("{:+} st", i16::from(note) - i16::from(root));
+                            }
+                            let interval = Interval::from_semitone_interval(distance);
+                            if note < root {
+                                format!("↓ {interval}")
+                            } else {
+                                interval.to_string()
+                            }
+                        },
+                    );
                     painter.text(
                         score_center_pos + vec2(0.0, key_width / 2.0 - TEXT_Y_OFFSET),
                         Align2::CENTER_BOTTOM,
-                        interval.to_string(),
+                        name,
                         FontId::proportional(INTERVAL_NAME_FONT_SIZE * font_scale),
                         Color32::from_black_alpha(INTERVAL_NAME_ALPHA),
                     );

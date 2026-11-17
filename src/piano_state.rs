@@ -133,6 +133,29 @@ impl PianoState {
         self.tuning_reference
     }
 
+    pub fn note_for_key(&self, key: Semitone) -> Note {
+        key.to_note_in_octave(self.octave)
+    }
+
+    /// Snapshot active MIDI notes and whether their release is deferred by sustain.
+    pub fn sounding_notes(&self) -> impl Iterator<Item = (Note, bool)> {
+        let mut pressed = self.external_pressed_keys;
+        let mut sustained = self.external_sustained_keys;
+        for index in self.current_gui_pressed_keys.iter_ones() {
+            let note = self.note_for_key(Semitone::from_usize(index));
+            pressed.set(usize::from(u8::from(note)), true);
+        }
+        for index in self.sustained_keys.iter_ones() {
+            let note = self.note_for_key(Semitone::from_usize(index));
+            sustained.set(usize::from(u8::from(note)), true);
+        }
+        (0..=127).filter_map(move |midi| {
+            let index = usize::from(midi);
+            (pressed[index] || sustained[index])
+                .then(|| (Note::try_from(midi).unwrap(), !pressed[index]))
+        })
+    }
+
     fn update_sustain(&mut self, was_overall_sustain_active: bool, actions: &mut Vec<Action>) {
         let is_overall_sustain_active = self.is_sustain_active();
 
@@ -254,6 +277,27 @@ mod tests {
         assert_eq!(state.tuning_reference(), Some(Note::G4));
         state.external_note_off(Note::C4);
         assert_eq!(state.tuning_reference(), None);
+    }
+
+    #[test]
+    fn sounding_snapshot_distinguishes_held_keys_from_deferred_releases() {
+        let mut state = PianoState::new();
+        let mut actions = Vec::new();
+        state.set_hold(true, &mut actions);
+        state.external_note_on(Note::C3);
+        state.external_note_off(Note::C3);
+        let mut keys = KeySet::default();
+        keys.set(Semitone::E.as_index(), true);
+        state.update_gui_keys(keys, &mut actions);
+        assert_eq!(
+            state.sounding_notes().collect::<Vec<_>>(),
+            vec![(Note::C3, true), (Note::E4, false)]
+        );
+        state.set_hold(false, &mut actions);
+        assert_eq!(
+            state.sounding_notes().collect::<Vec<_>>(),
+            vec![(Note::E4, false)]
+        );
     }
 
     #[test]

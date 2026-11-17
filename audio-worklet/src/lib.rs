@@ -1,5 +1,5 @@
 use js_sys::{Array, Float32Array, Object};
-use shared_types::ToWorkletMessage;
+use shared_types::{ToWorkletMessage, WORKLET_PROTOCOL_VERSION};
 use wasm_bindgen::prelude::*;
 use web_sys::{AudioWorkletGlobalScope, MessagePort};
 
@@ -57,6 +57,11 @@ impl DissonanceProcessor {
     }
 
     #[wasm_bindgen]
+    pub fn protocol_version(&self) -> u32 {
+        WORKLET_PROTOCOL_VERSION
+    }
+
+    #[wasm_bindgen]
     pub fn handle_message(&mut self, message: JsValue) {
         let msg = serde_wasm_bindgen::from_value::<ToWorkletMessage>(message).unwrap();
         match msg {
@@ -65,11 +70,15 @@ impl DissonanceProcessor {
                 velocity,
                 frequency,
             } => {
-                log::debug!("NoteOn: note={note}, velocity={velocity}, frequency={frequency:.2}");
                 let midi_note = wmidi::Note::try_from(note).expect("Invalid MIDI note value");
                 if velocity == 0 {
                     self.synth.note_off(midi_note);
                 } else {
+                    // Older cached frontends sent only the MIDI pitch and velocity.
+                    let frequency = frequency.unwrap_or_else(|| midi_note.to_freq_f32());
+                    log::debug!(
+                        "NoteOn: note={note}, velocity={velocity}, frequency={frequency:.2}"
+                    );
                     let midi_velocity = wmidi::U7::try_from(velocity).unwrap_or(wmidi::U7::MAX);
                     self.synth.note_on(midi_note, midi_velocity, frequency);
                 }

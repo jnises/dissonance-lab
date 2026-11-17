@@ -59,6 +59,14 @@ impl PianoGui {
         self.state.tuning_reference()
     }
 
+    pub fn note_for_key(&self, key: Semitone) -> Note {
+        self.state.note_for_key(key)
+    }
+
+    pub fn sounding_notes(&self) -> impl Iterator<Item = (Note, bool)> {
+        self.state.sounding_notes()
+    }
+
     pub fn show(&mut self, ui: &mut Ui) -> (Vec<Action>, Rect) {
         let mut actions = Vec::new();
         let mut piano_size = vec2(PIANO_WIDTH, PIANO_HEIGHT);

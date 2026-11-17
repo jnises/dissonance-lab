@@ -19,12 +19,12 @@ use crate::{
 const MIDI_SUSTAIN_CONTROL: u8 = 64;
 const MIDI_SUSTAIN_ACTIVE_THRESHOLD: u8 = 64;
 const CONTROL_FONT_SIZE: f32 = 12.0;
+const DEFAULT_NOTE_VELOCITY: u8 = 64;
 
 enum AudioState {
     Uninitialized,
-    Muted,
     Loading(WebAudio),
-    Playing(WebAudio),
+    Playing { audio: WebAudio, muted: bool },
     Disabled, // Audio is not supported (e.g., mobile devices without AudioWorklet)
 }
 
@@ -104,10 +104,7 @@ impl DissonanceLabApp {
     }
 
     fn setup_audio(&mut self) {
-        assert!(matches!(
-            self.audio,
-            AudioState::Muted | AudioState::Uninitialized
-        ));
+        assert!(matches!(self.audio, AudioState::Uninitialized));
         let web_audio = WebAudio::new();
         self.audio = AudioState::Loading(web_audio);
         self.user_audio_attempted = true;
@@ -126,7 +123,7 @@ impl DissonanceLabApp {
     fn check_audio_status(&mut self) {
         let (web_audio, loading) = match &self.audio {
             AudioState::Loading(web_audio) => (web_audio, true),
-            AudioState::Playing(web_audio) => (web_audio, false),
+            AudioState::Playing { audio, .. } => (audio, false),
             _ => return,
         };
         if web_audio.is_disabled() {
@@ -142,12 +139,24 @@ impl DissonanceLabApp {
             web_audio.send_message(ToWorkletMessage::SustainPedal {
                 active: self.piano_gui.is_sustain_active(),
             });
+            if let Some(reference) = self.piano_gui.tuning_reference() {
+                for (note, sustained) in self.piano_gui.sounding_notes() {
+                    // Only held state survives startup. Recreate it at the GUI's default velocity.
+                    web_audio.send_message(self.note_on(note, reference, DEFAULT_NOTE_VELOCITY));
+                    if sustained {
+                        web_audio.send_message(ToWorkletMessage::NoteOff { note: note.into() });
+                    }
+                }
+            }
             let AudioState::Loading(web_audio) =
                 std::mem::replace(&mut self.audio, AudioState::Uninitialized)
             else {
                 unreachable!();
             };
-            self.audio = AudioState::Playing(web_audio);
+            self.audio = AudioState::Playing {
+                audio: web_audio,
+                muted: false,
+            };
         }
     }
 
@@ -187,9 +196,11 @@ impl DissonanceLabApp {
     }
 
     fn send_audio_message(&self, message: ToWorkletMessage) {
-        if let AudioState::Playing(web_audio) = &self.audio {
-            web_audio.ensure_running();
-            web_audio.send_message(message);
+        if let AudioState::Playing { audio, muted } = &self.audio {
+            if !muted {
+                audio.ensure_running();
+            }
+            audio.send_message(message);
         }
     }
 
@@ -216,7 +227,7 @@ impl DissonanceLabApp {
         ToWorkletMessage::NoteOn {
             note,
             velocity,
-            frequency: self.tuning(Some(reference)).frequency(note),
+            frequency: Some(self.tuning(Some(reference)).frequency(note)),
         }
     }
 
@@ -224,8 +235,7 @@ impl DissonanceLabApp {
         for action in actions {
             let message = match action {
                 Action::Pressed { note, reference } => {
-                    const GUI_NOTE_VELOCITY: u8 = 64;
-                    self.note_on(note, reference, GUI_NOTE_VELOCITY)
+                    self.note_on(note, reference, DEFAULT_NOTE_VELOCITY)
                 }
                 Action::Released(note) => ToWorkletMessage::NoteOff {
                     note: u8::from(note),
@@ -277,10 +287,11 @@ impl DissonanceLabApp {
 
     fn show_speaker(&mut self, ui: &mut Ui) {
         let (muted, hint) = match &self.audio {
-            AudioState::Playing(audio) if audio.is_running() => (false, "Mute sound"),
-            AudioState::Uninitialized | AudioState::Muted | AudioState::Playing(_) => {
-                (true, "Enable sound")
-            }
+            AudioState::Playing {
+                audio,
+                muted: false,
+            } if audio.is_running() => (false, "Mute sound"),
+            AudioState::Uninitialized | AudioState::Playing { .. } => (true, "Enable sound"),
             AudioState::Loading(_) => (true, "Loading sound"),
             AudioState::Disabled => (true, "Audio unavailable"),
         };
@@ -293,10 +304,21 @@ impl DissonanceLabApp {
             .on_hover_text(hint)
             .on_disabled_hover_text(hint);
         if response.clicked() {
-            match &self.audio {
-                AudioState::Playing(audio) if muted => audio.ensure_running(),
-                AudioState::Playing(_) => self.audio = AudioState::Muted,
-                AudioState::Uninitialized | AudioState::Muted => self.setup_audio(),
+            match &mut self.audio {
+                AudioState::Playing {
+                    audio,
+                    muted: current,
+                } => {
+                    let mute = !muted;
+                    match audio.set_muted(mute) {
+                        Ok(()) => *current = mute,
+                        Err(error) => log::error!("Could not change output gain: {error:?}"),
+                    }
+                    if !mute {
+                        audio.ensure_running();
+                    }
+                }
+                AudioState::Uninitialized => self.setup_audio(),
                 AudioState::Disabled | AudioState::Loading(_) => unreachable!(),
             }
         }
