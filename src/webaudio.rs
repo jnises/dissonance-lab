@@ -1,7 +1,9 @@
 use crate::utils::FutureData;
 use js_sys::wasm_bindgen::JsValue;
 use serde::Serialize;
-pub use shared_types::{FromWorkletMessage, ToWorkletMessage};
+use shared_types::FromWorkletMessage;
+pub use shared_types::ToWorkletMessage;
+use std::{cell::Cell, rc::Rc};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -19,12 +21,8 @@ struct ProcessorOptions {
 
 pub struct WebAudio {
     node: FutureData<Result<AudioNodeConnection, JsValue>>,
-    message_attempt_count: std::cell::Cell<u32>,
-    init_failure_logged: std::cell::Cell<bool>,
+    init_failure_logged: Cell<bool>,
 }
-
-// SAFETY: we need to send messages from the midi callback. and midir requires Send. JsValue is !Send, but since we aren't using wasm threads that should not be a problem
-unsafe impl Send for WebAudio {}
 
 impl Default for WebAudio {
     fn default() -> Self {
@@ -122,82 +120,44 @@ impl WebAudio {
         });
         Self {
             node,
-            message_attempt_count: std::cell::Cell::new(0),
-            init_failure_logged: std::cell::Cell::new(false),
+            init_failure_logged: Cell::new(false),
         }
     }
 
     pub fn send_message(&self, message: ToWorkletMessage) {
-        // it might take a while to load the worklet, so early messages might get a None from try_get
-        if let Some(node) = self.node.try_get() {
-            match node.as_ref() {
-                Ok(connection) => {
-                    match connection.node.port() {
-                        Ok(port) => {
-                            if let Err(e) = port.post_message(&message.into()) {
-                                log::error!("Failed to send message to audio worklet: {e:?}");
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("Failed to get audio worklet port: {e:?}");
-                        }
-                    }
-                    self.message_attempt_count.set(0);
-                }
-                Err(e) => {
-                    // AudioWorklet failed to initialize, log the error once and stop trying
-                    if !self.init_failure_logged.get() {
-                        log::info!("Audio worklet initialization failed: {e:?}");
-                        log::info!(
-                            "Audio functionality is disabled. The visual interface remains fully functional."
-                        );
-                    }
-                    self.init_failure_logged.set(true);
-                }
-            }
-        } else {
-            let count = self.message_attempt_count.get();
-            self.message_attempt_count.set(count + 1);
-
-            // Log warning after 100 attempts (arbitrary threshold)
-            if count == 100 {
-                log::warn!(
-                    "Audio worklet still not ready after {count} message attempts. This may indicate a loading problem."
-                );
-            } else if count > 100 && count.is_multiple_of(50) {
-                log::warn!("Audio worklet still not ready after {count} message attempts.");
-            }
+        if let Some(node) = self.node.try_get()
+            && let Ok(connection) = node
+            && connection.status.get() == WorkletStatus::Ready
+            && let Err(e) = connection
+                .node
+                .port()
+                .and_then(|port| port.post_message(&message.into()))
+        {
+            log::error!("Failed to send message to audio worklet: {e:?}");
         }
     }
 
-    /// Check if audio is disabled (AudioWorklet failed to initialize)
     pub fn is_disabled(&self) -> bool {
-        if let Some(node) = self.node.try_get() {
-            node.is_err()
-        } else {
-            false // Still loading
+        match self.node.try_get() {
+            Some(Err(e)) => {
+                if !self.init_failure_logged.replace(true) {
+                    log::error!("Audio worklet initialization failed: {e:?}");
+                }
+                true
+            }
+            Some(Ok(connection)) => connection.status.get() == WorkletStatus::Failed,
+            None => false,
         }
     }
 
-    /// Check if the audio worklet finished initializing successfully
-    ///
-    /// Returns true only once the underlying Future has resolved Ok
     pub fn is_ready(&self) -> bool {
-        if let Some(node) = self.node.try_get() {
-            node.is_ok()
-        } else {
-            false // Still loading
-        }
+        matches!(
+            self.node.try_get(),
+            Some(Ok(connection)) if connection.status.get() == WorkletStatus::Ready
+        )
     }
 
-    /// Ensure the underlying AudioContext is in a running state.
-    ///
-    /// Browsers may start the context suspended until a user gesture occurs. When we
-    /// auto-initialize audio at startup this can result in a "playing" state with no sound
-    /// until the user clicks mute/unmute. Calling this before sending note messages will
-    /// until the user performs a gesture (such as clicking mute/unmute or pressing a piano key).
-    /// Calling this before sending note messages will resume the context once a gesture has occurred
-    /// (e.g., piano key press, mute/unmute click, or any other user interaction).
+    /// Try to resume a context suspended by the browser's autoplay policy.
     pub fn ensure_running(&self) {
         if let Some(node) = self.node.try_get()
             && let Ok(connection) = node.as_ref()
@@ -212,12 +172,21 @@ impl WebAudio {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WorkletStatus {
+    Loading,
+    Ready,
+    Failed,
+}
+
 #[derive(Debug)]
 struct AudioNodeConnection {
     context: AudioContext,
     node: AudioWorkletNode,
-    // needs to be kept alive
+    status: Rc<Cell<WorkletStatus>>,
+    // These callbacks must live as long as their JS event handlers.
     _onmessage: Closure<dyn FnMut(MessageEvent)>,
+    _onprocessorerror: Closure<dyn FnMut()>,
 }
 
 impl AudioNodeConnection {
@@ -226,45 +195,38 @@ impl AudioNodeConnection {
         node.connect_with_audio_node(&destination).unwrap();
 
         let port = node.port().unwrap();
+        let status = Rc::new(Cell::new(WorkletStatus::Loading));
+        let message_status = Rc::clone(&status);
         let onmessage = Closure::<dyn FnMut(_)>::new(move |event: MessageEvent| {
-            let data = event.data();
-
-            // Try to get the message type first
-            if data.is_object()
-                && let Ok(type_val) = js_sys::Reflect::get(&data, &JsValue::from_str("type"))
-                && let Some(type_str) = type_val.as_string()
-            {
-                match type_str.as_str() {
-                    "init-complete" => {
+            match serde_wasm_bindgen::from_value(event.data()) {
+                Ok(FromWorkletMessage::InitComplete) => {
+                    if message_status.get() == WorkletStatus::Loading {
+                        message_status.set(WorkletStatus::Ready);
                         log::debug!("[audio-worklet] Initialization complete");
-                        return;
                     }
-                    "init-error" => {
-                        if let Ok(error_val) =
-                            js_sys::Reflect::get(&data, &JsValue::from_str("error"))
-                            && let Some(error_str) = error_val.as_string()
-                        {
-                            log::error!("[audio-worklet] Initialization error: {error_str}");
-                        }
-                        return;
-                    }
-                    _ => {}
                 }
-            }
-
-            // Try to deserialize as FromWorkletMessage for other messages
-            if let Ok(msg) = serde_wasm_bindgen::from_value::<FromWorkletMessage>(data) {
-                match msg {
-                    // no messages sent back from the worklet currently
+                Ok(FromWorkletMessage::InitError { error }) => {
+                    message_status.set(WorkletStatus::Failed);
+                    log::error!("[audio-worklet] Initialization error: {error}");
                 }
+                Err(error) => log::warn!("Unexpected audio worklet message: {error}"),
             }
         });
         port.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
 
+        let processor_status = Rc::clone(&status);
+        let onprocessorerror = Closure::<dyn FnMut()>::new(move || {
+            processor_status.set(WorkletStatus::Failed);
+            log::error!("[audio-worklet] Browser reported a processor error");
+        });
+        node.set_onprocessorerror(Some(onprocessorerror.as_ref().unchecked_ref()));
+
         Self {
             context,
             node,
+            status,
             _onmessage: onmessage,
+            _onprocessorerror: onprocessorerror,
         }
     }
 }
@@ -272,6 +234,7 @@ impl AudioNodeConnection {
 impl Drop for AudioNodeConnection {
     fn drop(&mut self) {
         self.node.port().unwrap().set_onmessage(None);
+        self.node.set_onprocessorerror(None);
         self.node.disconnect().unwrap();
     }
 }

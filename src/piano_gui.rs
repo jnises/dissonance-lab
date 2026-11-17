@@ -2,12 +2,9 @@ use egui::{Event, Rect, Sense, TouchPhase, Ui, pos2, vec2};
 use std::collections::{HashMap, HashSet};
 use wmidi::Note;
 
-use crate::piano_state::PianoState;
+use crate::piano_state::{Action, PianoState};
 use crate::piano_types::{KeySet, PointerId, Semitone};
 use crate::theme;
-
-// Re-export Action for backward compatibility
-pub use crate::piano_state::Action;
 
 pub const PIANO_WIDTH: f32 = 600.0;
 pub const PIANO_HEIGHT: f32 = 200.0;
@@ -16,13 +13,8 @@ pub struct PianoGui {
     /// The core business logic state for piano key management
     state: PianoState,
 
-    /// Maps each active pointer (mouse/touch) to the note it's currently pressing.
-    /// Used for reverse lookup: given a pointer, what key is it on?
-    key_held_by_pointer: HashMap<PointerId, wmidi::Note>,
-
-    /// Maps each note to the set of pointers currently pressing it.
-    /// Enables multi-touch: multiple fingers can press the same key simultaneously.
-    pointers_holding_key: HashMap<wmidi::Note, HashSet<PointerId>>,
+    /// Keys currently pressed by mouse or touch pointers.
+    keys_by_pointer: HashMap<PointerId, Semitone>,
 
     /// Touch identifiers that are currently active, even if they are outside piano keys.
     active_touch_ids: HashSet<u64>,
@@ -32,8 +24,7 @@ impl PianoGui {
     pub fn new() -> Self {
         Self {
             state: PianoState::new(),
-            key_held_by_pointer: HashMap::new(),
-            pointers_holding_key: HashMap::new(),
+            keys_by_pointer: HashMap::new(),
             active_touch_ids: HashSet::new(),
         }
     }
@@ -87,12 +78,12 @@ impl PianoGui {
                     match phase {
                         TouchPhase::Start | TouchPhase::Move => {
                             self.active_touch_ids.insert(touch_id);
-                            let target_note = self.find_key_at_position(*pos, keys_rect);
-                            self.handle_pointer_move(pointer_id, target_note);
+                            let target_key = Self::find_key_at_position(*pos, keys_rect);
+                            self.handle_pointer_move(pointer_id, target_key);
                         }
                         TouchPhase::End | TouchPhase::Cancel => {
                             self.active_touch_ids.remove(&touch_id);
-                            self.handle_pointer_release(pointer_id);
+                            self.keys_by_pointer.remove(&pointer_id);
                         }
                     }
                 }
@@ -108,13 +99,13 @@ impl PianoGui {
 
             if let Some(pos) = mouse_pos {
                 if mouse_down {
-                    let target_note = self.find_key_at_position(pos, keys_rect);
-                    self.handle_pointer_move(mouse_pointer_id, target_note);
+                    let target_key = Self::find_key_at_position(pos, keys_rect);
+                    self.handle_pointer_move(mouse_pointer_id, target_key);
                 } else {
-                    self.handle_pointer_release(mouse_pointer_id);
+                    self.keys_by_pointer.remove(&mouse_pointer_id);
                 }
             } else {
-                self.handle_pointer_release(mouse_pointer_id);
+                self.keys_by_pointer.remove(&mouse_pointer_id);
             }
         }
 
@@ -122,19 +113,22 @@ impl PianoGui {
         self.state.update_shift_sustain(shift_pressed, &mut actions);
 
         // Convert current pointer state to key state
-        let current_gui_keys = self.pressed_keys();
+        let mut current_gui_keys = KeySet::default();
+        for semitone in self.keys_by_pointer.values() {
+            current_gui_keys.set(semitone.as_index(), true);
+        }
 
         // Update PianoState with current GUI key state and get actions
         self.state.update_gui_keys(current_gui_keys, &mut actions);
 
         // Render white keys first (so black keys appear on top)
         for semitone in Semitone::white_keys() {
-            self.render_key(semitone, ui, &painter, keys_rect);
+            self.render_key(semitone, ui, &painter, keys_rect, &current_gui_keys);
         }
 
         // Render black keys on top
         for semitone in Semitone::black_keys() {
-            self.render_key(semitone, ui, &painter, keys_rect);
+            self.render_key(semitone, ui, &painter, keys_rect, &current_gui_keys);
         }
 
         (actions, keys_rect)
@@ -145,40 +139,25 @@ impl PianoGui {
         self.state.held_keys()
     }
 
-    /// Get keys currently pressed via GUI pointers (computed from pointers_holding_key)
-    fn pressed_keys(&self) -> KeySet {
-        let mut keys = KeySet::default();
-        for (&note, pointers) in &self.pointers_holding_key {
-            if !pointers.is_empty() {
-                let semitone = Semitone::from_note(note);
-                keys.set(semitone.as_index(), true);
-            }
-        }
-        keys
-    }
-
     pub fn selected_chord_name(&self) -> Option<String> {
         selected_chord_name(&self.held_keys())
     }
 
     /// Render a single piano key (pure rendering, no action generation).
     fn render_key(
-        &mut self,
+        &self,
         semitone: Semitone,
         ui: &mut Ui,
         painter: &egui::Painter,
         keys_rect: Rect,
+        pressed_keys: &KeySet,
     ) {
-        let note = semitone.to_note_in_octave(self.state.octave());
         let key_rect = key_rect_for_semitone(semitone, keys_rect);
 
         // Allocate space for the key (needed for proper UI layout)
         ui.allocate_rect(key_rect, Sense::click_and_drag());
 
-        let is_pressed = self
-            .pointers_holding_key
-            .get(&note)
-            .is_some_and(|pointers| !pointers.is_empty());
+        let is_pressed = pressed_keys[semitone.as_index()];
 
         // Get state information from PianoState
         let sustained_selected = self.state.gui_sustained_keys()[semitone.as_index()];
@@ -221,7 +200,7 @@ impl PianoGui {
     }
 
     /// Find which key is at the given position, checking black keys first for proper layering
-    fn find_key_at_position(&self, pos: egui::Pos2, keys_rect: Rect) -> Option<wmidi::Note> {
+    fn find_key_at_position(pos: egui::Pos2, keys_rect: Rect) -> Option<Semitone> {
         debug_assert!(
             keys_rect.is_positive(),
             "Keys rect must have positive dimensions"
@@ -231,7 +210,7 @@ impl PianoGui {
         for semitone in Semitone::black_keys() {
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
-                return Some(semitone.to_note_in_octave(self.state.octave()));
+                return Some(semitone);
             }
         }
 
@@ -239,80 +218,19 @@ impl PianoGui {
         for semitone in Semitone::white_keys() {
             let key_rect = key_rect_for_semitone(semitone, keys_rect);
             if key_rect.contains(pos) {
-                return Some(semitone.to_note_in_octave(self.state.octave()));
+                return Some(semitone);
             }
         }
 
         None
     }
 
-    /// Handle a pointer moving to a new key (or moving off all keys)
-    fn handle_pointer_move(&mut self, pointer_id: PointerId, target_note: Option<wmidi::Note>) {
-        if let Some(new_note) = target_note {
-            // Check if pointer moved to a different key
-            if let Some(old_note) = self.key_held_by_pointer.get(&pointer_id) {
-                let old_note_val = *old_note;
-                if old_note_val != new_note {
-                    // Move to the new key
-                    self.move_pointer_to_key(pointer_id, new_note);
-                }
-            } else {
-                // New pointer press
-                self.add_pointer_to_key(pointer_id, new_note);
-            }
+    fn handle_pointer_move(&mut self, pointer_id: PointerId, key: Option<Semitone>) {
+        if let Some(key) = key {
+            self.keys_by_pointer.insert(pointer_id, key);
         } else {
-            // Pointer moved outside all keys
-            self.remove_pointer_from_current_key(pointer_id);
+            self.keys_by_pointer.remove(&pointer_id);
         }
-    }
-
-    /// Handle a pointer being released or ending
-    fn handle_pointer_release(&mut self, pointer_id: PointerId) {
-        self.remove_pointer_from_current_key(pointer_id);
-    }
-
-    /// Add a pointer to a key, updating both tracking data structures
-    fn add_pointer_to_key(&mut self, pointer_id: PointerId, note: wmidi::Note) {
-        // Update the reverse mapping (pointer -> key)
-        self.key_held_by_pointer.insert(pointer_id, note);
-
-        // Update the forward mapping (key -> pointers)
-        let was_inserted = self
-            .pointers_holding_key
-            .entry(note)
-            .or_default()
-            .insert(pointer_id);
-
-        debug_assert!(
-            was_inserted,
-            "Pointer should not already be in the key's set when adding"
-        );
-    }
-
-    /// Remove a pointer from its current key, updating both tracking data structures
-    /// Returns the note that the pointer was removed from, if any
-    fn remove_pointer_from_current_key(&mut self, pointer_id: PointerId) -> Option<wmidi::Note> {
-        if let Some(old_note) = self.key_held_by_pointer.remove(&pointer_id) {
-            if let Some(pointers) = self.pointers_holding_key.get_mut(&old_note) {
-                let was_removed = pointers.remove(&pointer_id);
-                debug_assert!(
-                    was_removed,
-                    "Pointer should have been in the key's set when removed"
-                );
-            }
-            Some(old_note)
-        } else {
-            None
-        }
-    }
-
-    /// Move a pointer from its current key to a new key, updating both tracking data structures
-    fn move_pointer_to_key(&mut self, pointer_id: PointerId, new_note: wmidi::Note) {
-        // Remove from current key (if any)
-        self.remove_pointer_from_current_key(pointer_id);
-
-        // Add to new key
-        self.add_pointer_to_key(pointer_id, new_note);
     }
 }
 

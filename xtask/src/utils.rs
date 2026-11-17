@@ -1,50 +1,44 @@
 use anyhow::{Context, Result};
 use cargo_metadata::MetadataCommand;
 use std::env;
-use std::process::{Child, Command, ExitStatus};
-use std::sync::mpsc;
-use std::thread;
+use std::io::ErrorKind;
+use std::process::{Child, Command};
 
-/// Shutdown signal types
-#[derive(Debug)]
-pub enum ShutdownSignal {
-    CtrlC,
-    ProcessExit { name: String, status: ExitStatus },
-}
-
-/// A wrapper around Child that automatically kills the process when dropped
-/// and can monitor the process in a separate thread
+/// Stops and reaps a child when the development supervisor exits.
 pub struct ManagedProcess {
-    name: String,
+    name: &'static str,
     child: Child,
 }
 
 impl ManagedProcess {
-    pub fn new(name: String, child: Child) -> Self {
+    pub fn new(name: &'static str, child: Child) -> Self {
         Self { name, child }
     }
 
-    /// Spawn a monitoring thread that sends a shutdown signal when the process exits
-    pub fn spawn_monitor(mut self, tx: mpsc::Sender<ShutdownSignal>) {
-        let name = self.name.clone();
-        thread::spawn(move || match self.child.wait() {
-            Ok(status) => {
-                let _ = tx.send(ShutdownSignal::ProcessExit { name, status });
-            }
-            Err(e) => {
-                eprintln!("Error waiting for {name}: {e}");
-            }
-        });
+    pub fn has_exited(&mut self) -> Result<bool> {
+        let name = self.name;
+        let status = self
+            .child
+            .try_wait()
+            .with_context(|| format!("Failed to poll {name}"))?;
+        if let Some(status) = status {
+            anyhow::ensure!(status.success(), "{name} exited with {status}");
+            println!("{name} exited cleanly");
+        }
+        Ok(status.is_some())
     }
 }
 
 impl Drop for ManagedProcess {
     fn drop(&mut self) {
-        if let Err(e) = self.child.kill() {
-            // Ignore error if process is already dead (InvalidInput)
-            if e.kind() != std::io::ErrorKind::InvalidInput {
-                eprintln!("Warning: Failed to kill {}: {e}", self.name);
-            }
+        if let Err(error) = self.child.kill()
+            && error.kind() != ErrorKind::InvalidInput
+        {
+            eprintln!("Failed to stop {}: {error}", self.name);
+            return;
+        }
+        if let Err(error) = self.child.wait() {
+            eprintln!("Failed to reap {}: {error}", self.name);
         }
     }
 }

@@ -3,10 +3,9 @@ use std::env;
 use std::fs;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
-use std::thread;
 use std::time::Duration;
 
-use crate::utils::{ManagedProcess, ShutdownSignal, find_project_root};
+use crate::utils::{ManagedProcess, find_project_root};
 
 /// Start development server (log server + trunk serve)
 pub fn run_dev(bind_address: String) -> Result<()> {
@@ -14,66 +13,32 @@ pub fn run_dev(bind_address: String) -> Result<()> {
     let project_root = find_project_root()?;
     env::set_current_dir(&project_root).context("Failed to change to project root directory")?;
 
-    // Build the log server and main project before starting anything
     build_log_server()?;
-    build_main_project()?;
 
-    println!("🚀 Starting dissonance-lab development environment...");
-
-    // Start the log server in the background (silently)
-    let log_server = start_log_server()?;
-
-    // Wait a moment for the log server to start
-    thread::sleep(Duration::from_millis(500));
-
-    // Start trunk serve
-    println!("🌐 Starting trunk development server...");
-    let trunk_server = start_trunk_serve(&bind_address)?;
-
-    // Wait a bit for the initial trunk output
-    thread::sleep(Duration::from_secs(4));
-
-    println!();
-    println!("✅ Development environment is ready!");
-    println!("   📊 Frontend: http://{bind_address}:8080/#dev");
-    println!("   🛑 Press Ctrl+C to stop all servers");
-    println!();
-
-    // Set up shutdown signal channel
-    let (tx, rx) = mpsc::channel::<ShutdownSignal>();
-
-    // Set up Ctrl+C handler
-    let ctrl_c_tx = tx.clone();
+    let (tx, rx) = mpsc::channel();
     ctrlc::set_handler(move || {
-        println!("\n🛑 Received Ctrl+C, shutting down...");
-        let _ = ctrl_c_tx.send(ShutdownSignal::CtrlC);
+        // The receiver may already be gone if a child exited first.
+        let _ = tx.send(());
     })
-    .expect("Error setting Ctrl-C handler");
+    .context("Failed to set Ctrl-C handler")?;
 
-    // Spawn monitoring threads for both servers
-    log_server.spawn_monitor(tx.clone());
-    trunk_server.spawn_monitor(tx.clone());
+    let mut log_server = start_log_server()?;
+    let mut trunk_server = start_trunk_serve(&bind_address)?;
+    println!("Starting development server at http://{bind_address}:8080/#dev");
+    println!("Press Ctrl+C to stop both servers.");
 
-    // Wait for any shutdown signal
-    match rx.recv() {
-        Ok(ShutdownSignal::CtrlC) => {
-            // User requested shutdown - this is normal
+    const PROCESS_CHECK_INTERVAL: Duration = Duration::from_millis(100);
+    loop {
+        match rx.recv_timeout(PROCESS_CHECK_INTERVAL) {
+            Ok(()) => return Ok(()),
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(e @ mpsc::RecvTimeoutError::Disconnected) => return Err(e.into()),
         }
-        Ok(ShutdownSignal::ProcessExit { name, status }) => {
-            if status.success() {
-                eprintln!("ℹ️  {name} exited cleanly");
-            } else {
-                eprintln!("❌ {name} exited with error: {status}");
-                anyhow::bail!("{name} failed");
-            }
-        }
-        Err(_) => {
-            // Channel closed - shouldn't happen but handle gracefully
-            eprintln!("Warning: Shutdown channel closed unexpectedly");
+
+        if log_server.has_exited()? || trunk_server.has_exited()? {
+            return Ok(());
         }
     }
-
-    Ok(())
 }
 
 fn start_log_server() -> Result<ManagedProcess> {
@@ -86,7 +51,7 @@ fn start_log_server() -> Result<ManagedProcess> {
         .spawn()
         .context("Failed to start dev-log-server - make sure cargo is available")?;
 
-    Ok(ManagedProcess::new("log server".to_string(), child))
+    Ok(ManagedProcess::new("log server", child))
 }
 
 fn start_trunk_serve(bind_address: &str) -> Result<ManagedProcess> {
@@ -103,7 +68,7 @@ fn start_trunk_serve(bind_address: &str) -> Result<ManagedProcess> {
 
     let child = cmd.spawn().context("Failed to start trunk serve")?;
 
-    Ok(ManagedProcess::new("trunk server".to_string(), child))
+    Ok(ManagedProcess::new("trunk server", child))
 }
 
 fn build_log_server() -> Result<()> {
@@ -119,29 +84,6 @@ fn build_log_server() -> Result<()> {
 
     if !status.success() {
         anyhow::bail!("Failed to build dev-log-server");
-    }
-
-    Ok(())
-}
-
-fn build_main_project() -> Result<()> {
-    println!("🔨 Building main project...");
-
-    // Check if trunk is available
-    if which::which("trunk").is_err() {
-        anyhow::bail!("trunk command not found - please install trunk with: cargo install trunk");
-    }
-
-    let mut cmd = Command::new("trunk");
-    cmd.args(["build"]);
-    cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-
-    let status = cmd
-        .status()
-        .context("Failed to run trunk build for main project")?;
-
-    if !status.success() {
-        anyhow::bail!("Failed to build main project with trunk");
     }
 
     Ok(())

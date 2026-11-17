@@ -13,11 +13,6 @@ pub enum Action {
 /// The core business logic state for piano key management, sustain logic, and action generation.
 /// This struct is separate from GUI concerns and can be unit tested independently.
 pub struct PianoState {
-    /// Keys that had GUI input in the previous frame.
-    /// Used to detect press/release transitions for action generation.
-    /// Does NOT include sustained keys or keys held via external MIDI input.
-    previous_gui_pressed_keys: KeySet,
-
     /// Keys that are currently pressed via GUI input.
     /// This represents the current state of GUI key presses.
     current_gui_pressed_keys: KeySet,
@@ -37,9 +32,6 @@ pub struct PianoState {
     /// The octave that this piano state operates on (default: 4, meaning C4-B4)
     octave: u8,
 
-    /// Whether the shift key was active in the previous frame
-    previous_shift_sustain_active: bool,
-
     /// Whether the shift key is currently active
     shift_sustain_active: bool,
 
@@ -52,13 +44,11 @@ impl PianoState {
         const DEFAULT_OCTAVE: u8 = 4;
 
         Self {
-            previous_gui_pressed_keys: Default::default(),
             current_gui_pressed_keys: Default::default(),
             sustained_keys: Default::default(),
             external_pressed_keys: Default::default(),
             external_sustained_keys: Default::default(),
             octave: DEFAULT_OCTAVE,
-            previous_shift_sustain_active: false,
             shift_sustain_active: false,
             external_sustain_active: false,
         }
@@ -66,29 +56,15 @@ impl PianoState {
 
     /// Update the GUI pressed keys state and generate appropriate actions
     pub fn update_gui_keys(&mut self, pressed_keys: KeySet, actions: &mut Vec<Action>) {
-        self.current_gui_pressed_keys = pressed_keys;
-        self.generate_actions_for_gui_keys(actions);
+        let previous_keys = std::mem::replace(&mut self.current_gui_pressed_keys, pressed_keys);
+        self.generate_actions_for_gui_keys(previous_keys, actions);
     }
 
     /// Update the shift sustain state and generate appropriate actions
     pub fn update_shift_sustain(&mut self, active: bool, actions: &mut Vec<Action>) {
         let was_overall_sustain_active = self.is_sustain_active();
         self.shift_sustain_active = active;
-        let is_overall_sustain_active = self.is_sustain_active();
-
-        // Generate sustain pedal action if overall sustain state changed
-        if was_overall_sustain_active != is_overall_sustain_active {
-            actions.push(Action::SustainPedal(is_overall_sustain_active));
-
-            // If sustain was just turned off, release all sustained notes
-            if !is_overall_sustain_active {
-                self.handle_sustain_release_for_external_keys();
-                self.handle_gui_sustain_release(actions);
-            }
-        }
-
-        // Update previous shift sustain state for next comparison
-        self.previous_shift_sustain_active = active;
+        self.update_sustain(was_overall_sustain_active, actions);
     }
 
     /// Add external MIDI note press
@@ -105,30 +81,27 @@ impl PianoState {
         let note_value = u8::from(note) as usize;
         debug_assert!(note_value < 128, "MIDI note value must be < 128");
 
-        // Always remove from pressed keys first
-        self.external_pressed_keys.set(note_value, false);
-
-        if self.is_sustain_active() {
-            // If sustain is active, move the key to sustained set
+        let was_pressed = self.external_pressed_keys.replace(note_value, false);
+        if was_pressed && self.is_sustain_active() {
             self.external_sustained_keys.set(note_value, true);
         }
-        // If sustain is not active, the key is simply released (removed from pressed keys above)
     }
 
     /// Set external sustain pedal state (from MIDI input)
     pub fn set_external_sustain(&mut self, active: bool, actions: &mut Vec<Action>) {
         let was_overall_sustain_active = self.is_sustain_active();
         self.external_sustain_active = active;
+        self.update_sustain(was_overall_sustain_active, actions);
+    }
+
+    fn update_sustain(&mut self, was_overall_sustain_active: bool, actions: &mut Vec<Action>) {
         let is_overall_sustain_active = self.is_sustain_active();
 
-        // Generate sustain pedal action if overall sustain state changed
         if was_overall_sustain_active != is_overall_sustain_active {
             actions.push(Action::SustainPedal(is_overall_sustain_active));
-
-            // If sustain was just turned off, release all sustained notes
             if !is_overall_sustain_active {
-                self.handle_sustain_release_for_external_keys();
-                self.handle_gui_sustain_release(actions);
+                self.external_sustained_keys.fill(false);
+                self.sustained_keys.fill(false);
             }
         }
     }
@@ -160,11 +133,6 @@ impl PianoState {
         keys
     }
 
-    /// Get the current octave
-    pub fn octave(&self) -> u8 {
-        self.octave
-    }
-
     /// Get keys that are sustained via GUI (were pressed while sustain was active, now released)
     pub fn gui_sustained_keys(&self) -> &KeySet {
         &self.sustained_keys
@@ -187,54 +155,25 @@ impl PianoState {
     }
 
     /// Generate actions for GUI key state changes
-    fn generate_actions_for_gui_keys(&mut self, actions: &mut Vec<Action>) {
+    fn generate_actions_for_gui_keys(&mut self, previous_keys: KeySet, actions: &mut Vec<Action>) {
         for semitone in Semitone::iter() {
             let note = semitone.to_note_in_octave(self.octave);
             let semitone_index = semitone.as_index();
 
             let is_pressed = self.current_gui_pressed_keys[semitone_index];
-            let was_pressed = self.previous_gui_pressed_keys[semitone_index];
+            let was_pressed = previous_keys[semitone_index];
 
             if is_pressed && !was_pressed {
                 actions.push(Action::Pressed(note));
                 // If this key was sustained, remove it from sustained set since it's now actively pressed
                 self.sustained_keys.set(semitone_index, false);
             } else if !is_pressed && was_pressed {
-                if self.is_sustain_active() {
-                    // If sustain is active, move to sustained but don't generate Action::Released
-                    self.sustained_keys.set(semitone_index, true);
-                } else {
-                    // If sustain is not active, generate release action and clear sustained
-                    actions.push(Action::Released(note));
-                    self.sustained_keys.set(semitone_index, false);
-                }
-            }
-        }
-
-        // Update previous state for next frame
-        self.previous_gui_pressed_keys = self.current_gui_pressed_keys;
-    }
-
-    /// Handle GUI sustain release - release all sustained GUI keys that aren't currently pressed
-    fn handle_gui_sustain_release(&mut self, actions: &mut Vec<Action>) {
-        for semitone in Semitone::iter() {
-            let semitone_index = semitone.as_index();
-            let note = semitone.to_note_in_octave(self.octave);
-            let is_currently_pressed = self.current_gui_pressed_keys[semitone_index];
-
-            // Clear sustained selection if key is not currently being pressed
-            if !is_currently_pressed && self.sustained_keys[semitone_index] {
-                self.sustained_keys.set(semitone_index, false);
+                // The synth needs the key-up event even while the pedal holds the voice.
                 actions.push(Action::Released(note));
+                let sustained = self.is_sustain_active();
+                self.sustained_keys.set(semitone_index, sustained);
             }
         }
-    }
-
-    /// Handle sustain pedal release for external (MIDI) keys
-    /// Clear all sustained external keys when sustain is released
-    fn handle_sustain_release_for_external_keys(&mut self) {
-        // Clear all sustained external keys - they should no longer be sustained
-        self.external_sustained_keys.fill(false);
     }
 }
 
@@ -344,19 +283,17 @@ mod tests {
         assert_eq!(actions.len(), 1);
         assert!(matches!(actions[0], Action::Pressed(_)));
 
-        // Release key while sustain is active - should not generate release action
+        // Release the key while the pedal keeps the note active.
         let pressed_keys = KeySet::default();
         let mut actions = Vec::new();
         state.update_gui_keys(pressed_keys, &mut actions);
-        assert!(actions.is_empty());
+        assert_eq!(actions, vec![Action::Released(Note::C4)]);
         assert!(state.held_keys()[0]); // Key should still be held due to sustain
 
-        // Release sustain - should generate release action
+        // Release the pedal after the key-up event.
         let mut actions = Vec::new();
         state.update_shift_sustain(false, &mut actions);
-        assert_eq!(actions.len(), 2);
-        assert_eq!(actions[0], Action::SustainPedal(false));
-        assert!(matches!(actions[1], Action::Released(_)));
+        assert_eq!(actions, vec![Action::SustainPedal(false)]);
         assert!(!state.held_keys()[0]);
     }
 
@@ -372,6 +309,14 @@ mod tests {
         // Release external note
         state.external_note_off(note);
         assert!(!state.held_keys()[0]); // Should no longer be held
+    }
+
+    #[test]
+    fn unsolicited_note_off_does_not_create_a_sustained_key() {
+        let mut state = PianoState::new();
+        state.set_external_sustain(true, &mut Vec::new());
+        state.external_note_off(Note::C4);
+        assert!(!state.held_keys()[Semitone::C.as_index()]);
     }
 
     #[test]
@@ -427,7 +372,7 @@ mod tests {
         let mut actions = Vec::new();
         state.update_gui_keys(pressed_keys, &mut actions);
 
-        assert!(actions.is_empty()); // No release action due to sustain
+        assert_eq!(actions, vec![Action::Released(Note::C4)]);
         assert!(state.held_keys()[0]); // C should still be held (sustained)
 
         // Now press C key again while it's sustained - should generate only Pressed action

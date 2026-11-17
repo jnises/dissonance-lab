@@ -124,11 +124,6 @@ impl Semitone {
         Note::try_from(midi_note as u8).unwrap()
     }
 
-    /// Convert a Note to its semitone representation (0-11) within its octave
-    pub fn from_note(note: Note) -> Self {
-        Self::new(u8::from(note) % 12)
-    }
-
     /// Create an iterator over all 12 semitones in chromatic order (C, C#, D, D#, E, F, F#, G, G#, A, A#, B)
     pub fn iter() -> impl Iterator<Item = Semitone> {
         (0..12).map(Semitone::new)

@@ -12,7 +12,7 @@ The pressed keys are considered the root of each interval even when it isn't the
 
 
 ## Requirements
-* Rust toolchain ([rustup.rs](https://rustup.rs/))
+* Rust 1.100.0 via [rustup](https://rustup.rs/)
 * Trunk `cargo install trunk`
 * wasm-pack `cargo install wasm-pack`
 
@@ -85,7 +85,7 @@ cargo xtask dev
 
 ## Testing
 ```
-cargo test
+cargo test --workspace
 ```
 Tests run as native binaries by default.
 
@@ -94,4 +94,6 @@ The project includes:
 - **Frontend log forwarding**: Console logs from the browser are forwarded to the terminal during development
 - **Audio worklet processing**: Real-time audio synthesis using WebAssembly
 
-When you want to deploy to production you should make sure to update `cacheName` in `sw.js` to invalidate the cache.
+Cargo applies a 14-day cooldown to newly resolved registry versions. Versions already in `Cargo.lock` are exempt.
+
+Bump the cache version in `assets/sw.js` for production deployments.

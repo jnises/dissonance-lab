@@ -1,6 +1,9 @@
 # No default target - everything builds for native by default
 # Use the aliases below for WASM development
 
+[registry]
+global-min-publish-age = "14 days"
+
 [alias]
 # WASM development aliases
 check-wasm = "check --target wasm32-unknown-unknown"
