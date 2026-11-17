@@ -1,6 +1,7 @@
 use crate::{
     interval::{self, Interval},
-    piano_gui::{self, PIANO_WIDTH},
+    piano_gui::{PIANO_WIDTH, PianoGui},
+    piano_state::Action,
     theme,
     utils::colorgrad_to_egui,
 };
@@ -10,7 +11,7 @@ use egui::{
     vec2,
 };
 
-pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Vec<piano_gui::Action> {
+pub fn show(piano: &mut PianoGui, ui: &mut Ui) -> Vec<Action> {
     let (actions, piano_rect) = piano.show(ui);
     const INTERVAL_DISPLAY_HEIGHT: f32 = 200.0;
     const TEXT_Y_OFFSET: f32 = 4.0;
@@ -118,7 +119,7 @@ pub fn show(piano: &mut piano_gui::PianoGui, ui: &mut Ui) -> Vec<piano_gui::Acti
                 painter.text(
                     ratio_rect.center_bottom() + vec2(0.0, CENTS_ERROR_Y_OFFSET),
                     Align2::CENTER_TOP,
-                    format!("{:+}¢", interval.tempered_just_error_cents() as i32),
+                    format!("{:+.0}¢", interval.tempered_just_error_cents()),
                     FontId::monospace(CENTS_ERROR_FONT_SIZE * font_scale),
                     Color32::from_black_alpha(CENTS_ERROR_ALPHA),
                 );

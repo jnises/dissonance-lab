@@ -157,12 +157,12 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
             "[DissonanceWorkletProcessor] Failed to initialize WASM processor:",
             err,
           );
-          this.port.postMessage({ type: "init-error", error: err.message });
+          this.port.postMessage({ type: "init-error", error: String(err) });
         });
     } else {
-      console.error(
-        "[DissonanceWorkletProcessor] Missing wasmBytes or jsGlueCode in constructor options",
-      );
+      const error = "Missing wasmBytes or jsGlueCode in constructor options";
+      console.error("[DissonanceWorkletProcessor]", error);
+      this.port.postMessage({ type: "init-error", error });
     }
 
     // Handle messages from the main thread

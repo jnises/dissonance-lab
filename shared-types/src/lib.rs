@@ -15,14 +15,9 @@ impl From<ToWorkletMessage> for JsValue {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type")]
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum FromWorkletMessage {
-    // no typed messages sent back from the worklet currently.
-}
-
-impl From<FromWorkletMessage> for JsValue {
-    fn from(value: FromWorkletMessage) -> Self {
-        serde_wasm_bindgen::to_value(&value).unwrap()
-    }
+    InitComplete,
+    InitError { error: String },
 }

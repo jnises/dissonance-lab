@@ -1,13 +1,13 @@
-use crossbeam::channel;
 use egui::{Align, Align2, Color32, FontId, Layout, RichText, pos2, vec2};
 use log::error;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
 use web_time::{Duration, Instant};
 
 use crate::{
     interval_display,
     midi::MidiReader,
-    piano_gui::{self, PIANO_WIDTH, PianoGui},
+    piano_gui::{PIANO_WIDTH, PianoGui},
+    piano_state::Action,
     theme,
     webaudio::{ToWorkletMessage, WebAudio},
 };
@@ -20,6 +20,7 @@ const MIDI_SUSTAIN_ACTIVE_THRESHOLD: u8 = 64;
 enum AudioState {
     Uninitialized,
     Muted,
+    Loading(WebAudio),
     Playing(WebAudio),
     Disabled, // Audio is not supported (e.g., mobile devices without AudioWorklet)
 }
@@ -30,11 +31,11 @@ enum MidiState {
 }
 
 pub struct DissonanceLabApp {
-    audio: Arc<Mutex<AudioState>>,
+    audio: AudioState,
     piano_gui: PianoGui,
     midi: MidiState,
-    midi_to_piano_gui_rx: channel::Receiver<wmidi::MidiMessage<'static>>,
-    midi_to_piano_gui_tx: channel::Sender<wmidi::MidiMessage<'static>>,
+    midi_rx: mpsc::Receiver<wmidi::MidiMessage<'static>>,
+    midi_tx: mpsc::Sender<wmidi::MidiMessage<'static>>,
     invert_sustain_pedal: bool,
     // Whether the user has explicitly attempted to enable audio (clicked the button)
     user_audio_attempted: bool,
@@ -42,13 +43,13 @@ pub struct DissonanceLabApp {
 
 impl Default for DissonanceLabApp {
     fn default() -> Self {
-        let (midi_to_piano_gui_tx, midi_to_piano_gui_rx) = channel::unbounded();
+        let (midi_tx, midi_rx) = mpsc::channel();
         Self {
-            audio: Arc::new(Mutex::new(AudioState::Uninitialized)),
+            audio: AudioState::Uninitialized,
             piano_gui: PianoGui::new(),
             midi: MidiState::NotConnected { last_checked: None },
-            midi_to_piano_gui_rx,
-            midi_to_piano_gui_tx,
+            midi_rx,
+            midi_tx,
             invert_sustain_pedal: false,
             user_audio_attempted: false,
         }
@@ -99,11 +100,11 @@ impl DissonanceLabApp {
 
     fn setup_audio(&mut self) {
         assert!(matches!(
-            *self.audio.lock().unwrap(),
+            self.audio,
             AudioState::Muted | AudioState::Uninitialized
         ));
         let web_audio = WebAudio::new();
-        *self.audio.lock().unwrap() = AudioState::Playing(web_audio);
+        self.audio = AudioState::Loading(web_audio);
         self.user_audio_attempted = true;
     }
 
@@ -112,26 +113,34 @@ impl DissonanceLabApp {
     #[cfg(target_arch = "wasm32")]
     fn try_startup_audio_once(&mut self) {
         // Only attempt if currently uninitialized – don't override an explicit user mute choice.
-        if matches!(*self.audio.lock().unwrap(), AudioState::Uninitialized) {
-            // Move into a Playing state to kick off async loading.
-            let web_audio = WebAudio::new();
-            *self.audio.lock().unwrap() = AudioState::Playing(web_audio);
+        if matches!(self.audio, AudioState::Uninitialized) {
+            self.audio = AudioState::Loading(WebAudio::new());
         }
     }
 
-    /// Check if the current audio state indicates failure and update to Disabled if so
     fn check_audio_status(&mut self) {
-        let mut audio_guard = self.audio.lock().unwrap();
-        if let AudioState::Playing(web_audio) = &*audio_guard
-            && web_audio.is_disabled()
-        {
+        let AudioState::Loading(web_audio) = &self.audio else {
+            return;
+        };
+        if web_audio.is_disabled() {
             if !self.user_audio_attempted {
                 // Automatic attempt failed / unsupported. Revert to Uninitialized so user can try enabling manually.
-                *audio_guard = AudioState::Uninitialized;
+                self.audio = AudioState::Uninitialized;
             } else {
                 // User explicitly tried and it still failed; mark Disabled so we can show more explicit UI.
-                *audio_guard = AudioState::Disabled;
+                self.audio = AudioState::Disabled;
             }
+        } else if web_audio.is_ready() {
+            // Pedal events may have arrived before this worklet was ready to receive them.
+            web_audio.send_message(ToWorkletMessage::SustainPedal {
+                active: self.piano_gui.is_sustain_active(),
+            });
+            let AudioState::Loading(web_audio) =
+                std::mem::replace(&mut self.audio, AudioState::Uninitialized)
+            else {
+                unreachable!();
+            };
+            self.audio = AudioState::Playing(web_audio);
         }
     }
 
@@ -142,43 +151,13 @@ impl DissonanceLabApp {
                 if last_checked.is_none()
                     || last_checked.map(|t| t.elapsed()) > Some(MIDI_CHECK_PERIOD) =>
             {
-                let to_gui_tx = self.midi_to_piano_gui_tx.clone();
+                let midi_tx = self.midi_tx.clone();
                 let ctx = ctx.clone();
-                let audio = self.audio.clone();
                 match MidiReader::new(move |message| {
-                    if let AudioState::Playing(web_audio) = &*audio.lock().unwrap() {
-                        match message {
-                            wmidi::MidiMessage::NoteOff(_, note, _) => {
-                                web_audio.ensure_running();
-                                web_audio.send_message(ToWorkletMessage::NoteOff {
-                                    note: u8::from(*note),
-                                });
-                            }
-                            wmidi::MidiMessage::NoteOn(_, note, velocity) => {
-                                web_audio.ensure_running();
-                                if u8::from(*velocity) == 0 {
-                                    web_audio.send_message(ToWorkletMessage::NoteOff {
-                                        note: u8::from(*note),
-                                    });
-                                } else {
-                                    web_audio.send_message(ToWorkletMessage::NoteOn {
-                                        note: u8::from(*note),
-                                        velocity: u8::from(*velocity),
-                                    });
-                                }
-                            }
-                            wmidi::MidiMessage::ControlChange(_, control, _value)
-                                if u8::from(*control) == MIDI_SUSTAIN_CONTROL =>
-                            {
-                                // Note: Do not send sustain message directly to synth here.
-                                // This will be handled in the main event loop to combine with shift sustain.
-                            }
-                            _ => {}
-                        }
+                    // The receiver can disappear when the app closes.
+                    if midi_tx.send(message.to_owned()).is_ok() {
+                        ctx.request_repaint();
                     }
-
-                    to_gui_tx.send(message.to_owned()).unwrap();
-                    ctx.request_repaint();
                 }) {
                     Ok(reader) => {
                         self.midi = MidiState::Connected(reader);
@@ -199,6 +178,55 @@ impl DissonanceLabApp {
             _ => {}
         }
     }
+
+    fn send_audio_message(&self, message: ToWorkletMessage) {
+        if let AudioState::Playing(web_audio) = &self.audio {
+            web_audio.ensure_running();
+            web_audio.send_message(message);
+        }
+    }
+
+    fn process_midi(&mut self) {
+        use wmidi::MidiMessage;
+
+        let mut sustain_actions = Vec::new();
+        // Notes and pedal changes must reach the synth in the order received.
+        for message in self.midi_rx.try_iter() {
+            let message = match message {
+                MidiMessage::NoteOff(_, note, _) | MidiMessage::NoteOn(_, note, wmidi::U7::MIN) => {
+                    self.piano_gui.external_note_off(note);
+                    ToWorkletMessage::NoteOff {
+                        note: u8::from(note),
+                    }
+                }
+                MidiMessage::NoteOn(_, note, velocity) => {
+                    self.piano_gui.external_note_on(note);
+                    ToWorkletMessage::NoteOn {
+                        note: u8::from(note),
+                        velocity: u8::from(velocity),
+                    }
+                }
+                MidiMessage::ControlChange(_, control, value)
+                    if u8::from(control) == MIDI_SUSTAIN_CONTROL =>
+                {
+                    let active = u8::from(value) >= MIDI_SUSTAIN_ACTIVE_THRESHOLD;
+                    self.piano_gui.set_external_sustain(
+                        active ^ self.invert_sustain_pedal,
+                        &mut sustain_actions,
+                    );
+                    for action in sustain_actions.drain(..) {
+                        let Action::SustainPedal(active) = action else {
+                            unreachable!("Unexpected external sustain action: {action:?}");
+                        };
+                        self.send_audio_message(ToWorkletMessage::SustainPedal { active });
+                    }
+                    continue;
+                }
+                _ => continue,
+            };
+            self.send_audio_message(message);
+        }
+    }
 }
 
 impl eframe::App for DissonanceLabApp {
@@ -212,6 +240,7 @@ impl eframe::App for DissonanceLabApp {
 
         self.ensure_midi(&ctx);
         self.check_audio_status();
+        self.process_midi();
 
         egui::CentralPanel::default().show(ui, |ui| {
             ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
@@ -223,9 +252,12 @@ impl eframe::App for DissonanceLabApp {
                         const STATUS_FONT_SIZE: f32 = 14.0;
                         ui.horizontal(|ui| {
                             let (playing, disabled, uninitialized) = {
-                                let audio_state = &*self.audio.lock().unwrap();
+                                let audio_state = &self.audio;
                                 (
-                                    matches!(audio_state, AudioState::Playing(_)),
+                                    matches!(
+                                        audio_state,
+                                        AudioState::Playing(_) | AudioState::Loading(_)
+                                    ),
                                     matches!(audio_state, AudioState::Disabled),
                                     matches!(audio_state, AudioState::Uninitialized),
                                 )
@@ -236,7 +268,7 @@ impl eframe::App for DissonanceLabApp {
                                     .button(RichText::new("🔈").size(MUTE_FONT_SIZE))
                                     .clicked()
                                 {
-                                    *self.audio.lock().unwrap() = AudioState::Muted;
+                                    self.audio = AudioState::Muted;
                                 }
                             } else if disabled {
                                 // Show disabled audio icon with explanatory text
@@ -440,103 +472,23 @@ impl eframe::App for DissonanceLabApp {
                     },
                 );
 
-                // Process MIDI messages
-                for message in self.midi_to_piano_gui_rx.try_iter() {
-                    match message {
-                        wmidi::MidiMessage::NoteOff(_channel, note, _) => {
-                            self.piano_gui.external_note_off(note);
-                        }
-                        wmidi::MidiMessage::NoteOn(_channel, note, velocity) => {
-                            if u8::from(velocity) == 0 {
-                                self.piano_gui.external_note_off(note);
-                            } else {
-                                self.piano_gui.external_note_on(note);
-                            }
-                        }
-                        wmidi::MidiMessage::ControlChange(_, control, value)
-                            if u8::from(control) == MIDI_SUSTAIN_CONTROL =>
-                        {
-                            // MIDI sustain pedal values greater than or equal to 64 are active.
-                            let raw_sustain_active = u8::from(value) >= MIDI_SUSTAIN_ACTIVE_THRESHOLD;
-                            let sustain_active = if self.invert_sustain_pedal {
-                                // Invert the logic for problematic controllers.
-                                !raw_sustain_active
-                            } else {
-                                // Normal MIDI spec behavior.
-                                raw_sustain_active
-                            };
-                            let mut sustain_actions = Vec::new();
-                            self.piano_gui
-                                .set_external_sustain(sustain_active, &mut sustain_actions);
-
-                            // Process the sustain actions.
-                            for action in sustain_actions {
-                                match action {
-                                    piano_gui::Action::SustainPedal(active) => {
-                                        if let AudioState::Playing(web_audio) =
-                                            &*self.audio.lock().unwrap()
-                                        {
-                                            web_audio.ensure_running();
-                                            web_audio.send_message(ToWorkletMessage::SustainPedal {
-                                                active,
-                                            });
-                                        }
-                                        // Request immediate repaint to update the sustain label color.
-                                        ctx.request_repaint();
-                                    }
-                                    piano_gui::Action::Released(note) => {
-                                        if let AudioState::Playing(web_audio) =
-                                            &*self.audio.lock().unwrap()
-                                        {
-                                            web_audio.ensure_running();
-                                            web_audio.send_message(ToWorkletMessage::NoteOff {
-                                                note: u8::from(note),
-                                            });
-                                        }
-                                    }
-                                    _ => {
-                                        debug_assert!(
-                                            false,
-                                            "Unexpected action from set_external_sustain: {action:?}"
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-
                 // Show piano GUI and process actions
                 let actions = interval_display::show(&mut self.piano_gui, ui);
                 for action in actions {
-                    match action {
-                        piano_gui::Action::Pressed(note) => {
-                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
-                                web_audio.ensure_running();
-                                web_audio.send_message(ToWorkletMessage::NoteOn {
-                                    note: u8::from(note),
-                                    velocity: 64,
-                                });
-                            }
-                        }
-                        piano_gui::Action::Released(note) => {
-                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
-                                web_audio.ensure_running();
-                                web_audio.send_message(ToWorkletMessage::NoteOff {
-                                    note: u8::from(note),
-                                });
-                            }
-                        }
-                        piano_gui::Action::SustainPedal(active) => {
-                            if let AudioState::Playing(web_audio) = &*self.audio.lock().unwrap() {
-                                web_audio.ensure_running();
-                                web_audio.send_message(ToWorkletMessage::SustainPedal { active });
-                            }
-                            // Request immediate repaint to update the sustain label color
+                    let message = match action {
+                        Action::Pressed(note) => ToWorkletMessage::NoteOn {
+                            note: u8::from(note),
+                            velocity: 64,
+                        },
+                        Action::Released(note) => ToWorkletMessage::NoteOff {
+                            note: u8::from(note),
+                        },
+                        Action::SustainPedal(active) => {
                             ctx.request_repaint();
+                            ToWorkletMessage::SustainPedal { active }
                         }
-                    }
+                    };
+                    self.send_audio_message(message);
                 }
             });
         });

@@ -1,4 +1,5 @@
-const cacheName = "dissonance-lab-pwa-v23";
+const cachePrefix = "dissonance-lab-pwa-";
+const cacheName = `${cachePrefix}v24`;
 const filesToCache = [
   "./",
   "./index.html",
@@ -25,18 +26,14 @@ self.addEventListener("install", function (e) {
 
 /* Clear old caches when a new service worker is activated */
 self.addEventListener("activate", function (e) {
-  const cacheWhitelist = [cacheName]; // Only keep the current cache version
-
   e.waitUntil(
     caches
       .keys()
       .then(function (cacheNames) {
         return Promise.all(
-          cacheNames.map(function (name) {
-            if (!cacheWhitelist.includes(name)) {
-              return caches.delete(name); // Delete old caches
-            }
-          }),
+          cacheNames
+            .filter((name) => name.startsWith(cachePrefix) && name !== cacheName)
+            .map((name) => caches.delete(name)),
         );
       })
       .then(function () {
@@ -47,9 +44,10 @@ self.addEventListener("activate", function (e) {
 
 /* Serve cached content when offline */
 self.addEventListener("fetch", function (e) {
+  if (e.request.method !== "GET") return;
+
   e.respondWith(
-    caches.match(e.request).then(function (response) {
-      return response || fetch(e.request);
-    }),
+    caches.match(e.request, { cacheName })
+      .then((response) => response || fetch(e.request)),
   );
 });

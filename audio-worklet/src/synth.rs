@@ -3,7 +3,6 @@ use crate::{
     limiter::Limiter,
     reverb::Reverb,
 };
-use bitvec::{BitArr, order::Msb0};
 use std::{cmp::Ordering, f32::consts::PI};
 
 mod envelope;
@@ -40,6 +39,7 @@ struct PianoVoice {
     envelope: EnvelopeGenerator,
     sample_rate: f32,
     is_active: bool,
+    release_deferred: bool,
     current_key: Option<PianoKey>,
     // Piano-specific parameters
     detuning: f32,     // Slight detuning for realism
@@ -84,6 +84,7 @@ impl PianoVoice {
             ),
             sample_rate,
             is_active: false,
+            release_deferred: false,
             current_key: None,
             detuning: DETUNING,
             brightness: BRIGHTNESS,
@@ -109,6 +110,7 @@ impl PianoVoice {
         const VELOCITY_DECAY_FACTOR: f32 = 0.3;
 
         self.current_key = Some(key);
+        self.release_deferred = false;
 
         // Update inharmonicity model for this specific note
         let midi_note_value = u8::from(key.midi_note);
@@ -150,6 +152,7 @@ impl PianoVoice {
     }
 
     fn note_off(&mut self) {
+        self.release_deferred = false;
         self.envelope.release();
     }
 
@@ -341,7 +344,6 @@ pub struct PianoSynth {
     reverb: Option<Reverb>,
     limiter: Option<Limiter>,
     sustain_pedal_active: bool,
-    sustained_notes: BitArr!(for 128, in u32, Msb0),
 }
 
 impl Default for PianoSynth {
@@ -359,7 +361,6 @@ impl PianoSynth {
             reverb: None,
             limiter: None,
             sustain_pedal_active: false,
-            sustained_notes: Default::default(),
         }
     }
 
@@ -462,41 +463,30 @@ impl PianoSynth {
     }
 
     pub fn note_off(&mut self, midi_note: wmidi::Note) {
-        self.allocate_voices_if_needed();
-        if self.sustain_pedal_active {
-            // If sustain pedal is active, mark the note as sustained instead of releasing it
-            let note_value = u8::from(midi_note) as usize;
-            debug_assert!(note_value < 128, "MIDI note value must be < 128");
-            self.sustained_notes.set(note_value, true);
-        } else {
-            // Normal note off behavior
-            self.release_note(midi_note);
-        }
-    }
-
-    /// Actually release a note (used both for normal note-off and when sustain pedal is released)
-    fn release_note(&mut self, midi_note: wmidi::Note) {
-        for voice in self.voices.iter_mut() {
-            if let Some(key) = &voice.current_key
+        for voice in &mut self.voices {
+            if voice.is_active
+                && voice.envelope.state != EnvelopeState::Release
+                && let Some(key) = voice.current_key
                 && key.midi_note == midi_note
             {
-                voice.note_off();
+                if self.sustain_pedal_active {
+                    voice.release_deferred = true;
+                } else {
+                    voice.note_off();
+                }
             }
         }
     }
 
     /// Set the sustain pedal state
     pub fn set_sustain_pedal(&mut self, active: bool) {
-        self.allocate_voices_if_needed();
         if self.sustain_pedal_active && !active {
-            // Sustain pedal being released - release all sustained notes
-            let sustained_notes_copy = self.sustained_notes;
-            for note_value in sustained_notes_copy.iter_ones() {
-                let midi_note = wmidi::Note::try_from(note_value as u8).unwrap();
-                self.release_note(midi_note);
+            // A re-pressed key can have a held voice alongside its older sustained voice.
+            for voice in &mut self.voices {
+                if voice.release_deferred {
+                    voice.note_off();
+                }
             }
-            // Clear all sustained notes
-            self.sustained_notes.fill(false);
         }
         self.sustain_pedal_active = active;
     }
@@ -538,6 +528,21 @@ impl Synth for PianoSynth {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pedal_up_releases_only_the_previous_voice_of_a_repressed_key() {
+        let mut synth = PianoSynth::with_sample_rate(44_100);
+        let note = wmidi::Note::C4;
+        synth.set_sustain_pedal(true);
+        synth.note_on(note, wmidi::U7::MAX);
+        synth.note_off(note);
+        synth.note_on(note, wmidi::U7::MAX);
+
+        synth.set_sustain_pedal(false);
+
+        assert_eq!(synth.voices[0].envelope.state, EnvelopeState::Release);
+        assert_eq!(synth.voices[1].envelope.state, EnvelopeState::Attack);
+    }
 
     #[test]
     fn test_inharmonic_phase_continuity() {
