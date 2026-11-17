@@ -119,8 +119,10 @@ impl DissonanceLabApp {
     }
 
     fn check_audio_status(&mut self) {
-        let AudioState::Loading(web_audio) = &self.audio else {
-            return;
+        let (web_audio, loading) = match &self.audio {
+            AudioState::Loading(web_audio) => (web_audio, true),
+            AudioState::Playing(web_audio) => (web_audio, false),
+            _ => return,
         };
         if web_audio.is_disabled() {
             if !self.user_audio_attempted {
@@ -130,7 +132,7 @@ impl DissonanceLabApp {
                 // User explicitly tried and it still failed; mark Disabled so we can show more explicit UI.
                 self.audio = AudioState::Disabled;
             }
-        } else if web_audio.is_ready() {
+        } else if loading && web_audio.is_ready() {
             // Pedal events may have arrived before this worklet was ready to receive them.
             web_audio.send_message(ToWorkletMessage::SustainPedal {
                 active: self.piano_gui.is_sustain_active(),

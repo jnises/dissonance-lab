@@ -184,8 +184,9 @@ struct AudioNodeConnection {
     context: AudioContext,
     node: AudioWorkletNode,
     status: Rc<Cell<WorkletStatus>>,
-    // needs to be kept alive
+    // These callbacks must live as long as their JS event handlers.
     _onmessage: Closure<dyn FnMut(MessageEvent)>,
+    _onprocessorerror: Closure<dyn FnMut()>,
 }
 
 impl AudioNodeConnection {
@@ -199,8 +200,10 @@ impl AudioNodeConnection {
         let onmessage = Closure::<dyn FnMut(_)>::new(move |event: MessageEvent| {
             match serde_wasm_bindgen::from_value(event.data()) {
                 Ok(FromWorkletMessage::InitComplete) => {
-                    message_status.set(WorkletStatus::Ready);
-                    log::debug!("[audio-worklet] Initialization complete");
+                    if message_status.get() == WorkletStatus::Loading {
+                        message_status.set(WorkletStatus::Ready);
+                        log::debug!("[audio-worklet] Initialization complete");
+                    }
                 }
                 Ok(FromWorkletMessage::InitError { error }) => {
                     message_status.set(WorkletStatus::Failed);
@@ -211,11 +214,19 @@ impl AudioNodeConnection {
         });
         port.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
 
+        let processor_status = Rc::clone(&status);
+        let onprocessorerror = Closure::<dyn FnMut()>::new(move || {
+            processor_status.set(WorkletStatus::Failed);
+            log::error!("[audio-worklet] Browser reported a processor error");
+        });
+        node.set_onprocessorerror(Some(onprocessorerror.as_ref().unchecked_ref()));
+
         Self {
             context,
             node,
             status,
             _onmessage: onmessage,
+            _onprocessorerror: onprocessorerror,
         }
     }
 }
@@ -223,6 +234,7 @@ impl AudioNodeConnection {
 impl Drop for AudioNodeConnection {
     fn drop(&mut self) {
         self.node.port().unwrap().set_onmessage(None);
+        self.node.set_onprocessorerror(None);
         self.node.disconnect().unwrap();
     }
 }
