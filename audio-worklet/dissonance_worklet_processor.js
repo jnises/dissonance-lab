@@ -149,8 +149,15 @@ class DissonanceWorkletProcessor extends AudioWorkletProcessor {
     if (wasmBytes && jsGlueCode) {
       this.initializeWasm(wasmBytes, jsGlueCode)
         .then(() => {
+          const protocolVersion =
+            typeof this.wasmProcessor.protocol_version === "function"
+              ? this.wasmProcessor.protocol_version()
+              : 0;
           this.initialized = true;
-          this.port.postMessage({ type: "init-complete" });
+          this.port.postMessage({
+            type: "init-complete",
+            protocol_version: protocolVersion,
+          });
         })
         .catch((err) => {
           console.error(

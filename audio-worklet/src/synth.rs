@@ -3,6 +3,7 @@ use crate::{
     limiter::Limiter,
     reverb::Reverb,
 };
+use shared_types::Tuning;
 use std::{cmp::Ordering, f32::consts::PI};
 
 mod envelope;
@@ -13,21 +14,10 @@ pub trait Synth {
     fn play(&mut self, sample_rate: u32, num_channels: usize, out_samples: &mut [f32]);
 }
 
-/// Represents a piano key with associated frequency
-#[derive(Copy, Clone)]
-struct PianoKey {
-    frequency: f32,
-    midi_note: wmidi::Note,
-}
-
-impl PianoKey {
-    fn new(midi_note: wmidi::Note) -> Self {
-        let frequency = midi_note.to_freq_f32();
-        Self {
-            frequency,
-            midi_note,
-        }
-    }
+struct PitchGlide {
+    target: f32,
+    step: f32,
+    remaining: u32,
 }
 
 /// Piano voice with oscillator and envelope
@@ -36,21 +26,21 @@ struct PianoVoice {
     phase: f32,
     detuned_phase: f32,
     phase_delta: f32,
+    pitch_glide: Option<PitchGlide>,
     envelope: EnvelopeGenerator,
     sample_rate: f32,
     is_active: bool,
     release_deferred: bool,
-    current_key: Option<PianoKey>,
+    current_note: Option<wmidi::Note>,
     // Piano-specific parameters
     detuning: f32,     // Slight detuning for realism
     brightness: f32,   // Controls harmonic content
     velocity: f32,     // Normalized velocity (0.0 to 1.0)
     attack_phase: f32, // Tracks progress through attack portion (0.0 to 1.0)
     note_phase: f32,
-    // Inharmonicity model for realistic piano string behavior
-    inharmonicity: InharmonicityModel,
     // Individual phase accumulators for inharmonic partials
     partial_phases: [f32; 7], // Phases for partials 2-8 (partial 1 uses main phase)
+    partial_multipliers: [f32; 7],
     // Cached phase deltas for inharmonic partials to avoid recalculation in hot path
     partial_phase_deltas: [f32; 7], // Phase deltas for partials 2-8 (7 partials)
 }
@@ -65,16 +55,11 @@ impl PianoVoice {
         const DETUNING: f32 = 1.003; // Creates chorus-like effect for richer tone
         const BRIGHTNESS: f32 = 0.8; // Controls higher harmonic content
 
-        // Initialize with a default inharmonicity - will be updated when note is played
-        // Use middle C (MIDI 60) as default
-        const DEFAULT_MIDI_NOTE: u8 = 60;
-        let string_params = PianoStringParameters::for_midi_note(DEFAULT_MIDI_NOTE);
-        let inharmonicity: InharmonicityModel = string_params.into();
-
         Self {
             phase: 0.0,
             detuned_phase: 0.0,
             phase_delta: 0.0,
+            pitch_glide: None,
             envelope: EnvelopeGenerator::new(
                 ATTACK_TIME,
                 DECAY_TIME,
@@ -85,19 +70,19 @@ impl PianoVoice {
             sample_rate,
             is_active: false,
             release_deferred: false,
-            current_key: None,
+            current_note: None,
             detuning: DETUNING,
             brightness: BRIGHTNESS,
             velocity: 1.0,     // Default full velocity
             attack_phase: 0.0, // Initialize attack phase
             note_phase: 0.0,
-            inharmonicity,
             partial_phases: [0.0; 7], // Initialize all partial phases to 0
+            partial_multipliers: [0.0; 7],
             partial_phase_deltas: [0.0; 7], // Initialize all partial phase deltas to 0
         }
     }
 
-    fn note_on(&mut self, key: PianoKey, velocity: wmidi::U7) {
+    fn note_on(&mut self, note: wmidi::Note, velocity: wmidi::U7, frequency: f32) {
         const VELOCITY_POWER_CURVE: f32 = 0.8;
         const MIDI_VELOCITY_MAX: f32 = 127.0;
 
@@ -109,15 +94,17 @@ impl PianoVoice {
 
         const VELOCITY_DECAY_FACTOR: f32 = 0.3;
 
-        self.current_key = Some(key);
+        debug_assert!(frequency.is_finite() && frequency > 0.0);
+        self.current_note = Some(note);
         self.release_deferred = false;
+        self.pitch_glide = None;
 
-        // Update inharmonicity model for this specific note
-        let midi_note_value = u8::from(key.midi_note);
-        let string_params = PianoStringParameters::for_midi_note(midi_note_value);
-        self.inharmonicity = string_params.into();
-
-        self.update_phase_delta();
+        // Keep the string's overtone spacing when its fundamental is retuned.
+        let inharmonicity =
+            InharmonicityModel::from(PianoStringParameters::for_midi_note(note.into()));
+        self.partial_multipliers =
+            std::array::from_fn(|index| inharmonicity.partial_frequency(1.0, index as u32 + 2));
+        self.set_phase_delta(frequency / self.sample_rate);
 
         // Power curve provides more natural dynamic response than linear mapping
         let normalized_velocity = u8::from(velocity) as f32 / MIDI_VELOCITY_MAX;
@@ -131,21 +118,11 @@ impl PianoVoice {
 
         // Model frequency-dependent decay behavior of real piano strings
         // Physics: higher frequency strings have less mass and dissipate energy faster
-        if let Some(ref key) = self.current_key {
-            // Scale relative to a reference sample rate to maintain consistent behavior across sample rates
-            let base_decay_rate = BASE_DECAY_RATE * (BASE_DECAY_RATE_HZ / self.sample_rate);
-
-            // Scale the decay rate based on frequency
-            // Higher notes (higher frequency) decay faster
-            let freq = key.frequency;
-            let freq_factor = (freq / FREQUENCY_DECAY_REFERENCE_HZ).sqrt();
-
-            // Also scale by velocity - higher velocity notes decay slightly slower
-            let velocity_factor = 1.0 - (self.velocity * VELOCITY_DECAY_FACTOR); // 0.7 to 1.0 range
-
-            let sustain_decay_rate = base_decay_rate * freq_factor * velocity_factor;
-            self.envelope.set_sustain_decay_rate(sustain_decay_rate);
-        }
+        let base_decay_rate = BASE_DECAY_RATE * (BASE_DECAY_RATE_HZ / self.sample_rate);
+        let freq_factor = (frequency / FREQUENCY_DECAY_REFERENCE_HZ).sqrt();
+        let velocity_factor = 1.0 - (self.velocity * VELOCITY_DECAY_FACTOR);
+        self.envelope
+            .set_sustain_decay_rate(base_decay_rate * freq_factor * velocity_factor);
 
         self.envelope.trigger();
         self.is_active = true;
@@ -156,20 +133,33 @@ impl PianoVoice {
         self.envelope.release();
     }
 
-    fn update_phase_delta(&mut self) {
-        if let Some(key) = &self.current_key {
-            self.phase_delta = key.frequency / self.sample_rate;
+    fn set_phase_delta(&mut self, phase_delta: f32) {
+        self.phase_delta = phase_delta;
+        self.partial_phase_deltas = self.partial_multipliers.map(|ratio| ratio * phase_delta);
+    }
 
-            // Cache partial phase deltas to avoid recalculation in hot audio processing loop
-            let fundamental_freq = key.frequency;
-            for partial_num in 2..=8 {
-                let partial_freq = self
-                    .inharmonicity
-                    .partial_frequency(fundamental_freq, partial_num as u32);
-                let partial_phase_delta = partial_freq / self.sample_rate;
-                let partial_index = (partial_num - 2) as usize; // Array index (0-6 for partials 2-8)
-                self.partial_phase_deltas[partial_index] = partial_phase_delta;
-            }
+    fn retune(&mut self, frequency: f32) {
+        const GLIDE_SECONDS: f32 = 0.020;
+        let target = frequency / self.sample_rate;
+        let remaining = (self.sample_rate * GLIDE_SECONDS).round().max(1.0) as u32;
+        self.pitch_glide = (target != self.phase_delta).then_some(PitchGlide {
+            target,
+            step: (target - self.phase_delta) / remaining as f32,
+            remaining,
+        });
+    }
+
+    fn advance_pitch_glide(&mut self) {
+        if let Some(glide) = &mut self.pitch_glide {
+            glide.remaining -= 1;
+            let phase_delta = if glide.remaining == 0 {
+                let target = glide.target;
+                self.pitch_glide = None;
+                target
+            } else {
+                self.phase_delta + glide.step
+            };
+            self.set_phase_delta(phase_delta);
         }
     }
 
@@ -201,6 +191,8 @@ impl PianoVoice {
                 self.attack_phase = MAX_ATTACK_PHASE;
             }
         }
+
+        self.advance_pitch_glide();
 
         const MAX_PHASE: f32 = 1.0;
         self.phase = (self.phase + self.phase_delta).rem_euclid(MAX_PHASE);
@@ -384,15 +376,13 @@ impl PianoSynth {
         }
     }
 
-    pub fn note_on(&mut self, note: wmidi::Note, velocity: wmidi::U7) {
+    pub fn note_on(&mut self, note: wmidi::Note, velocity: wmidi::U7, frequency: f32) {
         // Ensure voices exist (messages can arrive before first process callback when audio auto-starts)
         self.allocate_voices_if_needed();
         debug_assert!(
             self.sample_rate.is_some(),
             "sample_rate should be set before note_on"
         );
-        let key = PianoKey::new(note);
-
         // First try to find an inactive voice
         let voice = if let Some(voice) = self.voices.iter_mut().find(|v| !v.is_active) {
             voice
@@ -402,7 +392,17 @@ impl PianoSynth {
             self.find_voice_to_steal()
         };
 
-        voice.note_on(key, velocity);
+        voice.note_on(note, velocity, frequency);
+    }
+
+    pub fn retune(&mut self, tuning: Tuning) {
+        for voice in &mut self.voices {
+            if voice.is_active
+                && let Some(note) = voice.current_note
+            {
+                voice.retune(tuning.frequency(note.into()));
+            }
+        }
     }
 
     // Helper method to find the best voice to steal
@@ -466,8 +466,7 @@ impl PianoSynth {
         for voice in &mut self.voices {
             if voice.is_active
                 && voice.envelope.state != EnvelopeState::Release
-                && let Some(key) = voice.current_key
-                && key.midi_note == midi_note
+                && voice.current_note == Some(midi_note)
             {
                 if self.sustain_pedal_active {
                     voice.release_deferred = true;
@@ -530,13 +529,57 @@ mod tests {
     use super::*;
 
     #[test]
+    fn retuning_glides_sustained_voices_without_resetting_the_attack() {
+        const SAMPLE_RATE: u32 = 44_100;
+        let mut synth = PianoSynth::with_sample_rate(SAMPLE_RATE);
+        let note = wmidi::Note::E4;
+        let equal = Tuning::Equal.frequency(note.into());
+        let just = Tuning::Just { reference: 60 };
+        synth.set_sustain_pedal(true);
+        synth.note_on(note, wmidi::U7::MAX, equal);
+        for _ in 0..SAMPLE_RATE / 4 {
+            synth.process();
+        }
+        synth.note_off(note);
+
+        let voice = &synth.voices[0];
+        let phase = voice.phase;
+        let partial_phases = voice.partial_phases;
+        let phase_delta = voice.phase_delta;
+        assert_eq!(voice.envelope.state, EnvelopeState::Sustain);
+        let envelope_level = voice.envelope.current_level();
+        let attack_phase = voice.attack_phase;
+        synth.retune(just);
+        let voice = &mut synth.voices[0];
+        assert_eq!(voice.phase, phase);
+        assert_eq!(voice.partial_phases, partial_phases);
+        assert_eq!(voice.envelope.state, EnvelopeState::Sustain);
+        assert_eq!(voice.envelope.current_level(), envelope_level);
+        assert_eq!(voice.attack_phase, attack_phase);
+        assert!(voice.release_deferred);
+
+        voice.process();
+        let target_delta = just.frequency(note.into()) / SAMPLE_RATE as f32;
+        assert!(voice.phase_delta < phase_delta && voice.phase_delta > target_delta);
+        while voice.pitch_glide.is_some() {
+            voice.process();
+        }
+        assert_eq!(voice.phase_delta, target_delta);
+        assert_eq!(
+            voice.partial_phase_deltas,
+            voice.partial_multipliers.map(|ratio| ratio * target_delta)
+        );
+        assert_eq!(voice.envelope.state, EnvelopeState::Sustain);
+    }
+
+    #[test]
     fn pedal_up_releases_only_the_previous_voice_of_a_repressed_key() {
         let mut synth = PianoSynth::with_sample_rate(44_100);
         let note = wmidi::Note::C4;
         synth.set_sustain_pedal(true);
-        synth.note_on(note, wmidi::U7::MAX);
+        synth.note_on(note, wmidi::U7::MAX, note.to_freq_f32());
         synth.note_off(note);
-        synth.note_on(note, wmidi::U7::MAX);
+        synth.note_on(note, wmidi::U7::MAX, note.to_freq_f32());
 
         synth.set_sustain_pedal(false);
 
@@ -558,7 +601,7 @@ mod tests {
         // Play a note
         let note = wmidi::Note::A4;
         let velocity = wmidi::U7::try_from(100).unwrap();
-        synth.note_on(note, velocity);
+        synth.note_on(note, velocity, note.to_freq_f32());
 
         // Generate audio and check for large discontinuities
         const BUFFER_SIZE: usize = 1024;
@@ -591,10 +634,10 @@ mod tests {
     fn test_voice_phase_accumulator_independence() {
         // Test that each partial's phase accumulator works independently
         let mut voice = PianoVoice::new(44100.0);
-        let key = PianoKey::new(wmidi::Note::A4);
+        let note = wmidi::Note::A4;
         let velocity = wmidi::U7::try_from(100).unwrap();
 
-        voice.note_on(key, velocity);
+        voice.note_on(note, velocity, note.to_freq_f32());
 
         // Process several samples and verify partial phases are different
         for _ in 0..1000 {
@@ -630,10 +673,10 @@ mod tests {
     fn test_partial_phase_rem_euclid_no_discontinuities() {
         // Test that rem_euclid phase wrapping doesn't create audio discontinuities
         let mut voice = PianoVoice::new(44100.0);
-        let key = PianoKey::new(wmidi::Note::A4);
+        let note = wmidi::Note::A4;
         let velocity = wmidi::U7::try_from(100).unwrap();
 
-        voice.note_on(key, velocity);
+        voice.note_on(note, velocity, note.to_freq_f32());
 
         // Track previous sample output and look for discontinuities during phase wrapping
         let mut previous_sample = voice.process();
@@ -686,7 +729,7 @@ mod tests {
     fn test_partial_phase_delta_caching() {
         // Test that partial phase deltas are correctly cached when a note is played
         let mut voice = PianoVoice::new(44100.0);
-        let key = PianoKey::new(wmidi::Note::A4);
+        let note = wmidi::Note::A4;
         let velocity = wmidi::U7::try_from(100).unwrap();
 
         // Initially, all cached phase deltas should be 0
@@ -694,7 +737,7 @@ mod tests {
             assert_eq!(delta, 0.0, "Initial partial phase delta should be 0");
         }
 
-        voice.note_on(key, velocity);
+        voice.note_on(note, velocity, note.to_freq_f32());
 
         // After note_on, cached phase deltas should be non-zero and different
         let mut all_zero = true;

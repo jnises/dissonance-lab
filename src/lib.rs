@@ -2,6 +2,7 @@
 
 mod app;
 pub use app::DissonanceLabApp;
+mod control_icon;
 mod interval;
 mod interval_display;
 mod midi;
